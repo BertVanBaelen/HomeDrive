@@ -4,34 +4,46 @@ import { plural, useLocale, useT, type MessageKey } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
 import { Thumb } from './Thumb'
 
-// InfoPanel is the ⓘ side panel (a bottom sheet on phones).
+export interface InfoActions {
+  onOpen: () => void
+  onRename: () => void
+  onMove: () => void
+  onTrash: () => void
+  onStar: () => void
+}
+
+// InfoPanel is the ⓘ side panel (a bottom sheet on phones). Items in the
+// trash only offer Restore.
 export function InfoPanel({
   node,
   location,
   readOnly,
   onClose,
-  onOpen,
-  onRename,
-  onMove,
-  onTrash,
+  actions,
   onRestore,
 }: {
   node: Node
   location: string
   readOnly: boolean
   onClose: () => void
-  onOpen: () => void
-  onRename: () => void
-  onMove: () => void
-  onTrash: () => void
-  onRestore: () => void
+  actions?: InfoActions
+  onRestore?: () => void
 }) {
   const t = useT()
   const locale = useLocale()
   const type = fileTypes[node.type]
   const isFolder = node.kind === 'folder'
   const sizeLabel = isFolder ? plural(t, 'count.items', node.childCount ?? 0) : formatSize(node.size, locale)
-  const trashed = !!node.trashedAt
+  const name = displayName(node)
+
+  const starBtn = actions && (
+    <button type="button" className={'btn' + (isFolder ? ' btn--green-text' : ' btn--small')} aria-pressed={node.starred}
+      onClick={actions.onStar}>
+      <Icon d={icons.star} size={isFolder ? 18 : 16} fill={node.starred ? '#f59e0b' : 'none'}
+        stroke={node.starred ? '#f59e0b' : 'currentColor'} />
+      {node.starred ? t('info.unstar') : t('info.star')}
+    </button>
+  )
 
   return (
     <>
@@ -47,31 +59,32 @@ export function InfoPanel({
         <div className="info__title">
           <Icon d={type.d} stroke={type.c} />
           <div>
-            <strong>{displayName(node)}</strong>
+            <strong>{name}</strong>
             <span>
               {t(`type.${node.type}` as MessageKey)} · {sizeLabel}
             </span>
           </div>
-        </div>
-        {trashed ? (
-          !readOnly && (
-            <button type="button" className="btn btn--primary btn--block" onClick={onRestore}>
-              <Icon d={icons.restore} size={18} />
-              {t('info.restore')}
+          {actions && !readOnly && (
+            <button type="button" className="icon-btn" aria-label={t('info.renameAria', { name })} onClick={actions.onRename}>
+              <Icon d={icons.pencil} size={18} />
             </button>
-          )
-        ) : (
+          )}
+        </div>
+        {onRestore && !readOnly && (
+          <button type="button" className="btn btn--primary btn--block" onClick={onRestore}>
+            <Icon d={icons.restore} size={18} />
+            {t('info.restore')}
+          </button>
+        )}
+        {actions && (
           <div className="info__actions">
             <div>
-              <button type="button" className="btn btn--primary" onClick={onOpen}>
+              <button type="button" className="btn btn--primary" onClick={actions.onOpen}>
                 <Icon d={isFolder ? icons.folder : icons.eye} size={18} />
                 {t('info.open')}
               </button>
               {isFolder ? (
-                <button type="button" className="btn btn--green-text" onClick={onRename} disabled={readOnly}>
-                  <Icon d={icons.pencil} size={18} />
-                  {t('info.rename')}
-                </button>
+                starBtn
               ) : (
                 <a className="btn btn--green-text" href={contentUrl(node.id, true)} download>
                   <Icon d={icons.download} size={18} />
@@ -80,17 +93,12 @@ export function InfoPanel({
               )}
             </div>
             <div className={isFolder ? '' : 'three'}>
-              {!isFolder && (
-                <button type="button" className="btn btn--small" onClick={onRename} disabled={readOnly}>
-                  <Icon d={icons.pencil} size={16} />
-                  {t('info.rename')}
-                </button>
-              )}
-              <button type="button" className="btn btn--small" onClick={onMove} disabled={readOnly}>
+              {!isFolder && starBtn}
+              <button type="button" className="btn btn--small" onClick={actions.onMove} disabled={readOnly}>
                 <Icon d={icons.move} size={16} />
                 {t('info.move')}
               </button>
-              <button type="button" className="btn btn--small btn--danger" onClick={onTrash} disabled={readOnly}>
+              <button type="button" className="btn btn--small btn--danger" onClick={actions.onTrash} disabled={readOnly}>
                 <Icon d={icons.trash} size={16} />
                 {t('info.delete')}
               </button>
@@ -102,10 +110,10 @@ export function InfoPanel({
           <dd>{node.name}</dd>
           <dt>{t('info.modified')}</dt>
           <dd>{formatDateTime(node.modifiedAt, locale)}</dd>
-          {trashed && (
+          {node.trashedAt && (
             <>
               <dt>{t('info.deleted')}</dt>
-              <dd>{formatDateTime(node.trashedAt!, locale)}</dd>
+              <dd>{formatDateTime(node.trashedAt, locale)}</dd>
             </>
           )}
           <dt>{t('info.location')}</dt>

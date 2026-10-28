@@ -334,6 +334,7 @@
   color: var(--primary-900);
   font-size: 13px;
   font-weight: 600;
+  text-decoration: none;
 }
 .back-btn:hover:not(:disabled) {
   background: #f3f4f6;

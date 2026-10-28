@@ -32,6 +32,7 @@ export interface Node {
   modifiedAt: string
   trashedAt?: string
   childCount?: number
+  starred: boolean
 }
 
 export interface Crumb {
@@ -45,9 +46,31 @@ export interface Details {
   path: Crumb[]
 }
 
-export interface TrashedNode extends Node {
+// Located is a node listed outside its folder, with where it lives.
+export interface Located extends Node {
   drive: Drive
   path: Crumb[]
+}
+
+export interface UserInfo extends User {
+  createdAt: string
+  status: 'active' | 'invited' | 'disabled'
+  lastSeenAt?: string
+}
+
+export interface SessionInfo {
+  id: string
+  createdAt: string
+  lastSeenAt: string
+  userAgent: string
+  ip: string
+  current: boolean
+}
+
+export interface PasswordLink {
+  email: string
+  name: string
+  purpose: 'invite' | 'reset'
 }
 
 export interface Upload {
@@ -78,7 +101,29 @@ export function setUnauthenticatedHandler(fn: () => void) {
   onUnauthenticated = fn
 }
 
+// Sensitive actions answer reauth_required when the password wasn't entered
+// recently. The app asks for it (resolving true once confirmed) and the
+// request is sent again.
+let onReauth: () => Promise<boolean> = async () => false
+export function setReauthHandler(fn: () => Promise<boolean>) {
+  onReauth = fn
+}
+
+// Requests that need the password at the same time share one prompt.
+let reauthPrompt: Promise<boolean> | null = null
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try {
+    return await send<T>(method, path, body)
+  } catch (err) {
+    if (!(err instanceof ApiError && err.code === 'reauth_required')) throw err
+    reauthPrompt ??= onReauth().finally(() => (reauthPrompt = null))
+    if (!(await reauthPrompt)) throw err
+    return send<T>(method, path, body)
+  }
+}
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
     res = await fetch(path, {
@@ -119,9 +164,31 @@ export const api = {
   createFolder: (parentId: string, name: string) => request<Node>('POST', '/api/folders', { parentId, name }),
   rename: (id: string, name: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { name }),
   move: (id: string, parentId: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { parentId }),
+  star: (id: string, starred: boolean) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { starred }),
   trash: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}`),
   restore: (id: string) => request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/restore`),
-  trashList: () => request<TrashedNode[]>('GET', '/api/trash'),
+  trashList: () => request<Located[]>('GET', '/api/trash'),
+  starred: () => request<Located[]>('GET', '/api/starred'),
+  recent: () => request<Located[]>('GET', '/api/recent'),
+  search: (q: string) => request<Located[]>('GET', `/api/search?q=${encodeURIComponent(q)}`),
+
+  reauth: (password: string) => request<void>('POST', '/api/auth/reauth', { password }),
+  updateMe: (p: { name?: string; locale?: string }) => request<User>('PATCH', '/api/me', p),
+  changePassword: (current: string, password: string) =>
+    request<void>('POST', '/api/me/password', { current, password }),
+  sessions: () => request<SessionInfo[]>('GET', '/api/me/sessions'),
+  revokeSession: (id: string) => request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`),
+
+  users: () => request<UserInfo[]>('GET', '/api/admin/users'),
+  inviteUser: (p: { email: string; name: string; role: string; locale: string }) =>
+    request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
+  updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
+    request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
+  sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
+
+  welcomeCheck: (token: string) => request<PasswordLink>('POST', '/api/welcome/check', { token }),
+  welcomeFinish: (token: string, password: string) =>
+    request<User>('POST', '/api/welcome/finish', { token, password }),
 
   createUpload: (parentId: string, name: string, size: number) =>
     request<Upload>('POST', '/api/uploads', { parentId, name, size }),

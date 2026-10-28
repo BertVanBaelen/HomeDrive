@@ -5,8 +5,9 @@ import { useSyncExternalStore } from 'react'
 //   /             My Files (top of the personal drive)
 //   /family       the family drive
 //   /f/<id>       a folder on any drive
-//   /trash        trash
-//   /login, /setup, /save
+//   /recent, /starred, /trash, /search?q=…
+//   /account, /users (admins)
+//   /login, /setup, /welcome, /save
 
 const listeners = new Set<() => void>()
 
@@ -19,8 +20,9 @@ function subscribe(fn: () => void) {
   }
 }
 
+// usePath is the current path with its query string.
 export function usePath(): string {
-  return useSyncExternalStore(subscribe, () => location.pathname)
+  return useSyncExternalStore(subscribe, () => location.pathname + location.search)
 }
 
 export function navigate(path: string, replace = false) {
@@ -30,20 +32,39 @@ export function navigate(path: string, replace = false) {
   listeners.forEach((fn) => fn())
 }
 
+export type ListName = 'recent' | 'starred' | 'search'
+
 export type Route =
   | { name: 'files'; folderId: string | null }
   | { name: 'family' }
+  | { name: 'list'; list: ListName; q: string }
   | { name: 'trash' }
+  | { name: 'account' }
+  | { name: 'users' }
   | { name: 'login' }
   | { name: 'setup' }
+  | { name: 'welcome' }
   | { name: 'save' }
 
-export function parseRoute(path: string): Route {
-  if (path === '/login') return { name: 'login' }
-  if (path === '/setup') return { name: 'setup' }
-  if (path === '/save') return { name: 'save' }
-  if (path === '/trash') return { name: 'trash' }
-  if (path === '/family') return { name: 'family' }
+export function parseRoute(full: string): Route {
+  const url = new URL(full, location.origin)
+  const path = url.pathname
+  switch (path) {
+    case '/login':
+    case '/setup':
+    case '/welcome':
+    case '/save':
+    case '/trash':
+    case '/family':
+    case '/account':
+    case '/users':
+      return { name: path.slice(1) } as Route
+    case '/recent':
+    case '/starred':
+      return { name: 'list', list: path.slice(1) as ListName, q: '' }
+    case '/search':
+      return { name: 'list', list: 'search', q: url.searchParams.get('q') ?? '' }
+  }
   const m = /^\/f\/([0-9a-f-]{36})$/.exec(path)
   if (m) return { name: 'files', folderId: m[1] }
   return { name: 'files', folderId: null }

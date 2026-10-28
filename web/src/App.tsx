@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { api, setUnauthenticatedHandler, type User } from './api'
 import { Logo } from './components/Logo'
-import { Header } from './components/Shell'
+import { ReauthDialog } from './components/Reauth'
+import { Page } from './components/Shell'
 import { Toast } from './components/Toast'
 import { detectLocale, LocaleContext, type Locale } from './i18n'
+import { Account } from './pages/Account'
 import { Browser } from './pages/Browser'
 import { Login } from './pages/Login'
 import { Save } from './pages/Save'
 import { Setup } from './pages/Setup'
+import { Users } from './pages/Users'
+import { Welcome } from './pages/Welcome'
 import { navigate, parseRoute, usePath } from './router'
 
 export function App() {
@@ -30,7 +34,7 @@ export function App() {
 
   function signedIn(u: User) {
     setUser(u)
-    if (route.name === 'login' || route.name === 'setup') navigate('/', true)
+    if (route.name === 'login' || route.name === 'setup' || route.name === 'welcome') navigate('/', true)
   }
 
   async function signOut() {
@@ -41,6 +45,7 @@ export function App() {
 
   let page
   if (route.name === 'setup') page = <Setup onSignedIn={signedIn} />
+  else if (route.name === 'welcome') page = <Welcome onSignedIn={signedIn} />
   else if (user === undefined) {
     page = (
       <div className="splash">
@@ -51,16 +56,28 @@ export function App() {
   else if (route.name === 'login') page = null
   else if (route.name === 'save') {
     page = (
-      <div className="app">
-        <Header user={user} onSignOut={signOut} />
+      <Page user={user} onSignOut={signOut}>
         <Save />
-      </div>
+      </Page>
+    )
+  } else if (route.name === 'account') {
+    page = (
+      <Page user={user} onSignOut={signOut}>
+        <Account user={user} onUser={setUser} />
+      </Page>
+    )
+  } else if (route.name === 'users' && user.role === 'admin') {
+    page = (
+      <Page user={user} onSignOut={signOut}>
+        <Users me={user} />
+      </Page>
     )
   } else page = <Browser user={user} route={route} onSignOut={signOut} />
 
   return (
     <LocaleContext value={locale}>
       {page}
+      <ReauthDialog />
       <Toast />
     </LocaleContext>
   )

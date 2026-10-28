@@ -217,6 +217,43 @@ export function MoveDialog({
   onMove: (targetId: string, targetName: string) => Promise<void>
 }) {
   const t = useT()
+  return (
+    <FolderPicker
+      title={t('move.title', { name: displayName(node) })}
+      submit={t('move.here')}
+      drives={drives}
+      startFolder={startFolder}
+      excludeId={node.id}
+      currentId={node.parentId}
+      onClose={onClose}
+      onPick={(id, name) => onMove(id, name)}
+    />
+  )
+}
+
+// FolderPicker browses the folders on the user's drives. excludeId (the
+// folder being moved) can't be entered; currentId (where it already is)
+// can't be picked.
+export function FolderPicker({
+  title,
+  submit,
+  drives,
+  startFolder,
+  excludeId,
+  currentId,
+  onClose,
+  onPick,
+}: {
+  title: string
+  submit: string
+  drives: Drive[]
+  startFolder: string
+  excludeId?: string
+  currentId?: string
+  onClose: () => void
+  onPick: (folderId: string, name: string, path: string) => Promise<void>
+}) {
+  const t = useT()
   const [folder, setFolder] = useState(startFolder)
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([])
   const [drive, setDrive] = useState<Drive | null>(null)
@@ -243,13 +280,13 @@ export function MoveDialog({
   const driveLabel = (d: Drive) => (d.kind === 'personal' ? t('nav.myFiles') : t('nav.family'))
   const here = trail.length ? trail[trail.length - 1].name : drive ? driveLabel(drive) : ''
   const parentOfHere = trail.length > 1 ? trail[trail.length - 2].id : drive?.rootId
-  const isCurrentParent = folder === node.parentId
+  const path = drive ? [driveLabel(drive), ...trail.map((c) => c.name)].join(' / ') : ''
 
-  async function move() {
+  async function pick() {
     setBusy(true)
     setError('')
     try {
-      await onMove(folder, here)
+      await onPick(folder, here, path)
     } catch (err) {
       setError(errorText(t, err))
       setBusy(false)
@@ -257,7 +294,7 @@ export function MoveDialog({
   }
 
   return (
-    <Modal title={t('move.title', { name: displayName(node) })} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div className="picker">
         <div className="picker__drives" role="group">
           {drives.map((d) => (
@@ -277,7 +314,7 @@ export function MoveDialog({
           {folders === null && !error && <div className="picker__empty">{t('loading')}</div>}
           {folders?.length === 0 && <div className="picker__empty">{t('move.noFolders')}</div>}
           {folders?.map((f) => (
-            <button key={f.id} type="button" className="picker__row" disabled={f.id === node.id}
+            <button key={f.id} type="button" className="picker__row" disabled={f.id === excludeId}
               aria-label={t('move.open', { name: f.name })} onClick={() => setFolder(f.id)}>
               <Icon d={fileTypes.folder.d} stroke={fileTypes.folder.c} fill="#fef9c3" />
               <span>{f.name}</span>
@@ -288,9 +325,9 @@ export function MoveDialog({
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="modal__foot">
           <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" className="btn btn--primary" disabled={busy || isCurrentParent || folder === node.id}
-            onClick={move}>
-            {t('move.here')}
+          <button type="button" className="btn btn--primary" disabled={busy || !drive || folder === currentId || folder === excludeId}
+            onClick={pick}>
+            {submit}
           </button>
         </div>
       </div>

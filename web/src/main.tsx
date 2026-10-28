@@ -4,6 +4,7 @@ import '@fontsource-variable/inter'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/app.css'
+import './styles/pages.css'
 import { App } from './App'
 
 // Service workers need a secure context (HTTPS or localhost).

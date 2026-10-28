@@ -54,10 +54,17 @@ export function onBatchDone(fn: (n: number) => void): () => void {
   return () => doneListeners.delete(fn)
 }
 
-export function addUploads(files: Iterable<File>, folderId: string, folderName: string) {
+// settled holds, per upload, who waits for it to finish or fail.
+const settled = new Map<number, (ok: boolean) => void>()
+
+// addUploads queues files for a folder. The promise resolves once each of
+// them has finished or failed (a later retry doesn't count).
+export function addUploads(files: Iterable<File>, folderId: string, folderName: string): Promise<{ done: number; failed: number }> {
+  const waits: Promise<boolean>[] = []
   for (const file of files) {
+    const key = nextKey++
     items.push({
-      key: nextKey++,
+      key,
       file,
       name: file.name,
       type: typeFromName(file.name),
@@ -66,9 +73,16 @@ export function addUploads(files: Iterable<File>, folderId: string, folderName: 
       sent: 0,
       state: 'queued',
     })
+    waits.push(new Promise((resolve) => settled.set(key, resolve)))
   }
   emit()
   pump()
+  return Promise.all(waits).then((oks) => ({ done: oks.filter(Boolean).length, failed: oks.filter((ok) => !ok).length }))
+}
+
+function settle(key: number, ok: boolean) {
+  settled.get(key)?.(ok)
+  settled.delete(key)
 }
 
 export function retryUpload(key: number) {
@@ -90,10 +104,12 @@ function pump() {
       () => {
         update(it.key, { state: 'done', sent: it.file.size })
         notifyChanged(it.folderId)
+        settle(it.key, true)
         finish()
       },
       (err) => {
         update(it.key, { state: 'failed', error: err instanceof ApiError ? err.code : 'internal' })
+        settle(it.key, false)
         finish()
       },
     )

@@ -1,112 +1,82 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type Details, type Drive, type Node, type SortKey, type TrashedNode, type User } from '../api'
-import { AddDialog, errorText, MoveDialog, NameDialog } from '../components/Dialogs'
-import { fileTypes, Icon, icons } from '../components/Icon'
+import { api, type Details, type Drive, type Located, type Node, type User } from '../api'
+import { AddDialog, errorText } from '../components/Dialogs'
+import { Icon, icons } from '../components/Icon'
 import { InfoPanel } from '../components/InfoPanel'
-import { Fab, Header, Link, Sidebar, TabBar, type Section } from '../components/Shell'
-import { Thumb } from '../components/Thumb'
+import { useItemActions } from '../components/ItemActions'
+import {
+  driveLabel,
+  Empty,
+  Grid,
+  hrefFor,
+  List,
+  PageHead,
+  QuickAccess,
+  Rail,
+  useViewPrefs,
+  whereIs,
+  type Crumb,
+} from '../components/Items'
+import { Fab, Header, Sidebar, TabBar, type Section } from '../components/Shell'
 import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
-import { Viewer } from '../components/Viewer'
 import { notifyChanged, onChanged } from '../events'
-import { displayName, formatSize, formatWhen } from '../format'
-import { plural, useLocale, useT, type MessageKey, type Translate } from '../i18n'
-import { folderPath, navigate, type Route } from '../router'
+import { plural, useT } from '../i18n'
+import type { ListName, Route } from '../router'
 import { addUploads, onBatchDone } from '../uploads'
-
-type View = 'grid' | 'list'
-interface Sort {
-  key: SortKey
-  desc: boolean
-}
-
-// Per-browser conveniences; storage may be unavailable (private mode).
-function stored<T>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(key)
-    return v ? (JSON.parse(v) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-function store(key: string, v: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(v))
-  } catch {
-    // ignore
-  }
-}
-
-function driveLabel(t: Translate, d: Drive): string {
-  return d.kind === 'personal' ? t('nav.myFiles') : t('nav.family')
-}
-
-// hrefFor is a folder's URL: drive tops have short ones.
-function hrefFor(id: string, drives: Drive[]): string {
-  const d = drives.find((x) => x.rootId === id)
-  if (d) return d.kind === 'personal' ? '/' : '/family'
-  return folderPath(id)
-}
 
 export function Browser({ user, route, onSignOut }: { user: User; route: Route; onSignOut: () => void }) {
   const t = useT()
   const [drives, setDrives] = useState<Drive[] | null>(null)
-  const [trashCount, setTrashCount] = useState(0)
+  const [counts, setCounts] = useState({ trash: 0, starred: 0 })
   const [addOpen, setAddOpen] = useState(false)
+  const [folderDrive, setFolderDrive] = useState<Drive | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     api.drives().then(setDrives, (err) => setError(errorText(t, err)))
   }, [t])
 
-  const refreshTrash = useCallback(() => {
-    api.trashList().then((l) => setTrashCount(l.length), () => {})
-  }, [])
+  // Sidebar counts follow changes made anywhere in the app.
   useEffect(() => {
-    refreshTrash()
-    return onChanged((id) => id === 'trash' && refreshTrash())
-  }, [refreshTrash])
+    const trash = () => api.trashList().then((l) => setCounts((c) => ({ ...c, trash: l.length })), () => {})
+    const starred = () => api.starred().then((l) => setCounts((c) => ({ ...c, starred: l.length })), () => {})
+    trash()
+    starred()
+    return onChanged((id) => {
+      if (id === 'trash') trash()
+      if (id === 'starred') starred()
+    })
+  }, [])
 
-  useEffect(
-    () => onBatchDone((n) => showToast(plural(t, 'toast.uploaded', n))),
-    [t],
-  )
+  useEffect(() => onBatchDone((n) => showToast(plural(t, 'toast.uploaded', n))), [t])
 
   let section: Section = null
   let folderId: string | null = null
-  if (drives) {
-    if (route.name === 'family') {
-      section = 'family'
-      folderId = drives.find((d) => d.kind === 'shared')?.rootId ?? null
-    } else if (route.name === 'trash') {
-      section = 'trash'
-    } else if (route.name === 'files') {
-      folderId = route.folderId ?? drives.find((d) => d.kind === 'personal')?.rootId ?? null
-      section = route.folderId ? null : 'files'
-    }
+  if (route.name === 'trash') section = 'trash'
+  else if (route.name === 'list' && route.list !== 'search') section = route.list
+  else if (drives && route.name === 'family') {
+    section = 'family'
+    folderId = drives.find((d) => d.kind === 'shared')?.rootId ?? null
+  } else if (drives && route.name === 'files') {
+    folderId = route.folderId ?? drives.find((d) => d.kind === 'personal')?.rootId ?? null
+    section = !route.folderId || folderDrive?.kind === 'personal' ? 'files' : folderDrive ? 'family' : null
   }
-  const [folderDrive, setFolderDrive] = useState<Drive | null>(null)
-  if (section === null && folderDrive && route.name === 'files') {
-    section = folderDrive.kind === 'personal' ? 'files' : 'family'
-  }
-  const canAdd = !!folderId && (folderDrive?.role ?? 'viewer') !== 'viewer'
+  const canAdd = !!folderId && !!folderDrive && folderDrive.role !== 'viewer'
 
   return (
     <div className="app">
-      <Header user={user} onSignOut={onSignOut} />
+      <Header user={user} onSignOut={onSignOut} query={route.name === 'list' && route.list === 'search' ? route.q : ''} />
       <div className="app-body">
-        <Sidebar section={section} trashCount={trashCount} canAdd={canAdd} onAdd={() => setAddOpen(true)} />
+        <Sidebar section={section} counts={counts} canAdd={canAdd} onAdd={() => setAddOpen(true)} />
         <main className="main">
           {error && <p className="form-error" role="alert">{error}</p>}
           {drives && folderId && (
-            <FolderView
-              key={folderId}
-              folderId={folderId}
-              drives={drives}
-              addOpen={addOpen}
-              setAddOpen={setAddOpen}
-              onDrive={setFolderDrive}
-            />
+            <FolderView key={folderId} folderId={folderId} drives={drives} addOpen={addOpen}
+              setAddOpen={setAddOpen} onDrive={setFolderDrive} />
+          )}
+          {drives && route.name === 'list' && (
+            <LocatedView key={route.list + route.q} list={route.list} q={route.q} drives={drives} />
           )}
           {drives && route.name === 'trash' && <TrashView />}
         </main>
@@ -116,22 +86,6 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
     </div>
   )
 }
-
-function useViewPrefs() {
-  const [view, setViewState] = useState<View>(() => stored('hd.view', 'grid'))
-  const [sort, setSortState] = useState<Sort>(() => stored('hd.sort', { key: 'name', desc: false }))
-  const setView = (v: View) => {
-    setViewState(v)
-    store('hd.view', v)
-  }
-  const setSort = (s: Sort) => {
-    setSortState(s)
-    store('hd.sort', s)
-  }
-  return { view, setView, sort, setSort }
-}
-
-type Dialog = { kind: 'rename'; node: Node } | { kind: 'move'; node: Node } | null
 
 function FolderView({
   folderId,
@@ -150,10 +104,9 @@ function FolderView({
   const { view, setView, sort, setSort } = useViewPrefs()
   const [details, setDetails] = useState<Details | null>(null)
   const [items, setItems] = useState<Node[] | null>(null)
+  const [quick, setQuick] = useState<Located[]>([])
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<Dialog>(null)
-  const [viewing, setViewing] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -175,19 +128,27 @@ function FolderView({
   const drive = details?.drive
   const readOnly = !drive || drive.role === 'viewer'
   const isRoot = !!details && details.node.id === details.drive.rootId
+  const isMyFiles = isRoot && drive?.kind === 'personal'
   const title = !details ? '' : isRoot ? driveLabel(t, details.drive) : details.node.name
-  const files = useMemo(() => (items ?? []).filter((n) => n.kind === 'file'), [items])
+
+  // Starred folders as quick access at the top of My Files.
+  useEffect(() => {
+    if (!isMyFiles) return
+    const loadQuick = () => api.starred().then((l) => setQuick(l.filter((n) => n.kind === 'folder')), () => {})
+    loadQuick()
+    return onChanged((id) => id === 'starred' && loadQuick())
+  }, [isMyFiles])
+
+  const actions = useItemActions({ drives, reload: load })
   const sel = items?.find((n) => n.id === selected) ?? null
 
-  // Breadcrumb: drive top, the folders above, this folder.
-  const crumbs = details
+  const crumbs: Crumb[] = details
     ? [
         { id: details.drive.rootId, name: driveLabel(t, details.drive), home: true },
-        ...details.path.slice(1).map((c) => ({ ...c, home: false })),
-        ...(isRoot ? [] : [{ id: details.node.id, name: details.node.name, home: false }]),
-      ]
+        ...details.path.slice(1),
+        ...(isRoot ? [] : [{ id: details.node.id, name: details.node.name }]),
+      ].map((c) => ({ ...c, href: hrefFor(c.id, drives) }))
     : []
-  const parent = crumbs.length > 1 ? crumbs[crumbs.length - 2] : null
   const location = crumbs.map((c) => c.name).join(' / ')
 
   // Drop files anywhere to upload into this folder.
@@ -201,8 +162,7 @@ function FolderView({
       setDragging(true)
     }
     const leave = (e: DragEvent) => {
-      if (!hasFiles(e)) return
-      if (--depth <= 0) setDragging(false)
+      if (hasFiles(e) && --depth <= 0) setDragging(false)
     }
     const over = (e: DragEvent) => {
       if (hasFiles(e)) e.preventDefault()
@@ -231,99 +191,35 @@ function FolderView({
     }
   }, [readOnly, folderId, title])
 
-  function open(n: Node) {
-    if (n.kind === 'folder') navigate(hrefFor(n.id, drives))
-    else setViewing(files.findIndex((f) => f.id === n.id))
-  }
-
-  async function trash(n: Node) {
-    try {
-      await api.trash(n.id)
-      setSelected(null)
-      load()
-      notifyChanged('trash')
-      showToast(t('toast.trashed'), {
-        undo: () =>
-          api.restore(n.id).then(
-            () => {
-              load()
-              notifyChanged('trash')
-            },
-            (err) => showToast(errorText(t, err), { error: true }),
-          ),
-      })
-    } catch (err) {
-      showToast(errorText(t, err), { error: true })
-    }
-  }
-
   if (error && !details) return <p className="form-error" role="alert">{error}</p>
   if (!details || !items) return null
 
+  const open = (n: Node) => actions.open(n, items, () => location)
+  const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
+
   return (
     <>
-      <div className="page-head">
-        <div className="page-head__text">
-          <nav aria-label={t('crumbs.label')} className="crumbs">
-            <button type="button" className="back-btn" disabled={!parent}
-              aria-label={parent ? t('crumbs.backTo', { name: parent.name }) : t('crumbs.back')}
-              onClick={() => parent && navigate(hrefFor(parent.id, drives))}>
-              <Icon d={icons.back} size={18} />
-              <span className="back-btn__label">{parent ? t('crumbs.backTo', { name: parent.name }) : t('crumbs.back')}</span>
-            </button>
-            <ol>
-              {crumbs.map((c, i) => {
-                const here = i === crumbs.length - 1
-                return (
-                  <li key={c.id}>
-                    {i > 0 && <Icon d={icons.chevronRight} size={14} stroke="#9ca3af" />}
-                    {here ? (
-                      <span className="crumb" aria-current="page">
-                        {c.home && <Icon d={icons.home} size={16} />}
-                        {c.name}
-                      </span>
-                    ) : (
-                      <Link className="crumb" href={hrefFor(c.id, drives)}>
-                        {c.home && <Icon d={icons.home} size={16} />}
-                        {c.name}
-                      </Link>
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
-          </nav>
-          <div className="page-title">
-            <h1 key={folderId}>{title}</h1>
-            <span>{plural(t, 'count.items', items.length)}</span>
-          </div>
-        </div>
-        <ViewToggle view={view} setView={setView} />
-      </div>
-
+      <PageHead crumbs={crumbs} title={title} count={items.length} view={view} setView={setView} />
       <UploadPanel />
+      {isMyFiles && <QuickAccess folders={quick} drives={drives} />}
 
       <div className="files-row">
         <section aria-label={title} className="files">
           {items.length === 0 ? (
-            <div className="empty">
-              <Icon d={icons.folder} size={40} stroke="#6b7280" />
-              <strong>{t('empty.folder.title')}</strong>
-              <span>{t('empty.folder.body')}</span>
+            <Empty icon={icons.folder} title={t('empty.folder.title')} body={t('empty.folder.body')}>
               {!readOnly && (
                 <button type="button" className="btn btn--primary" onClick={() => setAddOpen(true)}>
                   <Icon d={icons.plus} size={18} width={2.25} />
                   {t('empty.add')}
                 </button>
               )}
-            </div>
+            </Empty>
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={open} onInfo={(n) => setSelected(selected === n.id ? null : n.id)} />
+            <Grid items={items} selected={selected} onOpen={open} onInfo={info} />
           ) : (
             <div className="list-wrap">
-              {!isRoot && <Rail crumbs={crumbs} drives={drives} />}
-              <List items={items} selected={selected} sort={sort} setSort={setSort} onOpen={open}
-                onInfo={(n) => setSelected(selected === n.id ? null : n.id)} />
+              {!isRoot && <Rail crumbs={crumbs} />}
+              <List items={items} selected={selected} sort={sort} setSort={setSort} onOpen={open} onInfo={info} />
             </div>
           )}
         </section>
@@ -333,11 +229,16 @@ function FolderView({
             location={location}
             readOnly={readOnly}
             onClose={() => setSelected(null)}
-            onOpen={() => open(sel)}
-            onRename={() => setDialog({ kind: 'rename', node: sel })}
-            onMove={() => setDialog({ kind: 'move', node: sel })}
-            onTrash={() => trash(sel)}
-            onRestore={() => {}}
+            actions={{
+              onOpen: () => open(sel),
+              onRename: () => actions.rename(sel),
+              onMove: () => actions.move(sel),
+              onTrash: () => {
+                setSelected(null)
+                actions.trash(sel)
+              },
+              onStar: () => actions.star(sel),
+            }}
           />
         )}
       </div>
@@ -379,259 +280,58 @@ function FolderView({
           }}
         />
       )}
-      {dialog?.kind === 'rename' && (
-        <NameDialog
-          title={t('rename.title')}
-          label={t('rename.label')}
-          initial={dialog.node.name}
-          submit={t('rename.submit')}
-          selectStem={dialog.node.kind === 'file'}
-          onClose={() => setDialog(null)}
-          onSubmit={async (name) => {
-            await api.rename(dialog.node.id, name)
-            setDialog(null)
-            load()
-            showToast(t('toast.renamed'))
-          }}
-        />
-      )}
-      {dialog?.kind === 'move' && (
-        <MoveDialog
-          node={dialog.node}
-          drives={drives}
-          startFolder={folderId}
-          onClose={() => setDialog(null)}
-          onMove={async (target, targetName) => {
-            await api.move(dialog.node.id, target)
-            setDialog(null)
-            setSelected(null)
-            load()
-            notifyChanged(target)
-            showToast(t('toast.moved', { folder: targetName }))
-          }}
-        />
-      )}
-      {viewing !== null && files[viewing] && (
-        <Viewer files={files} index={viewing} location={location} onIndex={setViewing} onClose={() => setViewing(null)} />
-      )}
+      {actions.elements}
     </>
   )
 }
 
-function ViewToggle({ view, setView }: { view: View; setView: (v: View) => void }) {
-  const t = useT()
-  return (
-    <div role="group" aria-label={t('view.label')} className="toggle">
-      <button type="button" aria-label={t('view.gridAria')} aria-pressed={view === 'grid'} onClick={() => setView('grid')}>
-        <Icon d={icons.grid} size={16} />
-        <span>{t('view.grid')}</span>
-      </button>
-      <button type="button" aria-label={t('view.listAria')} aria-pressed={view === 'list'} onClick={() => setView('list')}>
-        <Icon d={icons.list} size={16} />
-        <span>{t('view.list')}</span>
-      </button>
-    </div>
-  )
-}
-
-// Staggered entrance, capped at 12 items like the design.
-const delay = (i: number) => ({ animationDelay: `${Math.min(i, 12) * 30}ms` })
-
-function sizeLabel(n: Node, t: Translate, locale: ReturnType<typeof useLocale>) {
-  return n.kind === 'folder' ? plural(t, 'count.items', n.childCount ?? 0) : formatSize(n.size, locale)
-}
-
-function Grid({
-  items,
-  selected,
-  onOpen,
-  onInfo,
-}: {
-  items: Node[]
-  selected: string | null
-  onOpen: (n: Node) => void
-  onInfo: (n: Node) => void
-}) {
-  const t = useT()
-  const locale = useLocale()
-  return (
-    <div className="grid">
-      {items.map((n, i) => {
-        const type = fileTypes[n.type]
-        const name = displayName(n)
-        const size = sizeLabel(n, t, locale)
-        const when = formatWhen(n.modifiedAt, t, locale)
-        const meta = n.kind === 'folder' ? `${size} · ${when}` : `${t(`short.${n.type}` as MessageKey)} · ${size} · ${when}`
-        return (
-          <div key={n.id} className={'card' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
-            <button type="button" className="card__open" onClick={() => onOpen(n)}
-              aria-label={n.kind === 'folder' ? t('item.openFolder', { name }) : t('item.open', { name })}>
-              <Thumb node={n} />
-              <span className="card__title">
-                <Icon d={type.d} size={18} stroke={type.c} fill={n.kind === 'folder' ? '#fef9c3' : 'none'} />
-                <span className="card__name">{name}</span>
-              </span>
-              <span className="card__meta">{meta}</span>
-            </button>
-            <button type="button" className="round-btn" aria-label={t('item.info', { name })} aria-pressed={selected === n.id}
-              onClick={() => onInfo(n)}>
-              <Icon d={icons.info} />
-            </button>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function List({
-  items,
-  selected,
-  sort,
-  setSort,
-  onOpen,
-  onInfo,
-  trash,
-}: {
-  items: Node[]
-  selected: string | null
-  sort?: Sort
-  setSort?: (s: Sort) => void
-  onOpen: (n: Node) => void
-  onInfo: (n: Node) => void
-  trash?: (n: Node) => string
-}) {
-  const t = useT()
-  const locale = useLocale()
-  const col = (key: SortKey, label: string) => {
-    if (!sort || !setSort) return <span>{label}</span>
-    const active = sort.key === key
-    return (
-      <button type="button" aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : undefined}
-        onClick={() => setSort({ key, desc: active ? !sort.desc : key !== 'name' })}>
-        {label}
-        {active ? (sort.desc ? ' ↓' : ' ↑') : ''}
-      </button>
-    )
-  }
-  return (
-    <div className={'table' + (trash ? ' table--trash' : '')}>
-      <div className="table__inner">
-        <div className="table__head">
-          <div className="table__cols">
-            {col('name', t('col.name'))}
-            {trash ? <span>{t('info.deleted')}</span> : col('modified', t('col.modified'))}
-            {trash ? <span>{t('col.location')}</span> : col('size', t('col.size'))}
-          </div>
-          <span />
-        </div>
-        {items.map((n, i) => {
-          const type = fileTypes[n.type]
-          const name = displayName(n)
-          return (
-            <div key={n.id} className={'row' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
-              <button type="button" className="row__open" onClick={() => onOpen(n)}
-                aria-label={n.kind === 'folder' ? t('item.openFolder', { name }) : t('item.open', { name })}>
-                <span className="row__name">
-                  <Icon d={type.d} stroke={type.c} fill={n.kind === 'folder' ? '#fef9c3' : 'none'} />
-                  <span>{name}</span>
-                </span>
-                <span className="row__cell">{formatWhen(trash ? n.trashedAt! : n.modifiedAt, t, locale)}</span>
-                <span className="row__cell">{trash ? trash(n) : sizeLabel(n, t, locale)}</span>
-              </button>
-              <div className="row__actions">
-                <button type="button" className="round-btn" aria-label={t('item.info', { name })}
-                  aria-pressed={selected === n.id} onClick={() => onInfo(n)}>
-                  <Icon d={icons.info} size={18} />
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// Rail is the vertical "You are here" breadcrumb next to the list.
-function Rail({ crumbs, drives }: { crumbs: { id: string; name: string; home: boolean }[]; drives: Drive[] }) {
-  const t = useT()
-  return (
-    <nav aria-label={t('rail.label')} className="rail">
-      <span className="rail__title">{t('rail.here')}</span>
-      {crumbs.map((c, d) => {
-        const last = d === crumbs.length - 1
-        return (
-          <Link key={c.id} href={hrefFor(c.id, drives)} className="rail__item" aria-current={last ? 'page' : undefined}
-            style={{ paddingLeft: `${10 + d * 16}px` }}>
-            {d > 0 && <span aria-hidden="true" className="rail__line" style={{ left: `${d * 16 - 2}px` }} />}
-            {c.home ? (
-              <Icon d={icons.home} size={18} />
-            ) : (
-              <Icon d={icons.folder} size={18} stroke="#a16207" fill="#fef9c3" />
-            )}
-            <span>{c.name}</span>
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
-function TrashView() {
+// LocatedView lists items from across the drives: Recent, Starred or
+// search results.
+function LocatedView({ list, q, drives }: { list: ListName; q: string; drives: Drive[] }) {
   const t = useT()
   const { view, setView } = useViewPrefs()
-  const [items, setItems] = useState<TrashedNode[] | null>(null)
+  const [items, setItems] = useState<Located[] | null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    api.trashList().then(setItems, (err) => setError(errorText(t, err)))
-  }, [t])
+    const fetch = list === 'recent' ? api.recent() : list === 'starred' ? api.starred() : api.search(q)
+    fetch.then(setItems, (err) => setError(errorText(t, err)))
+  }, [list, q, t])
   useEffect(load, [load])
+  useEffect(() => onChanged((id) => (id === 'starred' || id === 'trash') && load()), [load])
 
-  const where = (n: TrashedNode) => [driveLabel(t, n.drive), ...n.path.slice(1).map((c) => c.name)].join(' / ')
-  const sel = items?.find((n) => n.id === selected) ?? null
-
-  async function restore(n: TrashedNode) {
-    try {
-      await api.restore(n.id)
-      setSelected(null)
-      load()
-      notifyChanged('trash')
-      showToast(t('toast.restored', { folder: where(n) }))
-    } catch (err) {
-      showToast(errorText(t, err), { error: true })
-    }
-  }
+  const actions = useItemActions({ drives, reload: load })
+  const where = useMemo(() => (n: Node) => whereIs(t, n as Located), [t])
 
   if (error) return <p className="form-error" role="alert">{error}</p>
   if (!items) return null
+
+  const title = list === 'search' ? t('search.title', { q }) : t(list === 'recent' ? 'nav.recent' : 'nav.starred')
+  const crumbs: Crumb[] = [
+    { name: t('nav.myFiles'), home: true, href: '/' },
+    { name: list === 'search' ? t('search.crumb') : title },
+  ]
+  const empty = {
+    recent: [icons.recent, t('empty.recent.title'), t('empty.recent.body')],
+    starred: [icons.star, t('empty.starred.title'), t('empty.starred.body')],
+    search: [icons.search, t('empty.search.title'), t('empty.search.body')],
+  }[list]
+  const sel = items.find((n) => n.id === selected) ?? null
+  const open = (n: Node) => actions.open(n, items, where)
+  const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
+
   return (
     <>
-      <div className="page-head">
-        <div className="page-head__text">
-          <div className="page-title">
-            <h1>{t('nav.trash')}</h1>
-            <span>{plural(t, 'count.items', items.length)}</span>
-          </div>
-        </div>
-        <ViewToggle view={view} setView={setView} />
-      </div>
+      <PageHead crumbs={crumbs} title={title} count={items.length} view={view} setView={setView} />
       <div className="files-row">
-        <section aria-label={t('nav.trash')} className="files">
+        <section aria-label={title} className="files">
           {items.length === 0 ? (
-            <div className="empty">
-              <Icon d={icons.trash} size={40} stroke="#6b7280" />
-              <strong>{t('empty.trash.title')}</strong>
-              <span>{t('empty.trash.body')}</span>
-            </div>
+            <Empty icon={empty[0]} title={empty[1]} body={empty[2]} />
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={(n) => setSelected(n.id)}
-              onInfo={(n) => setSelected(selected === n.id ? null : n.id)} />
+            <Grid items={items} selected={selected} onOpen={open} onInfo={info} />
           ) : (
-            <List items={items} selected={selected} onOpen={(n) => setSelected(n.id)}
-              onInfo={(n) => setSelected(selected === n.id ? null : n.id)} trash={(n) => where(n as TrashedNode)} />
+            <List items={items} selected={selected} onOpen={open} onInfo={info} location={where} />
           )}
         </section>
         {sel && (
@@ -640,12 +340,71 @@ function TrashView() {
             location={where(sel)}
             readOnly={sel.drive.role === 'viewer'}
             onClose={() => setSelected(null)}
-            onOpen={() => {}}
-            onRename={() => {}}
-            onMove={() => {}}
-            onTrash={() => {}}
-            onRestore={() => restore(sel)}
+            actions={{
+              onOpen: () => open(sel),
+              onRename: () => actions.rename(sel),
+              onMove: () => actions.move(sel),
+              onTrash: () => {
+                setSelected(null)
+                actions.trash(sel)
+              },
+              onStar: () => actions.star(sel),
+            }}
           />
+        )}
+      </div>
+      {actions.elements}
+    </>
+  )
+}
+
+function TrashView() {
+  const t = useT()
+  const { view, setView } = useViewPrefs()
+  const [items, setItems] = useState<Located[] | null>(null)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    api.trashList().then(setItems, (err) => setError(errorText(t, err)))
+  }, [t])
+  useEffect(load, [load])
+  useEffect(() => onChanged((id) => id === 'trash' && load()), [load])
+
+  const where = (n: Node) => whereIs(t, n as Located)
+  const sel = items?.find((n) => n.id === selected) ?? null
+
+  async function restore(n: Located) {
+    try {
+      await api.restore(n.id)
+      setSelected(null)
+      notifyChanged('trash')
+      notifyChanged('starred')
+      showToast(t('toast.restored', { folder: where(n) }))
+    } catch (err) {
+      showToast(errorText(t, err), { error: true })
+    }
+  }
+
+  if (error) return <p className="form-error" role="alert">{error}</p>
+  if (!items) return null
+  const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
+  return (
+    <>
+      <PageHead crumbs={[]} title={t('nav.trash')} count={items.length} view={view} setView={setView} />
+      <div className="files-row">
+        <section aria-label={t('nav.trash')} className="files">
+          {items.length === 0 ? (
+            <Empty icon={icons.trash} title={t('empty.trash.title')} body={t('empty.trash.body')} />
+          ) : view === 'grid' ? (
+            <Grid items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info} />
+          ) : (
+            <List items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info} trashed location={where} />
+          )}
+        </section>
+        {sel && (
+          <InfoPanel node={sel} location={where(sel)} readOnly={sel.drive.role === 'viewer'}
+            onClose={() => setSelected(null)} onRestore={() => restore(sel)} />
         )}
       </div>
     </>
