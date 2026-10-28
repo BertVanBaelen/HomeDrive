@@ -21,14 +21,30 @@ export type Translate = (key: MessageKey, vars?: Record<string, string | number>
 
 export function translator(locale: Locale): Translate {
   const messages = catalogs[locale]
+  // An unknown key comes back as itself, so callers can detect it.
   return (key, vars) =>
-    messages[key].replace(/\{(\w+)\}/g, (match, name: string) =>
+    (messages[key] ?? key).replace(/\{(\w+)\}/g, (match, name: string) =>
       vars && name in vars ? String(vars[name]) : match,
     )
 }
 
+// Keys with a ".one" and ".other" variant, chosen by n.
+type PluralBase = MessageKey extends infer K ? (K extends `${infer B}.one` ? B : never) : never
+
+export function plural(t: Translate, base: PluralBase, n: number): string {
+  return t(`${base}.${n === 1 ? 'one' : 'other'}` as MessageKey, { n })
+}
+
 export const LocaleContext = createContext<Locale>('en')
 
+export function useLocale(): Locale {
+  return useContext(LocaleContext)
+}
+
+// One translator per locale, so the function is stable and safe to use as
+// an effect dependency.
+const translators: Record<Locale, Translate> = { en: translator('en'), nl: translator('nl') }
+
 export function useT(): Translate {
-  return translator(useContext(LocaleContext))
+  return translators[useContext(LocaleContext)]
 }
