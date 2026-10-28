@@ -67,6 +67,14 @@ export interface SessionInfo {
   current: boolean
 }
 
+// DeviceToken is an upload key for the iPhone Shortcut.
+export interface DeviceToken {
+  id: string
+  name: string
+  createdAt: string
+  lastUsedAt?: string
+}
+
 export interface PasswordLink {
   email: string
   name: string
@@ -183,6 +191,9 @@ export const api = {
     request<void>('POST', '/api/me/password', { current, password }),
   sessions: () => request<SessionInfo[]>('GET', '/api/me/sessions'),
   revokeSession: (id: string) => request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`),
+  deviceTokens: () => request<DeviceToken[]>('GET', '/api/me/devices'),
+  createDeviceToken: (name: string) => request<{ device: DeviceToken; token: string }>('POST', '/api/me/devices', { name }),
+  revokeDeviceToken: (id: string) => request<void>('DELETE', `/api/me/devices/${encodeURIComponent(id)}`),
 
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
   inviteUser: (p: { email: string; name: string; role: string; locale: string }) =>

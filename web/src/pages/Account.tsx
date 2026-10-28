@@ -6,6 +6,7 @@ import { showToast } from '../components/Toast'
 import { formatWhen } from '../format'
 import { detectLocale, translator, useLocale, useT, type Translate } from '../i18n'
 import { Field } from './Login'
+import { ShortcutDevices } from './Shortcut'
 
 // deviceName turns a user agent into "Chrome on Windows".
 export function deviceName(ua: string, t: Translate): string {
@@ -41,6 +42,7 @@ export function Account({ user, onUser }: { user: User; onUser: (u: User) => voi
       <Profile user={user} onUser={onUser} />
       <Password />
       <Devices />
+      <ShortcutDevices />
     </div>
   )
 }

@@ -253,3 +253,78 @@ func TestAdminRecovery(t *testing.T) {
 		t.Fatalf("login with recovered password: %d", r.Code)
 	}
 }
+
+func TestDeviceTokenUpload(t *testing.T) {
+	env := newTestEnv(t)
+	a := env.signIn(t, "a@example.com", "A")
+	b := env.signIn(t, "b@example.com", "B")
+
+	r := a.json("POST", "/api/me/devices", map[string]string{"name": "iPhone"})
+	expect(t, r, 201)
+	var created struct {
+		Device struct{ ID, Name string }
+		Token  string
+	}
+	r.decode(t, &created)
+	if !strings.HasPrefix(created.Token, "hd_") {
+		t.Fatalf("token = %q", created.Token)
+	}
+
+	// The Shortcut's request: bearer token, raw bytes, no cookie.
+	inbox := func(token, query, ctype string, body []byte) response {
+		c := env.client(t)
+		return c.send("POST", "/api/inbox"+query, ctype, body, map[string]string{
+			"Authorization": "Bearer " + token, "Origin": "", "Sec-Fetch-Site": ""})
+	}
+	r = inbox(created.Token, "?name=Receipt.pdf", "application/pdf", []byte("%PDF-1.4"))
+	expect(t, r, 201)
+	var n node
+	r.decode(t, &n)
+	if n.Name != "Receipt.pdf" {
+		t.Fatalf("uploaded %+v", n)
+	}
+	// Without a name, the type gives the extension.
+	r = inbox(created.Token, "", "image/jpeg", []byte("jpeg"))
+	expect(t, r, 201)
+	r.decode(t, &n)
+	if !strings.HasSuffix(n.Name, ".jpg") {
+		t.Fatalf("unnamed upload = %q", n.Name)
+	}
+	// Both landed in A's Inbox.
+	var d struct {
+		Path []struct{ Name string }
+	}
+	a.get("/api/nodes/"+n.ID).decode(t, &d)
+	if len(d.Path) != 2 || d.Path[1].Name != "Inbox" {
+		t.Fatalf("path = %+v", d.Path)
+	}
+	expect(t, b.get("/api/nodes/"+n.ID), 404)
+
+	// The token is only good for the inbox, never as a session.
+	c := env.client(t)
+	if r := c.send("GET", "/api/drives", "", nil, map[string]string{"Authorization": "Bearer " + created.Token}); r.Code != 401 {
+		t.Fatalf("token used as session: %d", r.Code)
+	}
+	expect(t, inbox("hd_wrong", "?name=x.txt", "text/plain", []byte("x")), 401)
+	// A browser on another site can't post to it.
+	if r := env.client(t).send("POST", "/api/inbox?name=x.txt", "text/plain", []byte("x"), map[string]string{
+		"Authorization": "Bearer " + created.Token, "Origin": "https://evil.example", "Sec-Fetch-Site": "cross-site"}); r.Code != 403 {
+		t.Fatalf("cross-site inbox post: %d", r.Code)
+	}
+
+	// Listed for its owner, revocable, then refused.
+	var list []struct{ ID string }
+	a.get("/api/me/devices").decode(t, &list)
+	if len(list) != 1 || list[0].ID != created.Device.ID {
+		t.Fatalf("devices = %+v", list)
+	}
+	expect(t, b.json("DELETE", "/api/me/devices/"+created.Device.ID, nil), 404)
+	expect(t, a.json("DELETE", "/api/me/devices/"+created.Device.ID, nil), 204)
+	expect(t, inbox(created.Token, "?name=late.txt", "text/plain", []byte("late")), 401)
+
+	// Making a token needs a recent password.
+	env.expireRecentAuth(t)
+	if r := a.json("POST", "/api/me/devices", map[string]string{"name": "iPad"}); r.errorCode() != "reauth_required" {
+		t.Fatalf("stale session: %s", r.Body)
+	}
+}

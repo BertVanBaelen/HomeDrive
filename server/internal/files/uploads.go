@@ -222,3 +222,72 @@ func (s *Service) Open(ctx context.Context, userID, nodeID string) (*os.File, No
 	}
 	return f, it.Node, nil
 }
+
+// InboxName is the folder at the top of My Files where uploads from
+// devices (the iPhone Shortcut) land.
+const InboxName = "Inbox"
+
+// MaxInboxUpload is the most one device upload may carry: it is a single
+// request, and Cloudflare refuses bodies over 100 MB.
+const MaxInboxUpload = 95 << 20
+
+// UploadToInbox stores a file sent in one request into the user's Inbox,
+// creating the folder when needed. A taken name gets a number added.
+func (s *Service) UploadToInbox(ctx context.Context, userID, name string, r io.Reader) (Node, error) {
+	name, err := ValidateName(name)
+	if err != nil {
+		return Node{}, err
+	}
+	inbox, err := s.inbox(ctx, userID)
+	if err != nil {
+		return Node{}, err
+	}
+	id := db.NewID()
+	if err := s.store.CreateUpload(id); err != nil {
+		return Node{}, err
+	}
+	n, err := s.store.WriteUpload(id, 0, io.LimitReader(r, MaxInboxUpload+1))
+	if err == nil && n > MaxInboxUpload {
+		err = ErrTooLarge
+	}
+	if err != nil {
+		s.store.RemoveUpload(id)
+		return Node{}, err
+	}
+	objectID, sum, err := s.store.FinishUpload(id, n)
+	if err != nil {
+		s.store.RemoveUpload(id)
+		return Node{}, err
+	}
+	nodeID, err := s.addFile(ctx, userID, inbox, name, objectID, sum, n)
+	if err != nil {
+		s.removeObjects([]string{objectID})
+		return Node{}, err
+	}
+	return s.node(ctx, userID, nodeID)
+}
+
+// inbox finds or creates the Inbox folder of the user's personal drive.
+func (s *Service) inbox(ctx context.Context, userID string) (string, error) {
+	var root string
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT root_id FROM drives WHERE owner_user_id = ? AND kind = 'personal'`, userID).Scan(&root); err != nil {
+		return "", err
+	}
+	var id string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id FROM nodes WHERE parent_id = ? AND name_key = ? AND kind = 'folder' AND trashed_at IS NULL`,
+		root, nameKey(InboxName)).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	n, err := s.CreateFolder(ctx, userID, root, InboxName)
+	if errors.Is(err, ErrNameTaken) {
+		// A file is called Inbox; put the upload at the top instead.
+		return root, nil
+	}
+	return n.ID, err
+}
