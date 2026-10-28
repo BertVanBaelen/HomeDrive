@@ -15,7 +15,7 @@ import (
 )
 
 // newService returns a files service with one user and their drives.
-func newService(t *testing.T) (*Service, string, string, string) {
+func newService(t testing.TB) (*Service, string, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	ctx := context.Background()
@@ -51,7 +51,7 @@ func newService(t *testing.T) (*Service, string, string, string) {
 	return s, uid, drives[0].RootID, data
 }
 
-func age(t *testing.T, path string) {
+func age(t testing.TB, path string) {
 	t.Helper()
 	old := time.Now().Add(-2 * time.Hour)
 	if err := os.Chtimes(path, old, old); err != nil {

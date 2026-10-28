@@ -143,6 +143,8 @@ Motion is short (≤ 0.5 s), transform/opacity only, staggers capped at ~12 item
 | Sharing | People pop into the list; link switch knob bounces; toast bounces in with a self-drawing ✓; **confetti burst** on share / link created / link copied / upload complete |
 | Hover | Cards lift 3 px; share button grows; online dot pulses |
 
+> **In the app (2026-10-28):** cards and rows fade in with a 6 px rise (≈200 ms, 15 ms stagger) instead of flipping in; the flip read as too busy in use.
+
 Implementation notes: the mockup uses a "parity" class swap to replay CSS animations, and `element.animate()` for FLIP. In React, use a small FLIP helper (or Framer Motion `layoutId` for the list→rail shared element and `AnimatePresence` for overlays).
 
 ---

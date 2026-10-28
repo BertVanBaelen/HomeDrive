@@ -2,6 +2,8 @@
 
 ## v1 — usable, polished and checked
 
+Status 2026-10-28: everything below is built on `v1/vertical-slice` except what is marked open; the release gate is tracked in [`security-review-v1.md`](security-review-v1.md).
+
 Foundation
 - Project skeleton, config loading and validation, add-on + Docker packaging, CI.
 - SQLite with migrations; storage guards and object store.
@@ -27,12 +29,12 @@ Backup
 
 Look and feel
 - The full visual design from the mockup on desktop and mobile: design tokens, header, sidebar, bottom tab bar, FAB, bottom sheets, dialogs, toasts.
-- The motion spec (card flip-in, folder open/close, viewer zoom, sheet slide), with `prefers-reduced-motion`.
-- Accessibility checklist from the mockup README.
+- Motion: items fade in with a small rise (calmer than the mockup's card flip, after feedback), viewer zoom, sheet slide, with `prefers-reduced-motion`. Folder open/close transitions are left for later.
+- Accessibility checklist from the mockup README (dialogs trap focus and close on Esc, labelled icon buttons, `role=status` toasts; a full audit is open).
 - English and Dutch.
 
 Release gate
-- The security check in [`security.md`](security.md#v1-release-gate-security-check).
+- The security check in [`security.md`](security.md#v1-release-gate-security-check) — **open**, see [`security-review-v1.md`](security-review-v1.md).
 
 ## v2
 
