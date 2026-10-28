@@ -18,8 +18,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/mail"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/server"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
 )
@@ -96,7 +99,18 @@ func run() error {
 		log.Info("data folder initialized", "path", cfg.DataPath, "instance_id", instanceID)
 	}
 
-	srv, err := server.New(cfg, log)
+	acc := accounts.New(conn, mail.New(cfg.SMTP, log), log, cfg.Origin())
+	link, err := acc.StartSetup(ctx)
+	if err != nil {
+		return err
+	}
+	if link != "" {
+		// The link is the only way in on a new installation, so it goes to
+		// the log at a level that is always shown.
+		log.Warn("no accounts yet: open this link within 1 hour to create the admin account (restart for a new link)", "link", link)
+	}
+
+	srv, err := server.New(cfg, log, acc, files.New(conn, store, log))
 	if err != nil {
 		return err
 	}

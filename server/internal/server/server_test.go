@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"database/sql"
 	"io"
 	"log/slog"
 	"net/http"
@@ -8,10 +10,17 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	hdmail "github.com/BertVanBaelen/HomeDrive/server/internal/mail"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
 )
 
 const (
@@ -20,6 +29,48 @@ const (
 )
 
 func newTestServer(t *testing.T) http.Handler {
+	t.Helper()
+	return newTestEnv(t).h
+}
+
+// testEnv is a complete server on temporary folders. Emails land in mail.
+type testEnv struct {
+	h        http.Handler
+	mail     *fakeMail
+	accounts *accounts.Service
+	conn     *sql.DB
+}
+
+type fakeMail struct {
+	mu   sync.Mutex
+	sent []hdmail.Message
+}
+
+func (f *fakeMail) Send(ctx context.Context, m hdmail.Message) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent = append(f.sent, m)
+	return nil
+}
+
+// lastCode returns the code from the most recent email to addr.
+func (f *fakeMail) lastCode(t *testing.T, addr string) string {
+	t.Helper()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := len(f.sent) - 1; i >= 0; i-- {
+		if f.sent[i].To == addr {
+			m := regexp.MustCompile(`(\d{4}) (\d{4})`).FindStringSubmatch(f.sent[i].Body)
+			if m != nil {
+				return m[1] + m[2]
+			}
+		}
+	}
+	t.Fatalf("no code mailed to %s", addr)
+	return ""
+}
+
+func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 	dir := t.TempDir()
 	web := filepath.Join(dir, "web")
@@ -53,12 +104,33 @@ func newTestServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx := context.Background()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	conn, err := db.Open(ctx, filepath.Join(dir, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	if err := db.Migrate(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	instance, err := db.InstanceID(ctx, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := storage.Open(cfg.DataPath, instance, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	fm := &fakeMail{}
+	acc := accounts.New(conn, fm, log, cfg.Origin())
+	srv, err := New(cfg, log, acc, files.New(conn, store, log))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	return srv.Handler()
+	return &testEnv{h: srv.Handler(), mail: fm, accounts: acc, conn: conn}
 }
 
 func do(h http.Handler, method, target string, header map[string]string) *httptest.ResponseRecorder {

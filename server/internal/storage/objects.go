@@ -1,0 +1,167 @@
+package storage
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path"
+)
+
+// ErrBadID means an ID from the caller has the wrong form. Paths are only
+// ever built from IDs that pass these checks.
+var ErrBadID = errors.New("invalid storage id")
+
+// Object IDs are 128 random bits in lower-case hex. Upload IDs are UUIDs
+// handed out by the database layer.
+func validObjectID(id string) bool {
+	if len(id) != 32 {
+		return false
+	}
+	for _, c := range id {
+		if !isLowerHex(c) {
+			return false
+		}
+	}
+	return true
+}
+
+func validUploadID(id string) bool {
+	if len(id) != 36 {
+		return false
+	}
+	for i, c := range id {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if c != '-' {
+				return false
+			}
+		} else if !isLowerHex(c) {
+			return false
+		}
+	}
+	return true
+}
+
+func isLowerHex(c rune) bool { return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' }
+
+func objectPath(id string) string { return path.Join("objects", id[:2], id) }
+
+func uploadPath(id string) string { return path.Join("uploads", id) }
+
+// CreateUpload starts an empty upload file.
+func (s *Store) CreateUpload(id string) error {
+	if !validUploadID(id) {
+		return ErrBadID
+	}
+	f, err := s.root.OpenFile(uploadPath(id), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o640)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+// WriteUpload appends r to the upload, which must currently be offset bytes
+// long. It returns how many bytes were written. Partial writes are kept; the
+// caller records the new length.
+func (s *Store) WriteUpload(id string, offset int64, r io.Reader) (int64, error) {
+	if !validUploadID(id) {
+		return 0, ErrBadID
+	}
+	f, err := s.root.OpenFile(uploadPath(id), os.O_WRONLY, 0)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	// A previous chunk may have been cut off after the database recorded a
+	// shorter length; drop whatever is beyond it.
+	if err := f.Truncate(offset); err != nil {
+		return 0, err
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return 0, err
+	}
+	n, err := io.Copy(f, r)
+	if serr := f.Sync(); err == nil {
+		err = serr
+	}
+	return n, err
+}
+
+// FinishUpload turns a complete upload into an immutable object and returns
+// its ID and SHA-256. The upload file is gone afterwards.
+func (s *Store) FinishUpload(id string, size int64) (objectID, sum string, err error) {
+	if !validUploadID(id) {
+		return "", "", ErrBadID
+	}
+	f, err := s.root.Open(uploadPath(id))
+	if err != nil {
+		return "", "", err
+	}
+	h := sha256.New()
+	n, err := io.Copy(h, f)
+	f.Close()
+	if err != nil {
+		return "", "", err
+	}
+	if n != size {
+		return "", "", fmt.Errorf("upload %s has %d bytes, expected %d", id, n, size)
+	}
+	objectID = newObjectID()
+	if err := s.root.MkdirAll(path.Dir(objectPath(objectID)), 0o750); err != nil {
+		return "", "", err
+	}
+	if err := s.root.Rename(uploadPath(id), objectPath(objectID)); err != nil {
+		return "", "", err
+	}
+	return objectID, hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// PutObject stores data as a new object, for small contents written in one
+// go (such as an empty file).
+func (s *Store) PutObject(data []byte) (objectID, sum string, err error) {
+	tmp := path.Join("uploads", ".put-"+rand.Text())
+	if err := s.writeSynced(tmp, data, 0o640); err != nil {
+		return "", "", err
+	}
+	objectID = newObjectID()
+	if err := s.root.MkdirAll(path.Dir(objectPath(objectID)), 0o750); err != nil {
+		s.root.Remove(tmp)
+		return "", "", err
+	}
+	if err := s.root.Rename(tmp, objectPath(objectID)); err != nil {
+		s.root.Remove(tmp)
+		return "", "", err
+	}
+	h := sha256.Sum256(data)
+	return objectID, hex.EncodeToString(h[:]), nil
+}
+
+// RemoveUpload deletes an upload's file. A missing file is not an error.
+func (s *Store) RemoveUpload(id string) error {
+	if !validUploadID(id) {
+		return ErrBadID
+	}
+	err := s.root.Remove(uploadPath(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+// OpenObject opens an object for reading.
+func (s *Store) OpenObject(id string) (*os.File, error) {
+	if !validObjectID(id) {
+		return nil, ErrBadID
+	}
+	return s.root.Open(objectPath(id))
+}
+
+func newObjectID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}

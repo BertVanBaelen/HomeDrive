@@ -13,7 +13,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -139,6 +141,29 @@ func SetMeta(ctx context.Context, conn *sql.DB, key, value string) error {
 		`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
 		key, value)
 	return err
+}
+
+// TimeFormat is how times are stored: UTC with milliseconds, so that text
+// order is time order.
+const TimeFormat = "2006-01-02T15:04:05.000Z"
+
+func FormatTime(t time.Time) string { return t.UTC().Format(TimeFormat) }
+
+func ParseTime(s string) (time.Time, error) { return time.Parse(TimeFormat, s) }
+
+// NewID returns a UUIDv7: random, but roughly ordered by creation time.
+func NewID() string { return uuid.Must(uuid.NewV7()).String() }
+
+// ValidID reports whether s looks like an ID made by NewID. Handlers check
+// IDs from requests with it before using them.
+func ValidID(s string) bool {
+	u, err := uuid.Parse(s)
+	return err == nil && len(s) == 36 && u.Version() == 7
+}
+
+// IsUniqueViolation reports whether err is a UNIQUE constraint failure.
+func IsUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
 // InstanceID returns this installation's random ID, creating it on first
