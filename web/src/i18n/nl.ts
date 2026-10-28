@@ -193,6 +193,14 @@ export const nl: Messages = {
   'toast.uploaded.one': '{n} bestand geüpload',
   'toast.uploaded.other': '{n} bestanden geüpload',
   'toast.undo': 'Ongedaan maken',
+  'toast.deletedForever': 'Definitief verwijderd',
+  'toast.trashEmptied': 'Prullenbak leeggemaakt',
+  'trash.empty': 'Prullenbak leegmaken',
+  'trash.emptyTitle': 'Prullenbak leegmaken?',
+  'trash.emptyBody': 'Alles in de prullenbak wordt definitief verwijderd, ook wat anderen in de prullenbak van de familiedrive zetten. Dit kan niet ongedaan worden.',
+  'trash.deleteForever': 'Definitief verwijderen',
+  'trash.deleteTitle': '“{name}” definitief verwijderen?',
+  'trash.deleteBody': 'Je kunt het daarna niet meer terugzetten.',
   'toast.starred': 'Ster toegevoegd',
   'toast.unstarred': 'Ster verwijderd',
 
@@ -211,6 +219,8 @@ export const nl: Messages = {
   'viewer.next': 'Volgend bestand',
   'viewer.noPreview': 'Geen voorbeeld voor dit bestand',
   'viewer.noPreviewBody': 'Download het om het op je toestel te openen.',
+  'viewer.pdfFailed': 'Deze pdf kan niet worden getoond. Download hem om hem op je toestel te openen.',
+  'viewer.pdfPage': 'Pagina {n}',
 
   'login.title': 'Aanmelden',
   'login.intro': 'De documenten van je gezin, gewoon thuis.',
@@ -231,6 +241,10 @@ export const nl: Messages = {
   'setup.submit': 'Verder',
   'setup.finish': 'Instellen voltooien',
   'setup.noToken': 'Open de instellink uit het logboek van Homedrive om te beginnen.',
+  'recover.title': 'Beheerderstoegang herstellen',
+  'recover.intro': 'Vul het adres van een beheerdersaccount en een nieuw wachtwoord in. We mailen een code naar dat adres.',
+  'recover.finish': 'Nieuw wachtwoord instellen',
+  'recover.noToken': 'Open de herstellink uit het logboek van Homedrive om te beginnen.',
 
   'error.network': 'Geen verbinding met Homedrive. Controleer je netwerk en probeer opnieuw.',
   'error.internal': 'Er ging iets mis. Probeer het opnieuw.',
@@ -261,6 +275,7 @@ export const nl: Messages = {
   'error.forbidden': 'Je hebt hier geen toegang toe.',
   'error.email_taken': 'Iemand met dit e-mailadres heeft al een account.',
   'error.reauth_required': 'Bevestig je wachtwoord om dit te doen.',
+  'error.not_trashed': 'Alleen wat in de prullenbak zit, kan definitief worden verwijderd.',
 
   'when.now': 'Zonet',
   'when.minutes': '{n} min geleden',

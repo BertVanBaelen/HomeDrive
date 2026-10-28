@@ -34,7 +34,7 @@ export function App() {
 
   function signedIn(u: User) {
     setUser(u)
-    if (route.name === 'login' || route.name === 'setup' || route.name === 'welcome') navigate('/', true)
+    if (['login', 'setup', 'recover', 'welcome'].includes(route.name)) navigate('/', true)
   }
 
   async function signOut() {
@@ -45,6 +45,7 @@ export function App() {
 
   let page
   if (route.name === 'setup') page = <Setup onSignedIn={signedIn} />
+  else if (route.name === 'recover') page = <Setup mode="recover" onSignedIn={signedIn} />
   else if (route.name === 'welcome') page = <Welcome onSignedIn={signedIn} />
   else if (user === undefined) {
     page = (

@@ -83,19 +83,22 @@ export interface Crumb {
   home?: boolean
 }
 
-// PageHead is breadcrumb + back, title + count, and the view toggle.
+// PageHead is breadcrumb + back, title + count, page actions and the view
+// toggle.
 export function PageHead({
   crumbs,
   title,
   count,
   view,
   setView,
+  actions,
 }: {
   crumbs: Crumb[]
   title: string
   count: number
   view: View
   setView: (v: View) => void
+  actions?: ReactNode
 }) {
   const t = useT()
   const parent = crumbs.length > 1 ? crumbs[crumbs.length - 2] : null
@@ -140,11 +143,14 @@ export function PageHead({
           </nav>
         )}
         <div className="page-title">
-          <h1 key={title}>{title}</h1>
+          <h1>{title}</h1>
           <span>{plural(t, 'count.items', count)}</span>
         </div>
       </div>
-      <ViewToggle view={view} setView={setView} />
+      <div className="page-head__actions">
+        {actions}
+        <ViewToggle view={view} setView={setView} />
+      </div>
     </div>
   )
 }
@@ -160,8 +166,8 @@ export function Empty({ icon, title, body, children }: { icon: string; title: st
   )
 }
 
-// Staggered entrance, capped at 12 items like the design.
-const delay = (i: number) => ({ animationDelay: `${Math.min(i, 12) * 30}ms` })
+// A light stagger on first appearance, capped so long lists are quick.
+const delay = (i: number) => ({ animationDelay: `${Math.min(i, 8) * 15}ms` })
 
 function sizeLabel(n: Node, t: Translate, locale: Locale) {
   return n.kind === 'folder' ? plural(t, 'count.items', n.childCount ?? 0) : formatSize(n.size, locale)

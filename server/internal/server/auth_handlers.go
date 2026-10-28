@@ -17,6 +17,56 @@ func (s *Server) authRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/setup/check", s.handleSetupCheck)
 	mux.HandleFunc("POST /api/setup/begin", s.handleSetupBegin)
 	mux.HandleFunc("POST /api/setup/finish", s.handleSetupFinish)
+	mux.HandleFunc("POST /api/recover/check", s.handleRecoverCheck)
+	mux.HandleFunc("POST /api/recover/begin", s.handleRecoverBegin)
+	mux.HandleFunc("POST /api/recover/finish", s.handleRecoverFinish)
+}
+
+func (s *Server) handleRecoverCheck(w http.ResponseWriter, r *http.Request) {
+	if !s.limitIP(w, r) {
+		return
+	}
+	var req struct{ Token string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := s.accounts.CheckRecovery(req.Token); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleRecoverBegin(w http.ResponseWriter, r *http.Request) {
+	if !s.limitIP(w, r) {
+		return
+	}
+	var req struct{ Token, Email, Password string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if err := s.accounts.BeginRecovery(r.Context(), req.Token, req.Email, req.Password); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleRecoverFinish(w http.ResponseWriter, r *http.Request) {
+	if !s.limitIP(w, r) {
+		return
+	}
+	var req struct{ Token, Code string }
+	if !readJSON(w, r, &req) {
+		return
+	}
+	u, err := s.accounts.FinishRecovery(r.Context(), req.Token, strings.ReplaceAll(req.Code, " ", ""))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.log.Warn("admin password reset through admin_recovery; set admin_recovery back to false", "email", u.Email)
+	s.startSession(w, r, u, "admin_recovered")
 }
 
 // limitIP counts a sign-in attempt from the client's address and answers

@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { contentUrl, type Node } from '../api'
 import { displayName, formatDateTime, formatSize } from '../format'
 import { useLocale, useT, type MessageKey } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
+
+// pdf.js is large; load it the first time a PDF is opened.
+const PdfView = lazy(() => import('./PdfView'))
 
 const showableImage = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
 const playableVideo = /\.(mp4|m4v|webm|mov)$/i
@@ -13,9 +16,13 @@ export function canPreview(n: Node): boolean {
     (n.type === 'image' && showableImage.test(n.name)) ||
     (n.type === 'video' && playableVideo.test(n.name)) ||
     n.type === 'audio' ||
+    (n.type === 'pdf' && /\.pdf$/i.test(n.name)) ||
     ((n.type === 'text' || n.type === 'code') && n.size <= maxTextBytes)
   )
 }
+
+// Documents start at the top of the stage instead of its middle.
+const isDoc = (n: Node) => canPreview(n) && (n.type === 'text' || n.type === 'code' || n.type === 'pdf')
 
 // Viewer shows one file full screen on dark, with previous/next through the
 // folder's files. PDFs get their viewer (pdf.js) in a later step.
@@ -70,7 +77,7 @@ export function Viewer({
       <div className="viewer__main">
         <div className="viewer__stage">
           <div key={n.id}
-            className={'viewer__content' + ((n.type === 'text' || n.type === 'code') && canPreview(n) ? ' viewer__content--doc' : '')}>
+            className={'viewer__content' + (isDoc(n) ? ' viewer__content--doc' : '')}>
             <Preview node={n} />
           </div>
           {index > 0 && (
@@ -127,6 +134,12 @@ function Preview({ node }: { node: Node }) {
       return <video src={contentUrl(node.id)} controls autoPlay playsInline />
     case 'audio':
       return <audio src={contentUrl(node.id)} controls autoPlay />
+    case 'pdf':
+      return (
+        <Suspense fallback={<p className="pdf__loading">{t('loading')}</p>}>
+          <PdfView url={contentUrl(node.id)} />
+        </Suspense>
+      )
     default:
       return <TextPreview node={node} />
   }

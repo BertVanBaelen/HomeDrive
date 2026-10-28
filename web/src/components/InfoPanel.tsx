@@ -21,6 +21,7 @@ export function InfoPanel({
   onClose,
   actions,
   onRestore,
+  onDeleteForever,
 }: {
   node: Node
   location: string
@@ -28,6 +29,7 @@ export function InfoPanel({
   onClose: () => void
   actions?: InfoActions
   onRestore?: () => void
+  onDeleteForever?: () => void
 }) {
   const t = useT()
   const locale = useLocale()
@@ -71,10 +73,18 @@ export function InfoPanel({
           )}
         </div>
         {onRestore && !readOnly && (
-          <button type="button" className="btn btn--primary btn--block" onClick={onRestore}>
-            <Icon d={icons.restore} size={18} />
-            {t('info.restore')}
-          </button>
+          <div className="info__actions">
+            <button type="button" className="btn btn--primary btn--block" onClick={onRestore}>
+              <Icon d={icons.restore} size={18} />
+              {t('info.restore')}
+            </button>
+            {onDeleteForever && (
+              <button type="button" className="btn btn--small btn--danger btn--block" onClick={onDeleteForever}>
+                <Icon d={icons.trash} size={16} />
+                {t('trash.deleteForever')}
+              </button>
+            )}
+          </div>
         )}
         {actions && (
           <div className="info__actions">

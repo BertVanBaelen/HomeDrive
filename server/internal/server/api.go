@@ -138,6 +138,7 @@ var apiErrors = []struct {
 	{files.ErrBadOffset, http.StatusConflict, "offset_mismatch"},
 	{files.ErrIncomplete, http.StatusConflict, "incomplete"},
 	{files.ErrUploadFailed, http.StatusBadRequest, "upload_failed"},
+	{files.ErrNotTrashed, http.StatusConflict, "not_trashed"},
 	{accounts.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{accounts.ErrInvalidCode, http.StatusUnauthorized, "invalid_code"},
 	{accounts.ErrTooManyCodes, http.StatusTooManyRequests, "too_many_codes"},

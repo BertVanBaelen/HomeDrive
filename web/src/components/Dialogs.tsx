@@ -80,6 +80,45 @@ export function Modal({
   )
 }
 
+// ConfirmDialog asks before something that can't be undone.
+export function ConfirmDialog({
+  title,
+  body,
+  confirm,
+  onClose,
+  onConfirm,
+}: {
+  title: string
+  body: string
+  confirm: string
+  onClose: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const t = useT()
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function go() {
+    setBusy(true)
+    setError('')
+    try {
+      await onConfirm()
+    } catch (err) {
+      setError(errorText(t, err))
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal title={title} onClose={onClose}>
+      <p className="modal__body">{body}</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="modal__foot">
+        <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+        <button type="button" className="btn btn--danger-solid" disabled={busy} onClick={go}>{confirm}</button>
+      </div>
+    </Modal>
+  )
+}
+
 // AddDialog offers what can be added to a folder: in v1 a folder or files.
 export function AddDialog({
   folderName,

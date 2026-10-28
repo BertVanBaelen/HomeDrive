@@ -152,6 +152,20 @@ func (s *Store) RemoveUpload(id string) error {
 	return err
 }
 
+// RemoveObject deletes an object that no version uses any more. The backup
+// keeps its own copy for the retention period. A missing object is not an
+// error.
+func (s *Store) RemoveObject(id string) error {
+	if !validObjectID(id) {
+		return ErrBadID
+	}
+	err := s.root.Remove(objectPath(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
 // OpenObject opens an object for reading.
 func (s *Store) OpenObject(id string) (*os.File, error) {
 	if !validObjectID(id) {

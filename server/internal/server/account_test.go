@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -217,5 +219,37 @@ func TestOwnAccount(t *testing.T) {
 	expect(t, phone.get("/api/me"), 401)
 	if r := env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "a@example.com", "password": testPassword}); r.Code != 401 {
 		t.Fatalf("old password still works: %d", r.Code)
+	}
+}
+
+func TestAdminRecovery(t *testing.T) {
+	env := newTestEnv(t)
+	admin := env.signInAs(t, "admin@example.com", "Admin", "admin")
+	env.signIn(t, "m@example.com", "Member")
+	link, err := env.accounts.StartRecovery(context.Background())
+	if err != nil || !strings.Contains(link, "/recover#") {
+		t.Fatalf("recovery link %q, %v", link, err)
+	}
+	token := link[strings.IndexByte(link, '#')+1:]
+	c := env.client(t)
+	expect(t, c.json("POST", "/api/recover/check", map[string]string{"token": "nope"}), 403)
+	expect(t, c.json("POST", "/api/recover/check", map[string]string{"token": token}), 204)
+
+	// A member's address looks accepted but gets no code and can't finish.
+	sent := len(env.mail.sent)
+	expect(t, c.json("POST", "/api/recover/begin", map[string]string{"token": token, "email": "m@example.com", "password": "a new admin password"}), 204)
+	if len(env.mail.sent) != sent {
+		t.Fatal("recovery code mailed to a member")
+	}
+	expect(t, c.json("POST", "/api/recover/finish", map[string]string{"token": token, "code": "12345678"}), 401)
+
+	expect(t, c.json("POST", "/api/recover/begin", map[string]string{"token": token, "email": "admin@example.com", "password": "a new admin password"}), 204)
+	expect(t, c.json("POST", "/api/recover/finish", map[string]string{"token": token, "code": env.mail.lastCode(t, "admin@example.com")}), 200)
+	expect(t, c.get("/api/me"), 200)
+	// Old sessions end, the link is spent, the new password works.
+	expect(t, admin.get("/api/me"), 401)
+	expect(t, c.json("POST", "/api/recover/check", map[string]string{"token": token}), 403)
+	if r := env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "admin@example.com", "password": "a new admin password"}); r.Code != 200 {
+		t.Fatalf("login with recovered password: %d", r.Code)
 	}
 }

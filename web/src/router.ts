@@ -7,7 +7,7 @@ import { useSyncExternalStore } from 'react'
 //   /f/<id>       a folder on any drive
 //   /recent, /starred, /trash, /search?q=…
 //   /account, /users (admins)
-//   /login, /setup, /welcome, /save
+//   /login, /setup, /recover, /welcome, /save
 
 const listeners = new Set<() => void>()
 
@@ -43,6 +43,7 @@ export type Route =
   | { name: 'users' }
   | { name: 'login' }
   | { name: 'setup' }
+  | { name: 'recover' }
   | { name: 'welcome' }
   | { name: 'save' }
 
@@ -52,6 +53,7 @@ export function parseRoute(full: string): Route {
   switch (path) {
     case '/login':
     case '/setup':
+    case '/recover':
     case '/welcome':
     case '/save':
     case '/trash':

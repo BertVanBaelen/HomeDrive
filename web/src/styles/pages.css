@@ -130,7 +130,7 @@
   color: var(--gray-900);
   text-decoration: none;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-  animation: card-in 0.44s ease-out backwards;
+  animation: item-in 0.22s ease-out backwards;
 }
 .quick__item:hover {
   color: var(--gray-900);
@@ -181,7 +181,7 @@
   font-size: 28px;
   line-height: 1.2;
   color: var(--gray-900);
-  animation: title-pop 0.38s ease-out backwards;
+  animation: fade-in 0.2s ease-out backwards;
 }
 .settings__head {
   display: flex;
@@ -320,7 +320,7 @@
   background: #fff;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-card);
-  animation: card-in 0.44s ease-out backwards;
+  animation: fade-in 0.2s ease-out backwards;
 }
 .person {
   display: flex;
@@ -381,6 +381,45 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-left: auto;
+}
+
+/* pdf viewer */
+.pdf {
+  width: min(900px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+.pdf__page {
+  display: block;
+  max-width: 100%;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.pdf__loading {
+  color: #9ca3af;
+}
+
+/* irreversible actions */
+.btn--danger-solid {
+  border: 0;
+  background: var(--danger);
+  color: #fff;
+}
+.btn--danger-solid:hover:not(:disabled) {
+  background: var(--danger-strong);
+}
+.modal__body {
+  margin: -6px 0 0;
+  color: #4b5563;
+}
+.page-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* save page */

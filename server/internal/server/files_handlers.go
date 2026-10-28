@@ -20,6 +20,7 @@ func (s *Server) fileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/nodes/{id}/restore", s.authed(s.handleRestore))
 	mux.HandleFunc("POST /api/folders", s.authed(s.handleCreateFolder))
 	mux.HandleFunc("GET /api/trash", s.authed(s.handleTrash))
+	mux.HandleFunc("DELETE /api/trash", s.authed(s.handleEmptyTrash))
 	mux.HandleFunc("GET /api/starred", s.authed(s.handleList(func(r *http.Request, uid string) ([]files.Located, error) {
 		return s.files.Starred(r.Context(), uid)
 	})))
@@ -121,12 +122,41 @@ func (s *Server) handlePatchNode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, n)
 }
 
+// handleTrashNode moves an item to the trash, or with ?permanent=true
+// deletes an item that is already there for good.
 func (s *Server) handleTrashNode(w http.ResponseWriter, r *http.Request) {
-	if err := s.files.Trash(r.Context(), currentUser(r.Context()).ID, r.PathValue("id")); err != nil {
+	ctx, u, id := r.Context(), currentUser(r.Context()), r.PathValue("id")
+	if r.URL.Query().Get("permanent") == "true" {
+		if !recentAuth(w, r) {
+			return
+		}
+		if err := s.files.DeleteForever(ctx, u.ID, id); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		s.accounts.Audit(ctx, u.ID, ClientIP(ctx).String(), "deleted_forever", id)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err := s.files.Trash(ctx, u.ID, id); err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
+	if !recentAuth(w, r) {
+		return
+	}
+	ctx, u := r.Context(), currentUser(r.Context())
+	n, err := s.files.EmptyTrash(ctx, u.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.accounts.Audit(ctx, u.ID, ClientIP(ctx).String(), "trash_emptied", strconv.Itoa(n))
+	writeJSON(w, http.StatusOK, map[string]int{"deleted": n})
 }
 
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {

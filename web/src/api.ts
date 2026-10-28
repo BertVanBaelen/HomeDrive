@@ -156,6 +156,9 @@ export const api = {
   setupBegin: (p: { token: string; email: string; name: string; password: string; locale: string }) =>
     request<void>('POST', '/api/setup/begin', p),
   setupFinish: (token: string, code: string) => request<User>('POST', '/api/setup/finish', { token, code }),
+  recoverCheck: (token: string) => request<void>('POST', '/api/recover/check', { token }),
+  recoverBegin: (p: { token: string; email: string; password: string }) => request<void>('POST', '/api/recover/begin', p),
+  recoverFinish: (token: string, code: string) => request<User>('POST', '/api/recover/finish', { token, code }),
 
   drives: () => request<Drive[]>('GET', '/api/drives'),
   node: (id: string) => request<Details>('GET', `/api/nodes/${encodeURIComponent(id)}`),
@@ -168,6 +171,8 @@ export const api = {
   trash: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}`),
   restore: (id: string) => request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/restore`),
   trashList: () => request<Located[]>('GET', '/api/trash'),
+  deleteForever: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}?permanent=true`),
+  emptyTrash: () => request<{ deleted: number }>('DELETE', '/api/trash'),
   starred: () => request<Located[]>('GET', '/api/starred'),
   recent: () => request<Located[]>('GET', '/api/recent'),
   search: (q: string) => request<Located[]>('GET', `/api/search?q=${encodeURIComponent(q)}`),

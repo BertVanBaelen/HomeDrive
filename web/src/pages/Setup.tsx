@@ -5,11 +5,14 @@ import { useLocale, useT } from '../i18n'
 import { AuthLayout, CodeStep, Field } from './Login'
 
 // Setup creates the first admin from the one-time link in the server log:
-// https://…/setup#<token>. The token stays in the fragment so it never
-// reaches a proxy; the page sends it in request bodies only.
-export function Setup({ onSignedIn }: { onSignedIn: (u: User) => void }) {
+// https://…/setup#<token>. With mode "recover" the same page serves the
+// admin_recovery link (…/recover#<token>): a locked-out admin sets a new
+// password. The token stays in the fragment so it never reaches a proxy;
+// the page sends it in request bodies only.
+export function Setup({ mode = 'setup', onSignedIn }: { mode?: 'setup' | 'recover'; onSignedIn: (u: User) => void }) {
   const t = useT()
   const locale = useLocale()
+  const recover = mode === 'recover'
   const [token] = useState(() => location.hash.slice(1))
   const [valid, setValid] = useState<boolean | null>(token ? null : false)
   const [name, setName] = useState('')
@@ -23,21 +26,22 @@ export function Setup({ onSignedIn }: { onSignedIn: (u: User) => void }) {
     // Keep the token out of the address bar and history from now on.
     if (location.hash) history.replaceState(null, '', location.pathname)
     if (!token) return
-    api.setupCheck(token).then(
+    ;(recover ? api.recoverCheck(token) : api.setupCheck(token)).then(
       () => setValid(true),
       (err) => {
         setValid(false)
         setError(errorText(t, err))
       },
     )
-  }, [token, t])
+  }, [token, t, recover])
 
   async function begin(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError('')
     try {
-      await api.setupBegin({ token, email, name, password, locale })
+      if (recover) await api.recoverBegin({ token, email, password })
+      else await api.setupBegin({ token, email, name, password, locale })
       setCodeSent(true)
     } catch (err) {
       setError(errorText(t, err))
@@ -48,9 +52,9 @@ export function Setup({ onSignedIn }: { onSignedIn: (u: User) => void }) {
   if (codeSent) {
     return (
       <AuthLayout>
-        <CodeStep email={email} submit={t('setup.finish')} back={t('common.back')}
+        <CodeStep email={email} submit={t(recover ? 'recover.finish' : 'setup.finish')} back={t('common.back')}
           onVerify={async (code) => {
-            const u = await api.setupFinish(token, code)
+            const u = await (recover ? api.recoverFinish(token, code) : api.setupFinish(token, code))
             setPassword('')
             onSignedIn(u)
           }}
@@ -60,19 +64,22 @@ export function Setup({ onSignedIn }: { onSignedIn: (u: User) => void }) {
   }
   return (
     <AuthLayout>
-      <h1>{t('setup.title')}</h1>
+      <h1>{t(recover ? 'recover.title' : 'setup.title')}</h1>
       {valid === false ? (
-        <p className="form-error" role="alert">{error || t('setup.noToken')}</p>
+        <p className="form-error" role="alert">{error || t(recover ? 'recover.noToken' : 'setup.noToken')}</p>
       ) : (
         <>
-          <p>{t('setup.intro')}</p>
+          <p>{t(recover ? 'recover.intro' : 'setup.intro')}</p>
           <form onSubmit={begin}>
-            <Field label={t('setup.name')} autoComplete="name" required autoFocus maxLength={80}
-              value={name} onChange={(e) => setName(e.target.value)} />
-            <Field label={t('login.email')} type="email" autoComplete="email" required
-              value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Field label={t('login.password')} type="password" autoComplete="new-password" required minLength={12}
-              hint={t('setup.passwordHint')} value={password} onChange={(e) => setPassword(e.target.value)} />
+            {!recover && (
+              <Field label={t('setup.name')} autoComplete="name" required autoFocus maxLength={80}
+                value={name} onChange={(e) => setName(e.target.value)} />
+            )}
+            <Field label={t('login.email')} type="email" autoComplete={recover ? 'username' : 'email'} required
+              autoFocus={recover} value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Field label={t(recover ? 'account.new' : 'login.password')} type="password" autoComplete="new-password"
+              required minLength={12} hint={t('setup.passwordHint')} value={password}
+              onChange={(e) => setPassword(e.target.value)} />
             {error && <p className="form-error" role="alert">{error}</p>}
             <button type="submit" className="btn btn--primary btn--block" disabled={busy || valid === null}>
               {t('setup.submit')}

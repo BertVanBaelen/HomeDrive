@@ -76,7 +76,8 @@ type Service struct {
 	origin string // public_url, for links in emails
 	now    func() time.Time
 
-	setup setupState
+	setup    setupState
+	recovery setupState
 }
 
 func New(conn *sql.DB, sender hdmail.Sender, log *slog.Logger, origin string) *Service {

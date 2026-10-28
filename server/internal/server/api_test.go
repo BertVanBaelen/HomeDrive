@@ -555,3 +555,51 @@ func TestStarsSearchRecent(t *testing.T) {
 		t.Fatalf("B's recent = %+v", recent)
 	}
 }
+
+func TestDeleteForever(t *testing.T) {
+	env := newTestEnv(t)
+	a := env.signIn(t, "a@example.com", "A")
+	b := env.signIn(t, "b@example.com", "B")
+	root, family := rootOf(t, a, "personal"), rootOf(t, a, "shared")
+	folder := mkdir(t, a, root, "Old")
+	inner := upload(t, a, folder.ID, "inner.txt", []byte("inner"), 100)
+	loose := upload(t, a, root, "loose.txt", []byte("loose"), 100)
+	shared := upload(t, b, family, "b's.txt", []byte("b"), 100)
+
+	// Only trashed items can go for good.
+	if r := a.json("DELETE", "/api/nodes/"+loose.ID+"?permanent=true", nil); r.errorCode() != "not_trashed" {
+		t.Fatalf("delete live item: %d %s", r.Code, r.Body)
+	}
+	expect(t, a.json("DELETE", "/api/nodes/"+folder.ID, nil), 204)
+	// It needs a recent password.
+	env.expireRecentAuth(t)
+	if r := a.json("DELETE", "/api/nodes/"+folder.ID+"?permanent=true", nil); r.errorCode() != "reauth_required" {
+		t.Fatalf("stale session: %s", r.Body)
+	}
+	expect(t, a.json("POST", "/api/auth/reauth", map[string]string{"password": testPassword}), 204)
+	expect(t, a.json("DELETE", "/api/nodes/"+folder.ID+"?permanent=true", nil), 204)
+	expect(t, a.json("POST", "/api/nodes/"+folder.ID+"/restore", nil), 404)
+	// Its contents went with it, including the stored bytes.
+	var objects int
+	env.conn.QueryRow(`SELECT count(*) FROM versions WHERE node_id = ?`, inner.ID).Scan(&objects)
+	if objects != 0 {
+		t.Fatal("versions of a deleted file remain")
+	}
+
+	// Emptying the trash covers every drive the user can change: their own
+	// and the shared family drive.
+	expect(t, a.json("DELETE", "/api/nodes/"+loose.ID, nil), 204)
+	expect(t, b.json("DELETE", "/api/nodes/"+shared.ID, nil), 204)
+	r := a.json("DELETE", "/api/trash", nil)
+	expect(t, r, 200)
+	var res struct{ Deleted int }
+	r.decode(t, &res)
+	if res.Deleted != 2 {
+		t.Fatalf("deleted %d", res.Deleted)
+	}
+	var trash []node
+	b.get("/api/trash").decode(t, &trash)
+	if len(trash) != 0 {
+		t.Fatalf("B's trash = %+v", trash)
+	}
+}

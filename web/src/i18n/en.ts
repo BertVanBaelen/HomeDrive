@@ -191,6 +191,14 @@ export const en = {
   'toast.uploaded.one': '{n} file uploaded',
   'toast.uploaded.other': '{n} files uploaded',
   'toast.undo': 'Undo',
+  'toast.deletedForever': 'Deleted for good',
+  'toast.trashEmptied': 'Trash emptied',
+  'trash.empty': 'Empty Trash',
+  'trash.emptyTitle': 'Empty the trash?',
+  'trash.emptyBody': 'Everything in the trash is deleted for good, also what others put in the family drive’s trash. This can’t be undone.',
+  'trash.deleteForever': 'Delete Forever',
+  'trash.deleteTitle': 'Delete “{name}” forever?',
+  'trash.deleteBody': 'It can’t be restored afterwards.',
   'toast.starred': 'Added to Starred',
   'toast.unstarred': 'Removed from Starred',
 
@@ -209,6 +217,8 @@ export const en = {
   'viewer.next': 'Next file',
   'viewer.noPreview': 'No preview for this file',
   'viewer.noPreviewBody': 'Download it to open it on your device.',
+  'viewer.pdfFailed': 'This PDF couldn’t be shown. Download it to open it on your device.',
+  'viewer.pdfPage': 'Page {n}',
 
   'login.title': 'Sign in',
   'login.intro': 'Your household’s documents, at home.',
@@ -229,6 +239,10 @@ export const en = {
   'setup.submit': 'Continue',
   'setup.finish': 'Finish Setup',
   'setup.noToken': 'Open the setup link from the Homedrive log to start.',
+  'recover.title': 'Recover admin access',
+  'recover.intro': 'Enter the address of an administrator account and a new password. We’ll email a code to that address.',
+  'recover.finish': 'Set New Password',
+  'recover.noToken': 'Open the recovery link from the Homedrive log to start.',
 
   'error.network': 'No connection to Homedrive. Check your network and try again.',
   'error.internal': 'Something went wrong. Please try again.',
@@ -259,6 +273,7 @@ export const en = {
   'error.forbidden': 'You don’t have access to this.',
   'error.email_taken': 'Someone with this email address already has an account.',
   'error.reauth_required': 'Confirm your password to do this.',
+  'error.not_trashed': 'Only items in the trash can be deleted for good.',
 
   'when.now': 'Just now',
   'when.minutes': '{n} min ago',

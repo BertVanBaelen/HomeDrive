@@ -30,10 +30,10 @@ type setupState struct {
 }
 
 type pendingAdmin struct {
-	email, name, locale, passwordHash string
-	codeHash                          []byte
-	codeExpires                       time.Time
-	attempts                          int
+	userID, email, name, locale, passwordHash string
+	codeHash                                  []byte
+	codeExpires                               time.Time
+	attempts                                  int
 }
 
 // StartSetup creates a setup token if there are no users yet. It returns

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Details, type Drive, type Located, type Node, type User } from '../api'
-import { AddDialog, errorText } from '../components/Dialogs'
+import { AddDialog, ConfirmDialog, errorText } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
 import { InfoPanel } from '../components/InfoPanel'
 import { useItemActions } from '../components/ItemActions'
@@ -21,6 +21,7 @@ import { Fab, Header, Sidebar, TabBar, type Section } from '../components/Shell'
 import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
 import { notifyChanged, onChanged } from '../events'
+import { displayName } from '../format'
 import { plural, useT } from '../i18n'
 import type { ListName, Route } from '../router'
 import { addUploads, onBatchDone } from '../uploads'
@@ -76,7 +77,7 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
               setAddOpen={setAddOpen} onDrive={setFolderDrive} />
           )}
           {drives && route.name === 'list' && (
-            <LocatedView key={route.list + route.q} list={route.list} q={route.q} drives={drives} />
+            <LocatedView key={route.list} list={route.list} q={route.q} drives={drives} />
           )}
           {drives && route.name === 'trash' && <TrashView />}
         </main>
@@ -373,6 +374,7 @@ function TrashView() {
 
   const where = (n: Node) => whereIs(t, n as Located)
   const sel = items?.find((n) => n.id === selected) ?? null
+  const [confirm, setConfirm] = useState<'empty' | Located | null>(null)
 
   async function restore(n: Located) {
     try {
@@ -391,7 +393,13 @@ function TrashView() {
   const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
   return (
     <>
-      <PageHead crumbs={[]} title={t('nav.trash')} count={items.length} view={view} setView={setView} />
+      <PageHead crumbs={[]} title={t('nav.trash')} count={items.length} view={view} setView={setView}
+        actions={items.length > 0 && (
+          <button type="button" className="btn btn--small btn--danger" onClick={() => setConfirm('empty')}>
+            <Icon d={icons.trash} size={16} />
+            {t('trash.empty')}
+          </button>
+        )} />
       <div className="files-row">
         <section aria-label={t('nav.trash')} className="files">
           {items.length === 0 ? (
@@ -404,9 +412,33 @@ function TrashView() {
         </section>
         {sel && (
           <InfoPanel node={sel} location={where(sel)} readOnly={sel.drive.role === 'viewer'}
-            onClose={() => setSelected(null)} onRestore={() => restore(sel)} />
+            onClose={() => setSelected(null)} onRestore={() => restore(sel)} onDeleteForever={() => setConfirm(sel)} />
         )}
       </div>
+      {confirm === 'empty' && (
+        <ConfirmDialog title={t('trash.emptyTitle')} body={t('trash.emptyBody')} confirm={t('trash.empty')}
+          onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            await api.emptyTrash()
+            setConfirm(null)
+            setSelected(null)
+            notifyChanged('trash')
+            notifyChanged('starred')
+            showToast(t('toast.trashEmptied'))
+          }} />
+      )}
+      {confirm && confirm !== 'empty' && (
+        <ConfirmDialog title={t('trash.deleteTitle', { name: displayName(confirm) })} body={t('trash.deleteBody')}
+          confirm={t('trash.deleteForever')} onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            await api.deleteForever(confirm.id)
+            setConfirm(null)
+            setSelected(null)
+            notifyChanged('trash')
+            notifyChanged('starred')
+            showToast(t('toast.deletedForever'))
+          }} />
+      )}
     </>
   )
 }

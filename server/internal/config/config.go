@@ -52,6 +52,7 @@ var defaults = map[string]string{
 	"trusted_proxies":       "127.0.0.0/8, ::1/128, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7",
 	"web_dir":               "/app/web",
 	"log_level":             "info",
+	"admin_recovery":        "false",
 }
 
 type SMTPSecurity string
@@ -92,6 +93,9 @@ type Config struct {
 	TrustedProxies      []netip.Prefix
 	WebDir              string
 	LogLevel            slog.Level
+	// AdminRecovery prints a one-time link at startup to set a new password
+	// for an admin who is locked out.
+	AdminRecovery bool
 
 	// Warnings are non-fatal problems found while loading, such as unknown
 	// options. They are meant to be logged once at startup.
@@ -282,6 +286,12 @@ func parse(values map[string]string) (*Config, error) {
 
 	if err := cfg.LogLevel.UnmarshalText([]byte(values["log_level"])); err != nil {
 		bad("log_level", "must be debug, info, warn or error")
+	}
+
+	if b, err := strconv.ParseBool(strings.TrimSpace(values["admin_recovery"])); err != nil {
+		bad("admin_recovery", "must be true or false")
+	} else {
+		cfg.AdminRecovery = b
 	}
 
 	if len(errs) > 0 {

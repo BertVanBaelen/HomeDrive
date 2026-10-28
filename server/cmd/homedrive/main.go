@@ -108,6 +108,11 @@ func run() error {
 		// The link is the only way in on a new installation, so it goes to
 		// the log at a level that is always shown.
 		log.Warn("no accounts yet: open this link within 1 hour to create the admin account (restart for a new link)", "link", link)
+	} else if cfg.AdminRecovery {
+		if link, err = acc.StartRecovery(ctx); err != nil {
+			return err
+		}
+		log.Warn("admin_recovery is on: open this link within 1 hour to set a new admin password, then turn admin_recovery off again", "link", link)
 	}
 
 	srv, err := server.New(cfg, log, acc, files.New(conn, store, log))
