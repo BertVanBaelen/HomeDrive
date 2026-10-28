@@ -78,8 +78,18 @@ type Node struct {
 	ModifiedAt time.Time  `json:"modifiedAt"`
 	TrashedAt  *time.Time `json:"trashedAt,omitempty"`
 	ChildCount *int       `json:"childCount,omitempty"`
+	// Starred is per user: whether the user asking starred it.
+	Starred bool `json:"starred"`
 
 	versionID string
+}
+
+// Located is a node listed outside its folder (trash, starred, recent,
+// search results), with where it lives.
+type Located struct {
+	Node
+	Drive Drive   `json:"drive"`
+	Path  []Crumb `json:"path"`
 }
 
 func (n Node) IsFolder() bool { return n.Kind == "folder" }
@@ -230,7 +240,11 @@ func (s *Service) Get(ctx context.Context, userID, nodeID string) (Details, erro
 		}
 		it.ChildCount = &n
 	}
-	return Details{Node: it.Node, Drive: it.drive, Path: nonNil(it.path)}, nil
+	nodes := []Node{it.Node}
+	if err := s.markStars(ctx, userID, nodes); err != nil {
+		return Details{}, err
+	}
+	return Details{Node: nodes[0], Drive: it.drive, Path: nonNil(it.path)}, nil
 }
 
 func (s *Service) childCount(ctx context.Context, q querier, id string) (int, error) {

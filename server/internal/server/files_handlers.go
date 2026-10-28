@@ -20,6 +20,15 @@ func (s *Server) fileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/nodes/{id}/restore", s.authed(s.handleRestore))
 	mux.HandleFunc("POST /api/folders", s.authed(s.handleCreateFolder))
 	mux.HandleFunc("GET /api/trash", s.authed(s.handleTrash))
+	mux.HandleFunc("GET /api/starred", s.authed(s.handleList(func(r *http.Request, uid string) ([]files.Located, error) {
+		return s.files.Starred(r.Context(), uid)
+	})))
+	mux.HandleFunc("GET /api/recent", s.authed(s.handleList(func(r *http.Request, uid string) ([]files.Located, error) {
+		return s.files.Recent(r.Context(), uid)
+	})))
+	mux.HandleFunc("GET /api/search", s.authed(s.handleList(func(r *http.Request, uid string) ([]files.Located, error) {
+		return s.files.Search(r.Context(), uid, r.URL.Query().Get("q"))
+	})))
 	mux.HandleFunc("POST /api/uploads", s.authed(s.handleCreateUpload))
 	mux.HandleFunc("GET /api/uploads/{id}", s.authed(s.handleUploadStatus))
 	mux.HandleFunc("PUT /api/uploads/{id}", s.authed(s.handleUploadChunk))
@@ -74,11 +83,12 @@ func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, n)
 }
 
-// handlePatchNode renames and/or moves a node.
+// handlePatchNode renames, moves and/or stars a node.
 func (s *Server) handlePatchNode(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name     *string `json:"name"`
 		ParentID *string `json:"parentId"`
+		Starred  *bool   `json:"starred"`
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -98,7 +108,13 @@ func (s *Server) handlePatchNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.Name == nil && req.ParentID == nil {
+	if req.Starred != nil {
+		if n, err = s.files.SetStar(ctx, uid, id, *req.Starred); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	if req.Name == nil && req.ParentID == nil && req.Starred == nil {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -129,6 +145,18 @@ func (s *Server) handleTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, nodes)
+}
+
+// handleList serves a list of items from across the user's drives.
+func (s *Server) handleList(list func(r *http.Request, userID string) ([]files.Located, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		nodes, err := list(r, currentUser(r.Context()).ID)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nodes)
+	}
 }
 
 func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {

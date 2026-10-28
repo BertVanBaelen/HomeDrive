@@ -153,7 +153,7 @@ func (s *Service) CompleteUpload(ctx context.Context, userID, id string) (Node, 
 		s.log.Warn("removing finished upload", "upload", id, "error", err)
 	}
 	s.forgetUploadLock(id)
-	return s.node(ctx, nodeID)
+	return s.node(ctx, userID, nodeID)
 }
 
 // CancelUpload drops an upload and its bytes.

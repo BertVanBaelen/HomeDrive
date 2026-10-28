@@ -41,12 +41,43 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-type userKey struct{}
+type sessionKey struct{}
+
+type signedIn struct {
+	user    accounts.User
+	session accounts.Session
+}
 
 // currentUser is the signed-in user of an authed handler.
 func currentUser(ctx context.Context) accounts.User {
-	u, _ := ctx.Value(userKey{}).(accounts.User)
-	return u
+	s, _ := ctx.Value(sessionKey{}).(signedIn)
+	return s.user
+}
+
+func currentSession(ctx context.Context) accounts.Session {
+	s, _ := ctx.Value(sessionKey{}).(signedIn)
+	return s.session
+}
+
+// admin is authed for admins only.
+func (s *Server) admin(next http.HandlerFunc) http.HandlerFunc {
+	return s.authed(func(w http.ResponseWriter, r *http.Request) {
+		if !currentUser(r.Context()).IsAdmin() {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		next(w, r)
+	})
+}
+
+// recentAuth answers 403 reauth_required unless the password was entered in
+// the last few minutes; the app then asks for it and retries.
+func recentAuth(w http.ResponseWriter, r *http.Request) bool {
+	if !currentSession(r.Context()).RecentlyAuthenticated(time.Now()) {
+		writeError(w, http.StatusForbidden, "reauth_required")
+		return false
+	}
+	return true
 }
 
 // authed lets a request through only with a valid session cookie.
@@ -57,7 +88,7 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "unauthenticated")
 			return
 		}
-		u, _, err := s.accounts.SessionUser(r.Context(), c.Value)
+		u, sess, err := s.accounts.SessionUser(r.Context(), c.Value)
 		if err != nil {
 			if !errors.Is(err, accounts.ErrNoSession) {
 				s.log.Error("loading session", "error", err)
@@ -68,7 +99,7 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "unauthenticated")
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), userKey{}, u)))
+		next(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, signedIn{u, sess})))
 	}
 }
 
@@ -115,6 +146,14 @@ var apiErrors = []struct {
 	{accounts.ErrEmailTaken, http.StatusConflict, "email_taken"},
 	{accounts.ErrSetupUnavailable, http.StatusForbidden, "setup_unavailable"},
 	{accounts.ErrSetupNotStarted, http.StatusConflict, "setup_not_started"},
+	{accounts.ErrNotFound, http.StatusNotFound, "not_found"},
+	{accounts.ErrInvalidLink, http.StatusForbidden, "link_invalid"},
+	{accounts.ErrOwnAccount, http.StatusBadRequest, "own_account"},
+	{accounts.ErrLastAdmin, http.StatusConflict, "last_admin"},
+	{accounts.ErrUserDisabled, http.StatusConflict, "user_disabled"},
+	{accounts.ErrMailFailed, http.StatusBadGateway, "mail_failed"},
+	{accounts.ErrInvalidRole, http.StatusBadRequest, "invalid_role"},
+	{accounts.ErrWrongPassword, http.StatusForbidden, "wrong_password"},
 	{auth.ErrPasswordTooShort, http.StatusBadRequest, "password_too_short"},
 	{auth.ErrPasswordTooLong, http.StatusBadRequest, "password_too_long"},
 	{auth.ErrPasswordCommon, http.StatusBadRequest, "password_common"},

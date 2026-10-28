@@ -92,7 +92,7 @@ func (s *Service) Children(ctx context.Context, userID, folderID string, sortBy 
 		return nil, err
 	}
 	SortNodes(out, sortBy, desc)
-	return out, nil
+	return out, s.markStars(ctx, userID, out)
 }
 
 // SortNodes orders folders before files, then by the key. Names compare
@@ -218,7 +218,7 @@ func (s *Service) CreateFolder(ctx context.Context, userID, parentID, name strin
 	if err := tx.Commit(); err != nil {
 		return Node{}, err
 	}
-	return s.node(ctx, id)
+	return s.node(ctx, userID, id)
 }
 
 // touch marks a folder as modified because its contents changed.
@@ -229,7 +229,7 @@ func (s *Service) touch(ctx context.Context, q querier, folderID string) error {
 
 // node reads a node without access checks, for returning results of
 // operations that already checked.
-func (s *Service) node(ctx context.Context, id string) (Node, error) {
+func (s *Service) node(ctx context.Context, userID, id string) (Node, error) {
 	n, err := scanNode(s.db.QueryRowContext(ctx, `SELECT `+nodeColumns+` FROM nodes n WHERE n.id = ?`, id))
 	if err != nil {
 		return Node{}, err
@@ -241,7 +241,9 @@ func (s *Service) node(ctx context.Context, id string) (Node, error) {
 		}
 		n.ChildCount = &c
 	}
-	return n, nil
+	nodes := []Node{n}
+	err = s.markStars(ctx, userID, nodes)
+	return nodes[0], err
 }
 
 func (s *Service) Rename(ctx context.Context, userID, nodeID, name string) (Node, error) {
@@ -272,7 +274,7 @@ func (s *Service) Rename(ctx context.Context, userID, nodeID, name string) (Node
 	if err := tx.Commit(); err != nil {
 		return Node{}, err
 	}
-	return s.node(ctx, it.ID)
+	return s.node(ctx, userID, it.ID)
 }
 
 // Move puts a node into another folder, possibly on another drive the user
@@ -322,7 +324,7 @@ func (s *Service) Move(ctx context.Context, userID, nodeID, targetID string) (No
 	if err := tx.Commit(); err != nil {
 		return Node{}, err
 	}
-	return s.node(ctx, it.ID)
+	return s.node(ctx, userID, it.ID)
 }
 
 // Trash moves a node to the trash. A folder's contents go with it without
@@ -348,46 +350,10 @@ func (s *Service) Trash(ctx context.Context, userID, nodeID string) error {
 	return tx.Commit()
 }
 
-// TrashedNode is an item in the trash with where it came from.
-type TrashedNode struct {
-	Node
-	Drive Drive   `json:"drive"`
-	Path  []Crumb `json:"path"`
-}
-
 // TrashList lists what was put in the trash on the drives the user can see,
 // most recent first.
-func (s *Service) TrashList(ctx context.Context, userID string) ([]TrashedNode, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT n.id FROM nodes n
-		JOIN drives d ON d.id = n.drive_id
-		LEFT JOIN drive_members m ON m.drive_id = d.id AND m.user_id = ?1
-		WHERE n.trashed_at IS NOT NULL AND (d.owner_user_id = ?1 OR m.user_id IS NOT NULL)
-		ORDER BY n.trashed_at DESC LIMIT 1000`, userID)
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	out := []TrashedNode{}
-	for _, id := range ids {
-		it, err := s.lookup(ctx, s.db, userID, id, true)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, TrashedNode{Node: it.Node, Drive: it.drive, Path: nonNil(it.path)})
-	}
-	return out, nil
+func (s *Service) TrashList(ctx context.Context, userID string) ([]Located, error) {
+	return s.locate(ctx, userID, `n.trashed_at IS NOT NULL`, nil, `n.trashed_at DESC`, 1000, true)
 }
 
 // Restore takes a node out of the trash. If its folder is gone (in the
@@ -428,7 +394,7 @@ func (s *Service) Restore(ctx context.Context, userID, nodeID string) (Node, err
 	if err := tx.Commit(); err != nil {
 		return Node{}, err
 	}
-	return s.node(ctx, it.ID)
+	return s.node(ctx, userID, it.ID)
 }
 
 // uniqueName returns name, or "name (2).ext", "name (3).ext"… if it is

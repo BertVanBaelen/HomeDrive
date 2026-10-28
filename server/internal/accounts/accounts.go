@@ -58,6 +58,14 @@ type Session struct {
 	CreatedAt    time.Time
 	ExpiresAt    time.Time
 	RecentAuthAt time.Time
+
+	hash []byte
+}
+
+// RecentlyAuthenticated reports whether the password was entered recently
+// enough for sensitive actions.
+func (s Session) RecentlyAuthenticated(now time.Time) bool {
+	return now.Sub(s.RecentAuthAt) < RecentAuth
 }
 
 type Service struct {
@@ -154,7 +162,7 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password, role, l
 		return User{}, err
 	}
 	if role != "admin" && role != "member" {
-		return User{}, fmt.Errorf("invalid role %q", role)
+		return User{}, ErrInvalidRole
 	}
 	if err := auth.CheckPassword(password, email, name); err != nil {
 		return User{}, err
@@ -318,7 +326,7 @@ func (s *Service) SessionUser(ctx context.Context, token string) (User, Session,
 		return User{}, Session{}, err
 	}
 	now := s.now()
-	sess := Session{UserID: u.ID}
+	sess := Session{UserID: u.ID, hash: hash}
 	sess.CreatedAt, _ = db.ParseTime(created)
 	sess.ExpiresAt, _ = db.ParseTime(expires)
 	sess.RecentAuthAt, _ = db.ParseTime(recent)

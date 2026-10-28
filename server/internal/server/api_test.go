@@ -88,8 +88,12 @@ const testPassword = "correct horse battery"
 
 // signIn creates a user and signs them in through the API.
 func (e *testEnv) signIn(t *testing.T, email, name string) *client {
+	return e.signInAs(t, email, name, "member")
+}
+
+func (e *testEnv) signInAs(t *testing.T, email, name, role string) *client {
 	t.Helper()
-	if _, err := e.accounts.CreateUser(context.Background(), email, name, testPassword, "member", "en"); err != nil {
+	if _, err := e.accounts.CreateUser(context.Background(), email, name, testPassword, role, "en"); err != nil {
 		t.Fatal(err)
 	}
 	c := e.client(t)
@@ -472,5 +476,82 @@ func TestJSONOnly(t *testing.T) {
 	r = c.send("POST", "/api/folders", "application/x-www-form-urlencoded", []byte("name=y"), nil)
 	if r.Code != 415 {
 		t.Fatalf("form body: %d", r.Code)
+	}
+}
+
+func TestStarsSearchRecent(t *testing.T) {
+	env := newTestEnv(t)
+	a := env.signIn(t, "a@example.com", "A")
+	b := env.signIn(t, "b@example.com", "B")
+	aRoot, family := rootOf(t, a, "personal"), rootOf(t, a, "shared")
+
+	taxes := mkdir(t, a, aRoot, "Taxes 2026")
+	private := upload(t, a, taxes.ID, "Tax return.pdf", []byte("%PDF"), 100)
+	shared := upload(t, a, family, "Family tax notes.md", []byte("notes"), 100)
+	old := mkdir(t, a, aRoot, "Old taxes")
+	upload(t, a, old.ID, "tax 2019.pdf", []byte("%PDF"), 100)
+
+	// Stars are personal.
+	r := a.json("PATCH", "/api/nodes/"+private.ID, map[string]bool{"starred": true})
+	expect(t, r, 200)
+	var starredNode node
+	r.decode(t, &starredNode)
+	a.json("PATCH", "/api/nodes/"+taxes.ID, map[string]bool{"starred": true})
+	b.json("PATCH", "/api/nodes/"+shared.ID, map[string]bool{"starred": true})
+	var aStars, bStars []struct {
+		node
+		Starred bool
+		Path    []struct{ Name string }
+	}
+	a.get("/api/starred").decode(t, &aStars)
+	b.get("/api/starred").decode(t, &bStars)
+	if len(aStars) != 2 || aStars[0].ID != taxes.ID || aStars[1].ID != private.ID || !aStars[1].Starred {
+		t.Fatalf("A's starred = %+v", aStars)
+	}
+	if len(bStars) != 1 || bStars[0].ID != shared.ID {
+		t.Fatalf("B's starred = %+v", bStars)
+	}
+	// B can't star A's private file.
+	if r := b.json("PATCH", "/api/nodes/"+private.ID, map[string]bool{"starred": true}); r.Code != 404 {
+		t.Fatalf("B starring A's file: %d", r.Code)
+	}
+	// The star shows in folder listings for its owner only.
+	var kids []struct{ Starred bool }
+	a.get("/api/nodes/"+taxes.ID+"/children").decode(t, &kids)
+	if len(kids) != 1 || !kids[0].Starred {
+		t.Fatalf("children = %+v", kids)
+	}
+
+	// Search: case-insensitive, across A's drives, never into B's view of
+	// A's personal drive, and not into the trash.
+	expect(t, a.json("DELETE", "/api/nodes/"+old.ID, nil), 204)
+	names := func(c *client, q string) []string {
+		var res []node
+		c.get("/api/search?q="+q).decode(t, &res)
+		var out []string
+		for _, n := range res {
+			out = append(out, n.Name)
+		}
+		return out
+	}
+	if got := names(a, "TAX"); strings.Join(got, "|") != "Taxes 2026|Family tax notes.md|Tax return.pdf" {
+		t.Fatalf("A searching TAX: %v", got)
+	}
+	if got := names(b, "tax"); strings.Join(got, "|") != "Family tax notes.md" {
+		t.Fatalf("B searching tax: %v", got)
+	}
+	if got := names(a, "%25"); len(got) != 0 {
+		t.Fatalf("%% matched everything: %v", got)
+	}
+
+	// Recent: files only, newest first, without trashed ones.
+	var recent []node
+	a.get("/api/recent").decode(t, &recent)
+	if len(recent) != 2 || recent[0].ID != shared.ID || recent[1].ID != private.ID {
+		t.Fatalf("recent = %+v", recent)
+	}
+	b.get("/api/recent").decode(t, &recent)
+	if len(recent) != 1 || recent[0].ID != shared.ID {
+		t.Fatalf("B's recent = %+v", recent)
 	}
 }
