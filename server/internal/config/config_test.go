@@ -242,3 +242,25 @@ func TestErrorsAreReportedTogether(t *testing.T) {
 		t.Errorf("want both problems in one error, got %v", err)
 	}
 }
+
+// FuzzLoad checks that no option value can crash startup: it either loads
+// or reports an error.
+func FuzzLoad(f *testing.F) {
+	f.Add("https://drive.example.com", "03:00", "30", "10.0.0.0/8", "true")
+	f.Add("http://localhost:8080", "24:00", "0", "nonsense", "maybe")
+	f.Fuzz(func(t *testing.T, url, at, days, proxies, recovery string) {
+		cfg, err := Load([]string{
+			"HOMEDRIVE_PUBLIC_URL=" + url,
+			"HOMEDRIVE_STATE_DIR=/config",
+			"HOMEDRIVE_DATA_PATH=/data",
+			"HOMEDRIVE_WEB_DIR=/app/web",
+			"HOMEDRIVE_BACKUP_TIME=" + at,
+			"HOMEDRIVE_BACKUP_RETENTION_DAYS=" + days,
+			"HOMEDRIVE_TRUSTED_PROXIES=" + proxies,
+			"HOMEDRIVE_ADMIN_RECOVERY=" + recovery,
+		})
+		if err == nil && (cfg == nil || cfg.PublicURL == nil) {
+			t.Fatal("loaded without a public URL")
+		}
+	})
+}

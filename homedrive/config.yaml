@@ -40,6 +40,7 @@ options:
   smtp_port: 587
   smtp_security: starttls
   log_level: info
+  admin_recovery: false
 
 schema:
   public_url: url
@@ -54,3 +55,4 @@ schema:
   smtp_password: password?
   smtp_from: str
   log_level: list(debug|info|warn|error)
+  admin_recovery: bool

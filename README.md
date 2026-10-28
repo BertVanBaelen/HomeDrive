@@ -2,7 +2,7 @@
 
 A self-hosted online drive for your household's documents. Runs as a Home Assistant OS add-on or as a standalone Docker container, is built to be exposed on the internet through a Cloudflare Tunnel, and installs as a PWA on phones so you can share files straight into it.
 
-> **Status: early development.** Not ready for use yet. See the [roadmap](docs/roadmap.md).
+> **Status: pre-release.** The v1 features are built; the [v1 release security check](docs/security-review-v1.md) is still open. See the [roadmap](docs/roadmap.md).
 
 ## Features (v1 target)
 
@@ -42,7 +42,15 @@ cd web && npm ci && npm run build
 cd server && go test ./... && go run ./cmd/homedrive
 ```
 
-For local runs, set at least `HOMEDRIVE_PUBLIC_URL=http://localhost:8080`, `HOMEDRIVE_STATE_DIR`, `HOMEDRIVE_DATA_PATH` and `HOMEDRIVE_WEB_DIR=../web/dist`. With a `localhost` public URL, SMTP is optional.
+For local runs, set at least `HOMEDRIVE_PUBLIC_URL=http://localhost:8080`, `HOMEDRIVE_STATE_DIR`, `HOMEDRIVE_DATA_PATH` and `HOMEDRIVE_WEB_DIR=../web/dist`. With a `localhost` public URL, SMTP is optional. Then the setup link, sign-in codes and invitation emails are written to the log instead of being sent.
+
+Other commands:
+
+```bash
+go run ./cmd/homedrive export <backup folder> <empty target folder>
+```
+
+rebuilds a normal folder tree from a backup, without a running server. Fuzz targets (`go test -fuzz`) cover name validation, sorting, chunked upload offsets, export names and config parsing.
 
 ## Security
 

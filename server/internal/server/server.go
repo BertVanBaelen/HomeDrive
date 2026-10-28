@@ -10,28 +10,52 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
 )
 
 type Server struct {
-	cfg     *config.Config
-	log     *slog.Logger
-	proxies clientIPResolver
-	headers http.Header
-	web     *staticHandler
+	cfg      *config.Config
+	log      *slog.Logger
+	proxies  clientIPResolver
+	headers  http.Header
+	web      *staticHandler
+	accounts *accounts.Service
+	files    *files.Service
+	backup   *backup.Service // nil when backup_path is empty
+
+	// ipLimit counts sign-in requests per client address; accountLimit
+	// counts failed passwords per account.
+	ipLimit      *ratelimit.Limiter
+	accountLimit *ratelimit.Limiter
 }
 
-func New(cfg *config.Config, log *slog.Logger) (*Server, error) {
+// Deps are the services the HTTP layer serves.
+type Deps struct {
+	Accounts *accounts.Service
+	Files    *files.Service
+	Backup   *backup.Service
+}
+
+func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	web, err := newStaticHandler(cfg.WebDir)
 	if err != nil {
 		return nil, err
 	}
 	return &Server{
-		cfg:     cfg,
-		log:     log,
-		proxies: clientIPResolver{trusted: cfg.TrustedProxies},
-		headers: securityHeaders(cfg),
-		web:     web,
+		cfg:          cfg,
+		log:          log,
+		proxies:      clientIPResolver{trusted: cfg.TrustedProxies},
+		headers:      securityHeaders(cfg),
+		web:          web,
+		accounts:     deps.Accounts,
+		files:        deps.Files,
+		backup:       deps.Backup,
+		ipLimit:      ratelimit.New(30, 15*time.Minute),
+		accountLimit: ratelimit.New(10, time.Hour),
 	}, nil
 }
 
@@ -41,6 +65,12 @@ func New(cfg *config.Config, log *slog.Logger) (*Server, error) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
+	s.authRoutes(mux)
+	s.accountRoutes(mux)
+	s.deviceRoutes(mux)
+	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
+	mux.HandleFunc("POST /api/admin/backup", s.admin(s.handleBackupNow))
+	s.fileRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

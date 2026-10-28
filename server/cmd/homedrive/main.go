@@ -3,6 +3,9 @@
 //	homedrive              serve (configuration from HOMEDRIVE_* / the options file)
 //	homedrive healthcheck  exit 0 if the local server answers /healthz
 //	homedrive version      print the version
+//	homedrive export <backup folder> <target folder> [snapshot]
+//	                       rebuild a normal folder tree from a backup,
+//	                       offline (the server needn't run)
 package main
 
 import (
@@ -18,8 +21,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/mail"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/server"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
 )
@@ -35,8 +42,10 @@ func main() {
 		case "version":
 			fmt.Println(version)
 			return
+		case "export":
+			os.Exit(export(os.Args[2:]))
 		default:
-			fmt.Fprintf(os.Stderr, "unknown command %q (commands: healthcheck, version)\n", os.Args[1])
+			fmt.Fprintf(os.Stderr, "unknown command %q (commands: healthcheck, version, export)\n", os.Args[1])
 			os.Exit(2)
 		}
 	}
@@ -96,7 +105,31 @@ func run() error {
 		log.Info("data folder initialized", "path", cfg.DataPath, "instance_id", instanceID)
 	}
 
-	srv, err := server.New(cfg, log)
+	acc := accounts.New(conn, mail.New(cfg.SMTP, log), log, cfg.Origin())
+	link, err := acc.StartSetup(ctx)
+	if err != nil {
+		return err
+	}
+	if link != "" {
+		// The link is the only way in on a new installation, so it goes to
+		// the log at a level that is always shown.
+		log.Warn("no accounts yet: open this link within 1 hour to create the admin account (restart for a new link)", "link", link)
+	} else if cfg.AdminRecovery {
+		if link, err = acc.StartRecovery(ctx); err != nil {
+			return err
+		}
+		log.Warn("admin_recovery is on: open this link within 1 hour to set a new admin password, then turn admin_recovery off again", "link", link)
+	}
+
+	bk := backup.New(cfg, conn, store, instanceID, log)
+	if bk != nil {
+		go bk.Schedule(ctx)
+	}
+
+	fs := files.New(conn, store, log)
+	go housekeeping(ctx, log, fs, acc)
+
+	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: fs, Backup: bk})
 	if err != nil {
 		return err
 	}
@@ -133,4 +166,55 @@ func healthcheck() int {
 		return 1
 	}
 	return 0
+}
+
+// export restores a backup into a readable folder tree.
+func export(args []string) int {
+	if len(args) < 2 || len(args) > 3 {
+		fmt.Fprintln(os.Stderr, "usage: homedrive export <backup folder> <target folder> [snapshot file]")
+		fmt.Fprintln(os.Stderr, "The target must be empty or not exist. Without a snapshot, the newest is used.")
+		return 2
+	}
+	snapshot := ""
+	if len(args) == 3 {
+		snapshot = args[2]
+	}
+	sum, err := backup.Export(args[0], args[1], snapshot)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "export:", err)
+		return 1
+	}
+	fmt.Printf("Exported snapshot %s: %d folders, %d files, %d bytes into %s\n",
+		sum.Snapshot, sum.Folders, sum.Files, sum.Bytes, args[1])
+	if len(sum.Missing) > 0 {
+		fmt.Printf("%d files had no contents in the backup (deleted longer ago than the retention period):\n", len(sum.Missing))
+		for _, m := range sum.Missing {
+			fmt.Println("  " + m)
+		}
+	}
+	return 0
+}
+
+// housekeeping runs the cleanup jobs shortly after start and then every
+// hour: unfinished uploads, leftovers of interrupted writes, expired
+// sessions and codes.
+func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc *accounts.Service) {
+	timer := time.NewTimer(time.Minute)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+		if res, err := fs.Cleanup(ctx); err != nil {
+			log.Warn("cleaning up files", "error", err)
+		} else if res != (files.CleanupResult{}) {
+			log.Info("cleaned up", "expired_uploads", res.Uploads, "temp_files", res.TempFiles, "orphan_objects", res.Objects)
+		}
+		if err := acc.Cleanup(ctx); err != nil {
+			log.Warn("cleaning up accounts", "error", err)
+		}
+		timer.Reset(time.Hour)
+	}
 }
