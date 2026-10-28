@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -68,8 +69,16 @@ func (s *Service) locate(ctx context.Context, userID, where string, args []any, 
 	if err != nil {
 		return nil, err
 	}
+	nodes := make([]Node, len(out))
 	for i := range out {
 		out[i].Starred = stars[out[i].ID]
+		nodes[i] = out[i].Node
+	}
+	if err := s.addPreviews(ctx, nodes); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Preview = nodes[i].Preview
 	}
 	return out, nil
 }
@@ -89,6 +98,54 @@ func (s *Service) starSet(ctx context.Context, userID string) (map[string]bool, 
 		set[id] = true
 	}
 	return set, rows.Err()
+}
+
+// previewSize is how many items a folder thumbnail shows (a 2×2 grid).
+const previewSize = 4
+
+// addPreviews gives every folder among nodes its first items, folders
+// first, then by name, in one query.
+func (s *Service) addPreviews(ctx context.Context, nodes []Node) error {
+	var ids []string
+	for _, n := range nodes {
+		if n.IsFolder() {
+			ids = append(ids, n.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	list, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT parent_id, id, kind, name FROM (
+			SELECT parent_id, id, kind, name,
+				row_number() OVER (PARTITION BY parent_id ORDER BY kind = 'file', name_key) AS rn
+			FROM nodes
+			WHERE trashed_at IS NULL AND parent_id IN (SELECT value FROM json_each(?))
+		) WHERE rn <= ? ORDER BY parent_id, rn`, string(list), previewSize)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	previews := map[string][]Mini{}
+	for rows.Next() {
+		var parent string
+		var m Mini
+		if err := rows.Scan(&parent, &m.ID, &m.Kind, &m.Name); err != nil {
+			return err
+		}
+		m.Type = TypeOf(Node{Kind: m.Kind, Name: m.Name})
+		previews[parent] = append(previews[parent], m)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range nodes {
+		nodes[i].Preview = previews[nodes[i].ID]
+	}
+	return nil
 }
 
 // markStars sets Starred on nodes for the user.

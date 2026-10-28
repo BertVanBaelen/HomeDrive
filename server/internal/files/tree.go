@@ -92,7 +92,10 @@ func (s *Service) Children(ctx context.Context, userID, folderID string, sortBy 
 		return nil, err
 	}
 	SortNodes(out, sortBy, desc)
-	return out, s.markStars(ctx, userID, out)
+	if err := s.markStars(ctx, userID, out); err != nil {
+		return nil, err
+	}
+	return out, s.addPreviews(ctx, out)
 }
 
 // SortNodes orders folders before files, then by the key. Names compare
@@ -242,7 +245,10 @@ func (s *Service) node(ctx context.Context, userID, id string) (Node, error) {
 		n.ChildCount = &c
 	}
 	nodes := []Node{n}
-	err = s.markStars(ctx, userID, nodes)
+	if err := s.markStars(ctx, userID, nodes); err != nil {
+		return Node{}, err
+	}
+	err = s.addPreviews(ctx, nodes)
 	return nodes[0], err
 }
 

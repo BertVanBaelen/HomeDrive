@@ -33,6 +33,15 @@ export interface Node {
   trashedAt?: string
   childCount?: number
   starred: boolean
+  // A folder's first items, for its thumbnail.
+  preview?: Mini[]
+}
+
+export interface Mini {
+  id: string
+  kind: 'folder' | 'file'
+  type: FileType
+  name: string
 }
 
 export interface Crumb {

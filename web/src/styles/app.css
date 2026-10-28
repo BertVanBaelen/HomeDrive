@@ -588,7 +588,37 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   padding: 10px;
-  gap: 4px;
+  gap: 6px;
+}
+.mini {
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.mini img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Folder zoom: the glow that grows from the folder to the file area. */
+.zoom-ghost {
+  position: fixed;
+  z-index: 20;
+  border-radius: var(--radius-card);
+  background: #fef9c3;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+/* Cards placed by the zoom don't also run their entrance. */
+.grid--zoomed .card {
+  animation: none;
 }
 
 /* list view */
@@ -1655,4 +1685,10 @@
   .toast__check {
     stroke-dashoffset: 0;
   }
+}
+
+/* The folder card pressed while its contents load. */
+.card.is-opening {
+  transform: scale(0.98);
+  border-color: var(--primary-700);
 }

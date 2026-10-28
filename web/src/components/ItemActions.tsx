@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { api, type Drive, type Node } from '../api'
 import { notifyChanged } from '../events'
 import { useT } from '../i18n'
-import { navigate } from '../router'
+import { openFolder } from '../motion'
 import { errorText, MoveDialog, NameDialog } from './Dialogs'
-import { hrefFor } from './Items'
+import { hrefFor, storedSort } from './Items'
 import { showToast } from './Toast'
 import { Viewer } from './Viewer'
 
@@ -26,10 +26,12 @@ export function useItemActions({ drives, reload }: { drives: Drive[]; reload: ()
 
   const fail = (err: unknown) => showToast(errorText(t, err), { error: true })
 
-  // open goes into a folder, or shows a file among the files of list.
+  // open goes into a folder (zooming in from its card), or shows a file
+  // among the files of list.
   function open(n: Node, list: Node[], location: (n: Node) => string) {
     if (n.kind === 'folder') {
-      navigate(hrefFor(n.id, drives))
+      const sort = storedSort()
+      openFolder(n.id, hrefFor(n.id, drives), sort.key, sort.desc)
       return
     }
     const files = list.filter((x) => x.kind === 'file')

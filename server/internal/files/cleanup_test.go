@@ -119,3 +119,32 @@ func (s *Service) mustUpload(t *testing.T, uid, parent, name, content string) No
 	}
 	return n
 }
+
+func TestFolderPreview(t *testing.T) {
+	s, uid, root, _ := newService(t)
+	ctx := context.Background()
+	album, _ := s.CreateFolder(ctx, uid, root, "Album")
+	s.CreateFolder(ctx, uid, album.ID, "Zeta folder")
+	for _, name := range []string{"b.jpg", "a.pdf", "c.md", "d.txt", "e.png"} {
+		s.mustUpload(t, uid, album.ID, name, "x")
+	}
+	gone := s.mustUpload(t, uid, album.ID, "0 trashed.txt", "x")
+	s.Trash(ctx, uid, gone.ID)
+	s.CreateFolder(ctx, uid, root, "Empty")
+
+	kids, err := s.Children(ctx, uid, root, SortName, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, m := range kids[0].Preview {
+		names = append(names, m.Name+":"+m.Type)
+	}
+	// Folders first, then by name; four at most; nothing from the trash.
+	if got := strings.Join(names, " "); kids[0].Name != "Album" || got != "Zeta folder:folder a.pdf:pdf b.jpg:image c.md:text" {
+		t.Fatalf("preview of %s = %s", kids[0].Name, got)
+	}
+	if kids[1].Name != "Empty" || kids[1].Preview != nil {
+		t.Fatalf("empty folder preview = %+v", kids[1].Preview)
+	}
+}

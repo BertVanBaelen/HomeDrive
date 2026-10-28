@@ -80,8 +80,18 @@ type Node struct {
 	ChildCount *int       `json:"childCount,omitempty"`
 	// Starred is per user: whether the user asking starred it.
 	Starred bool `json:"starred"`
+	// Preview is a folder's first few items, for its thumbnail.
+	Preview []Mini `json:"preview,omitempty"`
 
 	versionID string
+}
+
+// Mini is an item shown inside a folder's thumbnail.
+type Mini struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Type string `json:"type"`
+	Name string `json:"name"`
 }
 
 // Located is a node listed outside its folder (trash, starred, recent,
@@ -242,6 +252,9 @@ func (s *Service) Get(ctx context.Context, userID, nodeID string) (Details, erro
 	}
 	nodes := []Node{it.Node}
 	if err := s.markStars(ctx, userID, nodes); err != nil {
+		return Details{}, err
+	}
+	if err := s.addPreviews(ctx, nodes); err != nil {
 		return Details{}, err
 	}
 	return Details{Node: nodes[0], Drive: it.drive, Path: nonNil(it.path)}, nil

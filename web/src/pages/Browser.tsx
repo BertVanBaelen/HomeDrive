@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api, type Details, type Drive, type Located, type Node, type User } from '../api'
 import { AddDialog, ConfirmDialog, errorText } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
@@ -24,6 +24,7 @@ import { notifyChanged, onChanged } from '../events'
 import { displayName } from '../format'
 import { plural, useT } from '../i18n'
 import type { ListName, Route } from '../router'
+import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
 
 export function Browser({ user, route, onSignOut }: { user: User; route: Route; onSignOut: () => void }) {
@@ -103,13 +104,27 @@ function FolderView({
 }) {
   const t = useT()
   const { view, setView, sort, setSort } = useViewPrefs()
-  const [details, setDetails] = useState<Details | null>(null)
-  const [items, setItems] = useState<Node[] | null>(null)
+  // When the folder was opened with a zoom, its contents are already here.
+  const [ahead] = useState(() => takePrefetched(folderId, sort.key, sort.desc))
+  const [details, setDetails] = useState<Details | null>(ahead?.details ?? null)
+  const [items, setItems] = useState<Node[] | null>(ahead?.items ?? null)
   const [quick, setQuick] = useState<Located[]>([])
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [zoomed, setZoomed] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const filesRef = useRef<HTMLElement>(null)
+  const motionPlayed = useRef(false)
+
+  // Zoom in (opened from its card) or out (came up from a subfolder) once
+  // the cards are there, before the browser paints them.
+  useLayoutEffect(() => {
+    if (motionPlayed.current || !items || !filesRef.current) return
+    motionPlayed.current = true
+    if (view === 'grid' && playFolderMotion(folderId, filesRef.current)) setZoomed(true)
+  }, [items, folderId, view])
+  useLayoutEffect(() => () => leaveFolder(folderId), [folderId])
 
   const load = useCallback(() => {
     Promise.all([api.node(folderId), api.children(folderId, sort.key, sort.desc)]).then(
@@ -205,7 +220,7 @@ function FolderView({
       {isMyFiles && <QuickAccess folders={quick} drives={drives} />}
 
       <div className="files-row">
-        <section aria-label={title} className="files">
+        <section ref={filesRef} aria-label={title} className="files">
           {items.length === 0 ? (
             <Empty icon={icons.folder} title={t('empty.folder.title')} body={t('empty.folder.body')}>
               {!readOnly && (
@@ -216,7 +231,7 @@ function FolderView({
               )}
             </Empty>
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={open} onInfo={info} />
+            <Grid items={items} selected={selected} onOpen={open} onInfo={info} zoomed={zoomed} />
           ) : (
             <div className="list-wrap">
               {!isRoot && <Rail crumbs={crumbs} />}

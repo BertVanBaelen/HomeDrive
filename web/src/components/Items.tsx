@@ -30,6 +30,11 @@ function store(key: string, v: unknown) {
   }
 }
 
+// storedSort is the sort the folder views use, for fetching a folder ahead.
+export function storedSort(): Sort {
+  return stored('hd.sort', { key: 'name', desc: false })
+}
+
 export function useViewPrefs() {
   const [view, setViewState] = useState<View>(() => stored('hd.view', 'grid'))
   const [sort, setSortState] = useState<Sort>(() => stored('hd.sort', { key: 'name', desc: false }))
@@ -190,11 +195,11 @@ interface ItemsProps<T extends Node> {
   onInfo: (n: T) => void
 }
 
-export function Grid<T extends Node>({ items, selected, onOpen, onInfo }: ItemsProps<T>) {
+export function Grid<T extends Node>({ items, selected, onOpen, onInfo, zoomed }: ItemsProps<T> & { zoomed?: boolean }) {
   const t = useT()
   const locale = useLocale()
   return (
-    <div className="grid">
+    <div className={'grid' + (zoomed ? ' grid--zoomed' : '')}>
       {items.map((n, i) => {
         const type = fileTypes[n.type]
         const name = displayName(n)
@@ -202,7 +207,7 @@ export function Grid<T extends Node>({ items, selected, onOpen, onInfo }: ItemsP
         const when = formatWhen(n.modifiedAt, t, locale)
         const meta = n.kind === 'folder' ? `${size} · ${when}` : `${t(`short.${n.type}` as MessageKey)} · ${size} · ${when}`
         return (
-          <div key={n.id} className={'card' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
+          <div key={n.id} data-node={n.id} className={'card' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
             <button type="button" className="card__open" onClick={() => onOpen(n)}
               aria-label={n.kind === 'folder' ? t('item.openFolder', { name }) : t('item.open', { name })}>
               <Thumb node={n} />
