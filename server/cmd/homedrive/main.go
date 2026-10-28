@@ -3,6 +3,9 @@
 //	homedrive              serve (configuration from HOMEDRIVE_* / the options file)
 //	homedrive healthcheck  exit 0 if the local server answers /healthz
 //	homedrive version      print the version
+//	homedrive export <backup folder> <target folder> [snapshot]
+//	                       rebuild a normal folder tree from a backup,
+//	                       offline (the server needn't run)
 package main
 
 import (
@@ -19,6 +22,7 @@ import (
 	"time"
 
 	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
@@ -38,8 +42,10 @@ func main() {
 		case "version":
 			fmt.Println(version)
 			return
+		case "export":
+			os.Exit(export(os.Args[2:]))
 		default:
-			fmt.Fprintf(os.Stderr, "unknown command %q (commands: healthcheck, version)\n", os.Args[1])
+			fmt.Fprintf(os.Stderr, "unknown command %q (commands: healthcheck, version, export)\n", os.Args[1])
 			os.Exit(2)
 		}
 	}
@@ -115,7 +121,12 @@ func run() error {
 		log.Warn("admin_recovery is on: open this link within 1 hour to set a new admin password, then turn admin_recovery off again", "link", link)
 	}
 
-	srv, err := server.New(cfg, log, acc, files.New(conn, store, log))
+	bk := backup.New(cfg, conn, store, instanceID, log)
+	if bk != nil {
+		go bk.Schedule(ctx)
+	}
+
+	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: files.New(conn, store, log), Backup: bk})
 	if err != nil {
 		return err
 	}
@@ -150,6 +161,33 @@ func healthcheck() int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "healthcheck:", err)
 		return 1
+	}
+	return 0
+}
+
+// export restores a backup into a readable folder tree.
+func export(args []string) int {
+	if len(args) < 2 || len(args) > 3 {
+		fmt.Fprintln(os.Stderr, "usage: homedrive export <backup folder> <target folder> [snapshot file]")
+		fmt.Fprintln(os.Stderr, "The target must be empty or not exist. Without a snapshot, the newest is used.")
+		return 2
+	}
+	snapshot := ""
+	if len(args) == 3 {
+		snapshot = args[2]
+	}
+	sum, err := backup.Export(args[0], args[1], snapshot)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "export:", err)
+		return 1
+	}
+	fmt.Printf("Exported snapshot %s: %d folders, %d files, %d bytes into %s\n",
+		sum.Snapshot, sum.Folders, sum.Files, sum.Bytes, args[1])
+	if len(sum.Missing) > 0 {
+		fmt.Printf("%d files had no contents in the backup (deleted longer ago than the retention period):\n", len(sum.Missing))
+		for _, m := range sum.Missing {
+			fmt.Println("  " + m)
+		}
 	}
 	return 0
 }

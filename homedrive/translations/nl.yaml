@@ -39,6 +39,12 @@ configuration:
     description: Bijvoorbeeld "Homedrive <drive@example.com>".
   log_level:
     name: Logniveau
+  admin_recovery:
+    name: Beheerder herstellen
+    description: >-
+      Alleen wanneer elke beheerder buitengesloten is. Zet aan en herstart: het
+      logboek toont een eenmalige link om een nieuw beheerderswachtwoord in te
+      stellen. Zet het daarna weer uit.
 network:
   8080/tcp: >-
     Webinterface. Leeg laten wanneer de Cloudflared-add-on met Homedrive verbindt;

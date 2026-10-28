@@ -105,10 +105,16 @@ export function Header({ user, query, onSignOut }: { user: User; query?: string;
                     {t('account.menu')}
                   </button>
                   {user.role === 'admin' && (
-                    <button type="button" onClick={() => go('/users')}>
-                      <Icon d={icons.users} size={18} />
-                      {t('account.users')}
-                    </button>
+                    <>
+                      <button type="button" onClick={() => go('/users')}>
+                        <Icon d={icons.users} size={18} />
+                        {t('account.users')}
+                      </button>
+                      <button type="button" onClick={() => go('/backup')}>
+                        <Icon d={icons.shield} size={18} />
+                        {t('backup.title')}
+                      </button>
+                    </>
                   )}
                   <button type="button" onClick={onSignOut}>
                     <Icon d={icons.logout} size={18} />

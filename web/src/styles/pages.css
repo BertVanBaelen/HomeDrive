@@ -561,3 +561,40 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+/* backup page */
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 10px 16px;
+  font-size: 14px;
+}
+.facts dt {
+  color: var(--gray-500);
+}
+.facts dd {
+  margin: 0;
+}
+.facts__muted {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+.backup__off {
+  margin: 0;
+}
+.backup__restore {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+@media (max-width: 699px) {
+  .facts {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .facts dd {
+    margin-bottom: 8px;
+  }
+}

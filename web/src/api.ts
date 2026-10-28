@@ -67,6 +67,23 @@ export interface SessionInfo {
   current: boolean
 }
 
+export interface BackupStatus {
+  enabled: boolean
+  time?: string
+  retentionDays?: number
+  running: boolean
+  nextRun?: string
+  lastRun?: string
+  lastSuccess?: string
+  lastError?: string
+  durationSec?: number
+  copied: number
+  removed: number
+  snapshots: number
+  objects: number
+  bytes: number
+}
+
 // DeviceToken is an upload key for the iPhone Shortcut.
 export interface DeviceToken {
   id: string
@@ -201,6 +218,8 @@ export const api = {
   updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
+  backupStatus: () => request<BackupStatus>('GET', '/api/admin/backup'),
+  backupNow: () => request<void>('POST', '/api/admin/backup'),
 
   welcomeCheck: (token: string) => request<PasswordLink>('POST', '/api/welcome/check', { token }),
   welcomeFinish: (token: string, password: string) =>

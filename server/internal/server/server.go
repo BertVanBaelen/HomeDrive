@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
@@ -24,6 +25,7 @@ type Server struct {
 	web      *staticHandler
 	accounts *accounts.Service
 	files    *files.Service
+	backup   *backup.Service // nil when backup_path is empty
 
 	// ipLimit counts sign-in requests per client address; accountLimit
 	// counts failed passwords per account.
@@ -31,7 +33,14 @@ type Server struct {
 	accountLimit *ratelimit.Limiter
 }
 
-func New(cfg *config.Config, log *slog.Logger, acc *accounts.Service, fs *files.Service) (*Server, error) {
+// Deps are the services the HTTP layer serves.
+type Deps struct {
+	Accounts *accounts.Service
+	Files    *files.Service
+	Backup   *backup.Service
+}
+
+func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	web, err := newStaticHandler(cfg.WebDir)
 	if err != nil {
 		return nil, err
@@ -42,8 +51,9 @@ func New(cfg *config.Config, log *slog.Logger, acc *accounts.Service, fs *files.
 		proxies:      clientIPResolver{trusted: cfg.TrustedProxies},
 		headers:      securityHeaders(cfg),
 		web:          web,
-		accounts:     acc,
-		files:        fs,
+		accounts:     deps.Accounts,
+		files:        deps.Files,
+		backup:       deps.Backup,
 		ipLimit:      ratelimit.New(30, 15*time.Minute),
 		accountLimit: ratelimit.New(10, time.Hour),
 	}, nil
@@ -58,6 +68,8 @@ func (s *Server) Handler() http.Handler {
 	s.authRoutes(mux)
 	s.accountRoutes(mux)
 	s.deviceRoutes(mux)
+	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
+	mux.HandleFunc("POST /api/admin/backup", s.admin(s.handleBackupNow))
 	s.fileRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")

@@ -220,3 +220,28 @@ func (s *Server) handleWelcomeFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	s.startSession(w, r, u, "password_set")
 }
+
+func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
+	st, err := s.backup.Status(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+// handleBackupNow starts a backup in the background; the page polls the
+// status to see it finish.
+func (s *Server) handleBackupNow(w http.ResponseWriter, r *http.Request) {
+	if s.backup == nil {
+		writeError(w, http.StatusConflict, "backup_disabled")
+		return
+	}
+	if err := s.backup.Start(); err != nil {
+		writeError(w, http.StatusConflict, "backup_running")
+		return
+	}
+	ctx := r.Context()
+	s.accounts.Audit(ctx, currentUser(ctx).ID, ClientIP(ctx).String(), "backup_started", "")
+	w.WriteHeader(http.StatusAccepted)
+}

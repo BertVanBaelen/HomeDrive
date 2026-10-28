@@ -23,10 +23,10 @@ const (
 var (
 	// ErrWrongFolder means the data folder isn't this installation's, most
 	// likely because a USB disk or NAS share isn't mounted.
-	ErrWrongFolder = errors.New("data folder does not belong to this Homedrive installation")
+	ErrWrongFolder = errors.New("folder does not belong to this Homedrive installation")
 	// ErrNotEmpty means a first start was pointed at a folder that already
 	// holds other files.
-	ErrNotEmpty = errors.New("data folder is not empty")
+	ErrNotEmpty = errors.New("folder is not empty")
 )
 
 // housekeeping lists names that filesystems and NAS systems create by
@@ -41,8 +41,9 @@ type marker struct {
 }
 
 type Store struct {
-	root *os.Root
-	path string
+	root  *os.Root
+	path  string
+	label string // "data folder" or "backup folder", for messages
 }
 
 // Open checks that dir is this installation's data folder and returns a
@@ -54,14 +55,35 @@ type Store struct {
 // mount point looks like an empty local folder, and writing there would
 // silently split the drive in two.
 func Open(dir, instanceID string, initialized bool) (*Store, error) {
-	if err := ensureDir(dir, initialized); err != nil {
+	return open(dir, "data folder", instanceID, initialized)
+}
+
+// OpenBackup does the same for backup_path, which holds a copy of the
+// objects with the same layout, plus database snapshots in db/.
+func OpenBackup(dir, instanceID string, initialized bool) (*Store, error) {
+	s, err := open(dir, "backup folder", instanceID, initialized)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.root.MkdirAll("db", 0o750); err != nil {
+		s.Close()
+		return nil, fmt.Errorf("creating db in backup folder %s: %w", dir, err)
+	}
+	return s, nil
+}
+
+// Path is the folder's location on disk.
+func (s *Store) Path() string { return s.path }
+
+func open(dir, label, instanceID string, initialized bool) (*Store, error) {
+	if err := ensureDir(dir, label, initialized); err != nil {
 		return nil, err
 	}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
-		return nil, fmt.Errorf("opening data folder %s: %w", dir, err)
+		return nil, fmt.Errorf("opening %s %s: %w", label, dir, err)
 	}
-	s := &Store{root: root, path: dir}
+	s := &Store{root: root, path: dir, label: label}
 	if err := s.init(instanceID, initialized); err != nil {
 		root.Close()
 		return nil, err
@@ -75,7 +97,7 @@ func (s *Store) init(instanceID string, initialized bool) error {
 	}
 	for _, sub := range []string{"objects", "uploads"} {
 		if err := s.root.MkdirAll(sub, 0o750); err != nil {
-			return fmt.Errorf("creating %s in data folder %s: %w", sub, s.path, err)
+			return fmt.Errorf("creating %s in %s %s: %w", sub, s.label, s.path, err)
 		}
 	}
 	return s.probeWritable()
@@ -83,16 +105,16 @@ func (s *Store) init(instanceID string, initialized bool) error {
 
 func (s *Store) Close() error { return s.root.Close() }
 
-func ensureDir(dir string, initialized bool) error {
+func ensureDir(dir, label string, initialized bool) error {
 	fi, err := os.Stat(dir)
 	switch {
 	case err == nil:
 		if !fi.IsDir() {
-			return fmt.Errorf("data folder %s is not a directory", dir)
+			return fmt.Errorf("%s %s is not a directory", label, dir)
 		}
 		return nil
 	case !errors.Is(err, fs.ErrNotExist):
-		return fmt.Errorf("checking data folder %s: %w", dir, err)
+		return fmt.Errorf("checking %s %s: %w", label, dir, err)
 	case initialized:
 		return fmt.Errorf("%w: %s is missing. If it is on a USB disk or NAS share, check that it is mounted", ErrWrongFolder, dir)
 	}
@@ -100,10 +122,10 @@ func ensureDir(dir string, initialized bool) error {
 	// share that isn't mounted, and creating it would write to the system disk.
 	parent := filepath.Dir(dir)
 	if _, err := os.Stat(parent); err != nil {
-		return fmt.Errorf("can't create data folder %s: %s is not available (is the disk or share mounted?): %w", dir, parent, err)
+		return fmt.Errorf("can't create %s %s: %s is not available (is the disk or share mounted?): %w", label, dir, parent, err)
 	}
 	if err := os.Mkdir(dir, 0o750); err != nil {
-		return fmt.Errorf("creating data folder %s: %w", dir, err)
+		return fmt.Errorf("creating %s %s: %w", label, dir, err)
 	}
 	return nil
 }
@@ -120,11 +142,11 @@ func (s *Store) checkMarker(instanceID string, initialized bool) error {
 			return fmt.Errorf("%w: %s was created by another installation (%s)", ErrWrongFolder, s.path, m.InstanceID)
 		}
 		if m.Format != format {
-			return fmt.Errorf("data folder %s uses storage format %d, this version supports %d", s.path, m.Format, format)
+			return fmt.Errorf("%s %s uses storage format %d, this version supports %d", s.label, s.path, m.Format, format)
 		}
 		return nil
 	case !errors.Is(err, fs.ErrNotExist):
-		return fmt.Errorf("reading %s in data folder %s: %w", markerName, s.path, err)
+		return fmt.Errorf("reading %s in %s %s: %w", markerName, s.label, s.path, err)
 	case initialized:
 		return fmt.Errorf("%w: %s has no %s marker. If it is on a USB disk or NAS share, check that it is mounted", ErrWrongFolder, s.path, markerName)
 	}
@@ -132,7 +154,7 @@ func (s *Store) checkMarker(instanceID string, initialized bool) error {
 	// First use: only claim a folder that holds nothing of value.
 	entries, err := fs.ReadDir(s.root.FS(), ".")
 	if err != nil {
-		return fmt.Errorf("listing data folder %s: %w", s.path, err)
+		return fmt.Errorf("listing %s %s: %w", s.label, s.path, err)
 	}
 	for _, e := range entries {
 		if !housekeeping[e.Name()] {
@@ -149,10 +171,10 @@ func (s *Store) writeMarker(instanceID string) error {
 	}
 	tmp := markerName + ".tmp"
 	if err := s.writeSynced(tmp, b, 0o640); err != nil {
-		return fmt.Errorf("writing marker in data folder %s: %w", s.path, err)
+		return fmt.Errorf("writing marker in %s %s: %w", s.label, s.path, err)
 	}
 	if err := s.root.Rename(tmp, markerName); err != nil {
-		return fmt.Errorf("writing marker in data folder %s: %w", s.path, err)
+		return fmt.Errorf("writing marker in %s %s: %w", s.label, s.path, err)
 	}
 	return nil
 }
@@ -166,7 +188,7 @@ func (s *Store) probeWritable() error {
 		err = s.root.Remove(name)
 	}
 	if err != nil {
-		return fmt.Errorf("data folder %s failed a write test: %w", s.path, err)
+		return fmt.Errorf("%s %s failed a write test: %w", s.label, s.path, err)
 	}
 	return nil
 }

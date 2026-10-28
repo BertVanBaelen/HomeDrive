@@ -39,6 +39,12 @@ configuration:
     description: For example "Homedrive <drive@example.com>".
   log_level:
     name: Log level
+  admin_recovery:
+    name: Admin recovery
+    description: >-
+      Only when every administrator is locked out. Turn on and restart: the log
+      shows a one-time link to set a new administrator password. Turn off again
+      afterwards.
 network:
   8080/tcp: >-
     Web interface. Leave empty when the Cloudflared add-on connects to Homedrive;

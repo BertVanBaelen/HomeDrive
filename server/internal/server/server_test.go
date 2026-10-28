@@ -125,7 +125,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Cleanup(func() { store.Close() })
 	fm := &fakeMail{}
 	acc := accounts.New(conn, fm, log, cfg.Origin())
-	srv, err := New(cfg, log, acc, files.New(conn, store, log))
+	srv, err := New(cfg, log, Deps{Accounts: acc, Files: files.New(conn, store, log)})
 	if err != nil {
 		t.Fatal(err)
 	}

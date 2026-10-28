@@ -166,6 +166,74 @@ func (s *Store) RemoveObject(id string) error {
 	return err
 }
 
+// HasObject reports whether an object exists.
+func (s *Store) HasObject(id string) bool {
+	if !validObjectID(id) {
+		return false
+	}
+	_, err := s.root.Stat(objectPath(id))
+	return err == nil
+}
+
+// CopyObject stores r under an existing object ID, as the backup does with
+// objects from the data folder. It is written aside and renamed into place,
+// so a half-copied object never looks complete.
+func (s *Store) CopyObject(id string, r io.Reader) (int64, error) {
+	if !validObjectID(id) {
+		return 0, ErrBadID
+	}
+	tmp := path.Join("uploads", ".copy-"+rand.Text())
+	f, err := s.root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o640)
+	if err != nil {
+		return 0, err
+	}
+	n, err := io.Copy(f, r)
+	if serr := f.Sync(); err == nil {
+		err = serr
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = s.root.MkdirAll(path.Dir(objectPath(id)), 0o750)
+	}
+	if err == nil {
+		err = s.root.Rename(tmp, objectPath(id))
+	}
+	if err != nil {
+		s.root.Remove(tmp)
+		return 0, err
+	}
+	return n, nil
+}
+
+// ListObjects returns the IDs of all objects with their sizes.
+func (s *Store) ListObjects() (map[string]int64, error) {
+	out := map[string]int64{}
+	fsys := s.root.FS()
+	dirs, err := fs.ReadDir(fsys, "objects")
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range dirs {
+		if !d.IsDir() {
+			continue
+		}
+		entries, err := fs.ReadDir(fsys, path.Join("objects", d.Name()))
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if validObjectID(e.Name()) {
+				if info, err := e.Info(); err == nil {
+					out[e.Name()] = info.Size()
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
 // OpenObject opens an object for reading.
 func (s *Store) OpenObject(id string) (*os.File, error) {
 	if !validObjectID(id) {
