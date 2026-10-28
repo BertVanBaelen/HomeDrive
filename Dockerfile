@@ -4,7 +4,7 @@
 # amd64 and arm64. Both build stages run on the build machine and
 # cross-compile, so multi-arch builds need no emulation.
 
-FROM --platform=$BUILDPLATFORM node:24.22.1-alpine3.24 AS web
+FROM --platform=$BUILDPLATFORM node:26.12.1-alpine3.24 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
