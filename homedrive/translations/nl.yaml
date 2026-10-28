@@ -1,0 +1,45 @@
+configuration:
+  public_url:
+    name: Publieke URL
+    description: >-
+      Het adres waarop mensen Homedrive openen, bijvoorbeeld https://drive.example.com.
+      Alleen schema en host, zonder pad.
+  data_path:
+    name: Gegevensmap
+    description: >-
+      Waar de bestanden worden opgeslagen: een map onder /share (de eigen schijf van Home Assistant)
+      of /media (USB-schijven). NAS-shares toegevoegd via Instellingen → Systeem → Opslag verschijnen
+      daar ook. Moet nieuw of leeg zijn, en alleen door Homedrive gebruikt worden.
+  backup_path:
+    name: Back-upmap
+    description: >-
+      Optioneel. Een tweede locatie, liefst een andere schijf, voor de nachtelijke back-up.
+      Leeg laten om back-ups uit te zetten.
+  backup_time:
+    name: Tijdstip back-up
+    description: Tijdstip van de nachtelijke back-up, als UU:MM.
+  backup_retention_days:
+    name: Verwijderde bestanden bewaren in back-up (dagen)
+    description: Hoe lang verwijderde en overschreven bestanden in de back-up blijven.
+  smtp_host:
+    name: SMTP-server
+    description: Mailserver voor de aanmeldcodes. E-mail is de tweede aanmeldfactor, dus dit is verplicht.
+  smtp_port:
+    name: SMTP-poort
+    description: Meestal 587 voor STARTTLS of 465 voor TLS.
+  smtp_security:
+    name: SMTP-versleuteling
+    description: STARTTLS of TLS. Onversleutelde SMTP wordt niet ondersteund.
+  smtp_username:
+    name: SMTP-gebruikersnaam
+  smtp_password:
+    name: SMTP-wachtwoord
+  smtp_from:
+    name: Afzenderadres
+    description: Bijvoorbeeld "Homedrive <drive@example.com>".
+  log_level:
+    name: Logniveau
+network:
+  8080/tcp: >-
+    Webinterface. Leeg laten wanneer de Cloudflared-add-on met Homedrive verbindt;
+    alleen nodig wanneer cloudflared ergens anders draait.

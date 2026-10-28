@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>File preview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: {{h}}; overflow: hidden; font-family: Inter, system-ui, sans-serif; color: #1f2937; line-height: 1.35; border-radius: {{radius}}; background: {{bg}}">
+
+  <sc-if value="{{isScene}}" hint-placeholder-val="{{ false }}">
+    <svg aria-hidden="true" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%">
+      <rect width="160" height="100" fill="{{sky}}"></rect>
+      <circle cx="{{sunX}}" cy="30" r="13" fill="{{sun}}"></circle>
+      <path d="M0 68 Q38 38 78 60 T160 52 V100 H0 Z" fill="{{hill}}"></path>
+      <path d="M0 84 Q52 62 102 80 T160 76 V100 H0 Z" fill="{{hill2}}"></path>
+    </svg>
+  </sc-if>
+
+  <sc-if value="{{isVideo}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(17,24,39,0.3); display: flex; align-items: center; justify-content: center">
+      <span style="border-radius: 9999px; background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); width: {{playSize}}; height: {{playSize}}">
+        <svg aria-hidden="true" width="45%" height="45%" viewBox="0 0 24 24" fill="#1f2937"><path d="M8 5v14l11-7z"></path></svg>
+      </span>
+    </div>
+    <span style="position: absolute; right: 8px; bottom: 8px; padding: 2px 6px; border-radius: 4px; background: rgba(17,24,39,0.85); color: #ffffff; font-weight: 600; font-size: {{fsDur}}">{{dur}}</span>
+  </sc-if>
+
+  <sc-if value="{{isUi}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; background: #ffffff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); overflow: hidden; display: flex; flex-direction: column; left: {{uiInset}}; right: {{uiInset}}; top: {{uiInset}}; bottom: {{uiInset}}">
+      <div style="display: flex; align-items: center; background: #f3f4f6; gap: {{g2}}; padding: {{g3}}">
+        <span style="border-radius: 9999px; background: #f87171; width: {{dot}}; height: {{dot}}"></span>
+        <span style="border-radius: 9999px; background: #fbbf24; width: {{dot}}; height: {{dot}}"></span>
+        <span style="border-radius: 9999px; background: #34d399; width: {{dot}}; height: {{dot}}"></span>
+      </div>
+      <div style="flex: 1 1 auto; display: flex; flex-direction: column; padding: {{g6}}; gap: {{g4}}">
+        <span style="display: block; font-weight: 700; color: #1e3a8a; font-size: {{fsH}}">Welcome home</span>
+        <span style="display: block; border-radius: 3px; background: #2563eb; width: 34%; height: {{g6}}"></span>
+        <div style="flex: 1 1 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: {{g3}}">
+          <span style="border-radius: 4px; background: #dbeafe"></span>
+          <span style="border-radius: 4px; background: #e0e7ff"></span>
+          <span style="border-radius: 4px; background: #ccfbf1"></span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isPage}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08); box-sizing: border-box; overflow: hidden; border-radius: 3px; left: {{pg.left}}; right: {{pg.right}}; top: {{pg.top}}; bottom: {{pg.bottom}}; padding: {{pg.pad}}">
+      <sc-for list="{{blocks}}" as="b" hint-placeholder-count="8">
+        <div style="display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; font-size: {{b.fs}}; font-weight: {{b.fw}}; color: {{b.c}}; margin-top: {{b.mt}}; border-top: {{b.bt}}">
+          <span style="overflow: hidden; text-overflow: ellipsis">{{b.t}}</span>
+          <span>{{b.r}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isSheet}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.12); overflow: hidden; border-radius: 3px; left: {{sg.left}}; right: {{sg.right}}; top: {{sg.top}}; bottom: {{sg.bottom}}">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+          <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+            <span style="white-space: nowrap; overflow: hidden; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font-size: {{c.fs}}; padding: {{c.pad}}; background: {{c.bg}}; color: {{c.c}}; font-weight: {{c.fw}}; text-align: {{c.al}}">{{c.t}}</span>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isCode}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; box-sizing: border-box; overflow: hidden; padding: {{codePad}}">
+      <sc-for list="{{code}}" as="l" hint-placeholder-count="8">
+        <div style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; font-size: {{fsCode}}; color: {{l.c}}">{{l.t}}</div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isArchive}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.12); box-sizing: border-box; overflow: hidden; border-radius: 4px; display: flex; flex-direction: column; left: {{ag.left}}; right: {{ag.right}}; top: {{ag.top}}; bottom: {{ag.bottom}}; padding: {{ag.pad}}; gap: {{g3}}">
+      <span style="display: block; font-weight: 700; color: #92400e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: {{fsSec}}">{{title}}</span>
+      <sc-for list="{{list}}" as="f" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; white-space: nowrap; color: #374151; gap: {{g3}}; font-size: {{fsP}}">
+          <span style="flex: 0 0 auto; border-radius: 2px; width: {{dot}}; height: {{dot}}; background: {{f.c}}"></span>
+          <span style="overflow: hidden; text-overflow: ellipsis">{{f.t}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isAudio}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: {{g10}}">
+      <div style="display: flex; flex-direction: column; gap: {{g2}}">
+        <span style="display: block; font-weight: 700; color: #ffffff; font-size: {{fsH}}">{{title}}</span>
+        <span style="display: block; color: #fbcfe8; font-size: {{fsP}}">{{sub}}</span>
+      </div>
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 40%; gap: {{g2}}">
+        <sc-for list="{{bars}}" as="b" hint-placeholder-count="22">
+          <span style="flex: 1 1 0; border-radius: 9999px; background: #f9a8d4; height: {{b.h}}"></span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isFolder}}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{hasMinis}}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); padding: {{g10}}; gap: {{g4}}">
+        <sc-for list="{{minis}}" as="m" hint-placeholder-count="4">
+          <span style="position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); background: {{m.bg}}">
+            <span style="position: absolute; left: 0; right: 0; bottom: 0; height: 38%; background: {{m.stripe}}"></span>
+          </span>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{noMinis}}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; color: #a16207">
+        <svg aria-hidden="true" width="30%" height="40%" viewBox="0 0 24 24" fill="#fef9c3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+      </div>
+    </sc-if>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"item":{"editor":null},"h":{"editor":null},"z":{"editor":null},"full":{"editor":null},"$preview":{"width":240,"height":160}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const t = this.props.item || {
+      kind: 'pdf', accent: '#b91c1c', bg: '#f3f4f6',
+      blocks: [{ k: 'h', t: 'Invoice' }, { k: 's', t: 'No. 2026-09 · 30 Sep 2026' }, { k: 'rule' }, { k: 'row', t: 'Fiber internet', r: '€ 59.00' }, { k: 'row', t: 'VAT 21%', r: '€ 12.39' }, { k: 'rule' }, { k: 'tot', t: 'Total due', r: '€ 71.39' }]
+    };
+    const z = Number(this.props.z) || 1;
+    const full = !!this.props.full;
+    const px = (n) => (Math.round(n * z * 10) / 10) + 'px';
+    const k = t.kind;
+    const seed = t.seed || 3;
+    const rnd = (i) => { const x = Math.sin(seed * 97 + i * 13.7) * 10000; return x - Math.floor(x); };
+    const box = (inset, pad) => full
+      ? { left: '0', right: '0', top: '0', bottom: '0', pad: px(pad * 1.6) }
+      : { left: inset, right: inset, top: px(10), bottom: '-4px', pad: px(pad) };
+
+    const bs = {
+      h: [11, 700, t.accent, 0], s: [5.5, 400, '#6b7280', 1.5], sec: [6.5, 700, '#1f2937', 6],
+      p: [5.5, 400, '#374151', 2.5], row: [5.5, 400, '#374151', 2.5], tot: [6.5, 700, '#111827', 3], rule: [2, 400, '#374151', 4]
+    };
+    const blocks = (t.blocks || []).map((b) => {
+      const v = bs[b.k] || bs.p;
+      return { t: b.t || '', r: b.r || '', fs: px(v[0]), fw: String(v[1]), c: v[2], mt: px(v[3]), bt: b.k === 'rule' ? '1px solid #e5e7eb' : '0' };
+    });
+
+    const rows = (t.rows || []).slice(0, 12).map((r, ri) => ({
+      cells: r.slice(0, 4).map((cell, ci) => ({
+        t: cell, fs: px(5.5), pad: px(2) + ' ' + px(3),
+        bg: ri === 0 ? t.accent : (ri % 2 === 0 ? '#f9fafb' : '#ffffff'),
+        c: ri === 0 ? '#ffffff' : '#1f2937', fw: ri === 0 || ci === 0 ? '600' : '400', al: ci === 0 ? 'left' : 'right'
+      }))
+    }));
+
+    const code = (t.code || []).map((line) => {
+      const s = line.trim();
+      let c = '#e2e8f0';
+      if (s.indexOf('#') === 0) c = '#93c5fd';
+      else if (/[:{]$/.test(s)) c = '#f9a8d4';
+      else if (s.indexOf('-') === 0) c = '#86efac';
+      return { t: line || ' ', c };
+    });
+
+    const list = (t.list || []).map((f) => ({ t: f, c: /\/$/.test(f) ? '#60a5fa' : '#d1d5db' }));
+    const bars = [];
+    for (let i = 0; i < 22; i++) bars.push({ h: Math.round(20 + rnd(i) * 80) + '%' });
+    const minis = (t.minis || []).slice(0, 4);
+
+    return {
+      h: this.props.h || '160px', radius: full ? '8px' : '8px', bg: t.bg || '#f3f4f6',
+      sky: t.sky, sun: t.sun, hill: t.hill, hill2: t.hill2, sunX: t.sunX || 116, dur: t.dur || '',
+      isScene: k === 'image' || k === 'video', isVideo: k === 'video', isUi: k === 'ui',
+      isPage: k === 'pdf' || k === 'doc' || k === 'text', isSheet: k === 'sheet', isCode: k === 'code',
+      isArchive: k === 'archive', isAudio: k === 'audio', isFolder: k === 'folder',
+      hasMinis: minis.length > 0, noMinis: minis.length === 0, minis,
+      pg: box('17%', 9), sg: box('8%', 0), ag: box('12%', 8),
+      blocks, rows, code, list, bars, title: t.title || '', sub: t.sub || '',
+      fsH: px(10), fsSec: px(7), fsP: px(5.5), fsCode: px(6), fsDur: px(8),
+      codePad: px(10), uiInset: px(10), playSize: px(34), dot: px(4),
+      g2: px(2), g3: px(3), g4: px(4), g6: px(6), g10: px(10)
+    };
+  }
+}
+</script>
+</body>
+</html>

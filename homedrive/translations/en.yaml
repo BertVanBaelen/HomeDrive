@@ -1,0 +1,45 @@
+configuration:
+  public_url:
+    name: Public URL
+    description: >-
+      The address people use to open Homedrive, for example https://drive.example.com.
+      Scheme and host only, no path.
+  data_path:
+    name: Data folder
+    description: >-
+      Where file contents are stored: a folder under /share (Home Assistant's own disk)
+      or /media (USB disks). NAS shares added under Settings → System → Storage appear
+      there too. Must be new or empty, and used only by Homedrive.
+  backup_path:
+    name: Backup folder
+    description: >-
+      Optional. A second location, ideally another disk, for the nightly backup.
+      Leave empty to turn backups off.
+  backup_time:
+    name: Backup time
+    description: Time of the nightly backup, as HH:MM.
+  backup_retention_days:
+    name: Keep deleted files in backup (days)
+    description: How long deleted and overwritten files stay in the backup.
+  smtp_host:
+    name: SMTP server
+    description: Mail server for login codes. Email is the second login factor, so this is required.
+  smtp_port:
+    name: SMTP port
+    description: Usually 587 for STARTTLS or 465 for TLS.
+  smtp_security:
+    name: SMTP encryption
+    description: STARTTLS or TLS. Unencrypted SMTP is not supported.
+  smtp_username:
+    name: SMTP username
+  smtp_password:
+    name: SMTP password
+  smtp_from:
+    name: Sender address
+    description: For example "Homedrive <drive@example.com>".
+  log_level:
+    name: Log level
+network:
+  8080/tcp: >-
+    Web interface. Leave empty when the Cloudflared add-on connects to Homedrive;
+    only needed when cloudflared runs elsewhere.

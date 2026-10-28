@@ -1,0 +1,56 @@
+name: Homedrive
+version: "0.1.0"
+slug: homedrive
+description: Self-hosted online drive for your household's documents, with a phone app.
+url: https://github.com/BertVanBaelen/HomeDrive
+arch:
+  - amd64
+  - aarch64
+image: ghcr.io/bertvanbaelen/homedrive
+init: false
+startup: application
+boot: auto
+watchdog: http://[HOST]:[PORT:8080]/healthz
+
+# Not published on the host by default: the Cloudflared add-on reaches
+# Homedrive over Home Assistant's internal network.
+ports:
+  8080/tcp: null
+
+map:
+  - type: share
+    read_only: false
+  - type: media
+    read_only: false
+
+environment:
+  HOMEDRIVE_STATE_DIR: /data
+  HOMEDRIVE_OPTIONS_FILE: /data/options.json
+
+# Stop the add-on while Home Assistant backs up /data, so the database is
+# never copied mid-write. File contents are covered by Homedrive's own backup.
+backup: cold
+backup_exclude:
+  - "*/cache/*"
+
+options:
+  data_path: /share/homedrive
+  backup_time: "03:00"
+  backup_retention_days: 30
+  smtp_port: 587
+  smtp_security: starttls
+  log_level: info
+
+schema:
+  public_url: url
+  data_path: str
+  backup_path: str?
+  backup_time: match(^([01]\d|2[0-3]):[0-5]\d$)
+  backup_retention_days: int(1,365)
+  smtp_host: str
+  smtp_port: port
+  smtp_security: list(starttls|tls)
+  smtp_username: str?
+  smtp_password: password?
+  smtp_from: str
+  log_level: list(debug|info|warn|error)

@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+web/dist/
+server/bin/
+
+# Local development data
+dev/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets
+.env
+.env.*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Homedrive file browser</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803d}a:hover{color:#166534}
+.hd button,.hd input,.hd textarea{font-family:inherit}
+.hd button{cursor:pointer}
+.hd button:disabled{cursor:default;opacity:.5}
+.hd-card{transition:border-color .15s, box-shadow .15s, transform .15s}
+.hd-card:not(.sel):hover{border-color:#9ca3af !important;box-shadow:0 4px 6px -1px rgba(0,0,0,0.08) !important}
+.hd-card:active{transform:scale(.98)}
+.hd-nav{transition:background .15s}
+.hd-nav:hover{background:#e5e7eb !important}
+.hd-primary{transition:background .15s, transform .15s}
+.hd-primary:hover{background:#166534 !important}
+.hd-primary:active{transform:scale(.97)}
+.hd-ghost{transition:background .15s}
+.hd-ghost:hover{background:#f3f4f6 !important}
+.hd-danger:hover{background:#fee2e2 !important}
+.hd-share{transition:background .15s, color .15s}
+.hd-share:hover{background:#15803d !important;color:#ffffff !important}
+.hd-info:hover{background:#dcfce7 !important;color:#166534 !important}
+.hd-dark{transition:background .15s}
+.hd-dark:hover{background:#374151 !important}
+.hd-tool:hover{background:#f0fdf4 !important;color:#166534 !important}
+.hd-tile:hover{border-color:#15803d !important;background:#f0fdf4 !important}
+.hd-row{transition:background .15s}
+.hd-row:not(.sel):hover{background:#f9fafb !important}
+.hd-chip:hover{border-color:#15803d !important;background:#f0fdf4 !important}
+.hd-fade{animation:hdFade .2s ease-in}
+@keyframes hdFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hd input:focus,.hd textarea:focus{outline:none;border-color:#22c55e !important;box-shadow:0 0 0 2px #22c55e}
+.hd .hd-cell:focus{box-shadow:inset 0 0 0 2px #15803d !important;border-color:#e5e7eb !important}
+.hd button:focus-visible{outline:2px solid #22c55e;outline-offset:2px}
+.hd-bar{transition:width .25s ease}
+.hd-knob{transition:left .15s ease}
+.hd-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hd-rich:focus{outline:none}
+.hd-rich h1{font-size:30px;line-height:1.25;margin:0 0 16px;font-weight:700;color:#111827}
+.hd-rich h2{font-size:22px;line-height:1.3;margin:24px 0 10px;font-weight:700;color:#111827}
+.hd-rich h3{font-size:18px;margin:20px 0 8px;font-weight:600;color:#111827}
+.hd-rich p{margin:0 0 12px}
+.hd-rich ul,.hd-rich ol{margin:0 0 4px;padding-left:24px}
+.hd-rich li{margin:0 0 4px}
+.hd-rich blockquote{margin:0 0 12px;padding:8px 16px;border-radius:8px;background:#f0fdf4;color:#166534}
+.hd-rich code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;background:#f3f4f6;padding:1px 4px;border-radius:4px}
+.hd-tabbar,.hd-fab,.hd-sheet-bg{display:none}
+.hd-m .hd-side{display:none !important}
+.hd-m .hd-tabbar{display:flex !important}
+.hd-m .hd-fab{display:flex !important}
+.hd-m .hd-sheet-bg{display:block !important}
+.hd-m .hd-body{padding:12px 12px 104px !important;gap:12px !important}
+.hd-m .hd-h1{font-size:24px !important}
+.hd-m .hd-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px !important}
+.hd-m .hd-quick{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+.hd-m .hd-lbl{display:none !important}
+.hd-m .hd-aside{position:fixed !important;left:0;right:0;bottom:0;z-index:42;max-height:82%;overflow-y:auto;max-width:none !important;border-radius:16px 16px 0 0 !important;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35)}
+.hd-m .hd-modal-wrap{align-items:flex-end !important;padding:0 !important}
+.hd-m .hd-modal{border-radius:16px 16px 0 0 !important;max-height:88% !important}
+.hd-m .hd-stage{padding:12px 8px !important}
+.hd-m .hd-navbtn{display:none !important}
+.hd-m .hd-vinfo{position:absolute !important;left:0;right:0;bottom:0;max-height:60%;min-width:0 !important;border-radius:16px 16px 0 0}
+.hd-m .hd-edtool{flex-wrap:nowrap !important;overflow-x:auto}
+.hd-m .hd-paper{padding:20px 16px !important;border-radius:0 !important;border:0 !important}
+.hd-m .hd-edscroll{padding:0 !important}
+.hd-m .hd-toast{bottom:160px !important}
+.hd-m .hd-hide-m{display:none !important}
+.hd-cin,.hd-rin,.hd-hin{animation-fill-mode:backwards}
+@keyframes hdFadeIn{from{opacity:0}to{opacity:1}}
+.hd-bdin{animation:hdFadeIn .2s ease-out both}
+/* loading: cards flip in, rows slide, title pops */
+.hd-par-0 .hd-cin{animation:ptC0 .44s ease-out backwards}
+.hd-par-1 .hd-cin{animation:ptC1 .44s ease-out backwards}
+@keyframes ptC0{0%{opacity:0;transform:perspective(700px) rotateX(-70deg) translateY(12px)}65%{opacity:1;transform:perspective(700px) rotateX(12deg)}100%{transform:none}}
+@keyframes ptC1{0%{opacity:0;transform:perspective(700px) rotateX(-70deg) translateY(12px)}65%{opacity:1;transform:perspective(700px) rotateX(12deg)}100%{transform:none}}
+.hd-par-0 .hd-rin{animation:ptR0 .36s ease-out backwards}
+.hd-par-1 .hd-rin{animation:ptR1 .36s ease-out backwards}
+@keyframes ptR0{0%{opacity:0;transform:translateX(-28px)}70%{opacity:1;transform:translateX(4px)}100%{transform:none}}
+@keyframes ptR1{0%{opacity:0;transform:translateX(-28px)}70%{opacity:1;transform:translateX(4px)}100%{transform:none}}
+.hd-par-0 .hd-hin,.hd-par-z .hd-hin{animation:ptH0 .38s ease-out backwards}
+.hd-par-1 .hd-hin{animation:ptH1 .38s ease-out backwards}
+@keyframes ptH0{0%{opacity:0;transform:scale(.8)}60%{opacity:1;transform:scale(1.05)}100%{transform:none}}
+@keyframes ptH1{0%{opacity:0;transform:scale(.8)}60%{opacity:1;transform:scale(1.05)}100%{transform:none}}
+/* opening a file */
+.hd-vopen{animation:hdFadeIn .2s ease-out}
+.hd-par-0 .hd-vstage{animation:plV0 .34s cubic-bezier(.34,1.56,.64,1) backwards}
+.hd-par-1 .hd-vstage{animation:plV1 .34s cubic-bezier(.34,1.56,.64,1) backwards}
+@keyframes plV0{from{opacity:0;transform:translateY(20px) scale(.86)}to{opacity:1;transform:none}}
+@keyframes plV1{from{opacity:0;transform:translateY(20px) scale(.86)}to{opacity:1;transform:none}}
+.hd-eopen{animation:plE .3s cubic-bezier(.34,1.4,.64,1) backwards}
+@keyframes plE{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+/* sharing */
+.hd-mopen{animation:plM .28s cubic-bezier(.34,1.56,.64,1) backwards}
+@keyframes plM{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
+.hd-tin{animation:plT .32s cubic-bezier(.34,1.56,.64,1) backwards}
+@keyframes plT{from{opacity:0;transform:translateY(24px) scale(.9)}to{opacity:1;transform:none}}
+.hd-pin{animation:plM .3s cubic-bezier(.34,1.56,.64,1) backwards}
+.hd-card:not(.sel):hover{transform:translateY(-3px)}
+.hd-share{transition:background .15s,color .15s,transform .2s cubic-bezier(.34,1.56,.64,1)}
+.hd-share:hover{transform:scale(1.12)}
+.hd-knob{transition:left .3s cubic-bezier(.34,1.56,.64,1)}
+.hd-tile{transition:transform .2s cubic-bezier(.34,1.56,.64,1),border-color .15s,background .15s}
+.hd-tile:hover{transform:translateY(-3px)}
+.hd-pulse{animation:hdPulse 2.2s ease-out infinite}
+@keyframes hdPulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}70%,100%{box-shadow:0 0 0 7px rgba(74,222,128,0)}}
+.hd-m .hd-mopen.hd-modal{animation:hdSheet .3s cubic-bezier(.2,.9,.3,1.1) backwards !important}
+@keyframes hdSheet{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+/* folder zoom */
+.hd-zoomghost{position:absolute;z-index:0;pointer-events:none;border-radius:10px;background:#fef9c3;opacity:0;transform-origin:0 0}
+.hd-m .hd-rail{display:none !important}
+/* celebrate */
+.hd-check{stroke-dasharray:24;stroke-dashoffset:24;animation:hdDraw .35s .1s ease-out forwards}
+@keyframes hdDraw{to{stroke-dashoffset:0}}
+.hd-burst{position:fixed;left:50%;bottom:76px;width:0;height:0;z-index:61;pointer-events:none}
+.hd-m .hd-burst{bottom:186px}
+.hd-ray{position:absolute;left:0;top:0;width:0;height:0}
+.hd-bit{position:absolute;left:-4px;top:-4px;opacity:0;animation:hdShoot .7s cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes hdShoot{0%{opacity:1;transform:translateY(0) scale(.5)}70%{opacity:1}100%{opacity:0;transform:translateY(-110px) scale(1) rotate(220deg)}}
+@media (prefers-reduced-motion: reduce){.hd,.hd *{animation:none !important;transition:none !important}.hd .hd-check{stroke-dashoffset:0 !important}}
+</style>
+</helmet>
+<div class="hd {{modeCls}}" style="position: relative; min-height: 100vh; background: #f9fafb; color: #1f2937; font-family: Inter, system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column">
+
+  <header style="position: sticky; top: 0; z-index: 30; background: #166534; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)">
+    <div style="max-width: 1600px; margin: 0 auto; box-sizing: border-box; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto">
+        <svg role="img" aria-label="Homedrive logo" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5L12 3.8l9.5 7.7"></path><path d="M5.5 9.6V19a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5V9.6"></path><rect x="8.25" y="11.75" width="7.5" height="5.5" rx="1.25"></rect><path d="M10.25 14.5h1.5"></path><circle cx="13.75" cy="14.5" r="0.9" fill="#4ade80" stroke="none"></circle></svg>
+        <span style="font-size: 18px; font-weight: 700">Homedrive</span>
+      </div>
+      <div style="position: relative; flex: 1 1 280px; max-width: 640px; order: 0">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 10px"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <label for="hd-search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search files</label>
+        <input id="hd-search" type="search" placeholder="Search all files" value="{{q}}" onChange="{{onSearch}}" style="width: 100%; box-sizing: border-box; height: 40px; padding: 0 40px 0 42px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #1f2937; font-size: 14px">
+        <sc-if value="{{hasQuery}}" hint-placeholder-val="{{ false }}">
+          <button type="button" aria-label="Clear search" onClick="{{clearSearch}}" class="hd-ghost" style="position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #6b7280">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </sc-if>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; margin-left: auto">
+        <div style="position: relative">
+          <button type="button" onClick="{{toggleServer}}" aria-expanded="{{serverOpen}}" aria-label="nas.local is online. Show storage" class="hd-status hd-primary" style="display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 9999px; background: #15803d; color: #ffffff; font-size: 12px; font-weight: 600">
+            <span class="hd-pulse" style="width: 8px; height: 8px; border-radius: 9999px; background: #4ade80"></span>
+            <span class="hd-lbl">nas.local ·</span>
+            online
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+          <sc-if value="{{serverOpen}}" hint-placeholder-val="{{ false }}">
+            <button type="button" aria-label="Close" onClick="{{toggleServer}}" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 39; border: 0; padding: 0; background: transparent"></button>
+            <div role="dialog" aria-label="Server and storage" class="hd-mopen" style="position: absolute; right: 0; top: 46px; z-index: 40; width: 320px; max-width: calc(100vw - 32px); box-sizing: border-box; background: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); padding: 16px; display: flex; flex-direction: column; gap: 14px; transform-origin: top right">
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #f0fdf4; color: #166534; display: flex; align-items: center; justify-content: center">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                </span>
+                <div style="display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 15px; font-weight: 700; color: #111827">nas.local</span>
+                  <span style="font-size: 12px; font-weight: 600; color: #15803d">Online · 2 disks healthy</span>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+                  <span style="font-size: 14px; font-weight: 600">{{st.usedLabel}} used</span>
+                  <span style="font-size: 12px; color: #6b7280">{{st.freeLabel}} free of {{st.totalLabel}}</span>
+                </div>
+                <div style="display: flex; height: 8px; border-radius: 9999px; overflow: hidden; background: #e5e7eb; gap: 2px">
+                  <sc-for list="{{st.segs}}" as="s" hint-placeholder-count="5">
+                    <span style="height: 100%; width: {{s.w}}; background: {{s.c}}"></span>
+                  </sc-for>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px">
+                  <sc-for list="{{st.segs}}" as="s" hint-placeholder-count="5">
+                    <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #374151">
+                      <span style="width: 8px; height: 8px; border-radius: 9999px; flex: 0 0 auto; background: {{s.c}}"></span>
+                      {{s.label}} · {{s.sizeLabel}}
+                    </span>
+                  </sc-for>
+                </div>
+              </div>
+              <button type="button" onClick="{{openStorage}}" class="hd-primary" style="height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">Open Storage</button>
+            </div>
+          </sc-if>
+        </div>
+        <span aria-label="Signed in as Alex" role="img" style="width: 36px; height: 36px; border-radius: 9999px; background: #ffffff; color: #166534; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">AJ</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="hd-body" style="width: 100%; max-width: 1600px; margin: 0 auto; box-sizing: border-box; padding: 16px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; flex: 1 1 auto">
+
+    <nav class="hd-side" aria-label="Drive sections" style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 16px">
+      <button type="button" onClick="{{openAdd}}" class="hd-primary" style="height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 15px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+        New
+      </button>
+
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{navItems}}" as="n" hint-placeholder-count="6">
+          <button type="button" onClick="{{n.go}}" class="hd-nav" style="height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border: 0; border-radius: 8px; text-align: left; font-size: 14px; font-weight: 600; background: {{n.bg}}; color: {{n.fg}}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{n.icon}}"></path></svg>
+            <span style="flex: 1 1 auto">{{n.label}}</span>
+            <span style="font-size: 12px; font-weight: 500; color: #6b7280">{{n.count}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+      <sc-if value="{{isStorage}}" hint-placeholder-val="{{ false }}">
+        <div class="hd-par-{{par}}" style="display: flex; flex-direction: column; gap: 16px">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 6px">
+            <button type="button" onClick="{{goBack}}" disabled="{{noBack}}" aria-label="{{backAria}}" class="hd-ghost" style="flex: 0 0 auto; height: 36px; padding: 0 12px 0 8px; display: flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 9999px; background: #ffffff; color: #166534; font-size: 13px; font-weight: 600">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+              <span class="hd-lbl" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{backLabel}}</span>
+            </button>
+            <ol style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0; min-width: 0; overflow-x: auto; white-space: nowrap">
+              <sc-for list="{{crumbs}}" as="c" hint-placeholder-count="3">
+                <li style="display: flex; align-items: center; flex: 0 0 auto">
+                  <sc-if value="{{c.notFirst}}" hint-placeholder-val="{{ true }}">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{c.link}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{c.go}}" class="hd-ghost" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #15803d; font-size: 13px; font-weight: 500">
+                      <sc-if value="{{c.home}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg></sc-if>
+                      {{c.label}}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{c.here}}" hint-placeholder-val="{{ false }}">
+                    <span aria-current="page" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; font-size: 13px; font-weight: 700; color: #111827">
+                      <sc-if value="{{c.home}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg></sc-if>
+                      {{c.label}}
+                    </span>
+                  </sc-if>
+                </li>
+              </sc-for>
+            </ol>
+          </nav>
+            <h1 class="hd-h1 hd-hin" style="margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700; color: #111827">Storage</h1>
+            <span style="font-size: 13px; color: #6b7280">nas.local · 2 disks · Mirrored</span>
+          </div>
+
+          <section aria-label="Capacity" class="hd-cin" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px">
+              <div style="display: flex; align-items: baseline; gap: 8px">
+                <span style="font-size: 32px; font-weight: 700; color: #111827">{{st.usedLabel}}</span>
+                <span style="font-size: 14px; color: #6b7280">used of {{st.totalLabel}}</span>
+              </div>
+              <span style="font-size: 14px; font-weight: 600; color: #15803d">{{st.freeLabel}} free</span>
+            </div>
+            <div style="display: flex; height: 16px; border-radius: 9999px; overflow: hidden; background: #e5e7eb; gap: 2px">
+              <sc-for list="{{st.segs}}" as="s" hint-placeholder-count="5">
+                <span style="height: 100%; width: {{s.w}}; background: {{s.c}}"></span>
+              </sc-for>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px">
+              <sc-for list="{{st.segs}}" as="s" hint-placeholder-count="5">
+                <div style="display: flex; gap: 10px; align-items: flex-start">
+                  <span style="width: 10px; height: 10px; margin-top: 4px; border-radius: 9999px; flex: 0 0 auto; background: {{s.c}}"></span>
+                  <div style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-weight: 600">{{s.label}}</span>
+                    <span style="font-size: 12px; color: #6b7280">{{s.sizeLabel}} · {{s.pct}}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start">
+            <section aria-label="Disks" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+                <h2 style="margin: 0; font-size: 16px; font-weight: 700">Disks</h2>
+                <span style="padding: 3px 10px; border-radius: 9999px; background: #f0fdf4; color: #166534; font-size: 12px; font-weight: 600">Mirrored · RAID 1</span>
+              </div>
+              <sc-for list="{{st.disks}}" as="d" hint-placeholder-count="2">
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #f3f4f6; color: #374151; display: flex; align-items: center; justify-content: center">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                  </span>
+                  <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                    <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap">
+                      <span style="font-weight: 600">{{d.name}}</span>
+                      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #15803d">
+                        <span style="width: 8px; height: 8px; border-radius: 9999px; background: #22c55e"></span>
+                        {{d.health}}
+                      </span>
+                    </div>
+                    <div style="height: 6px; border-radius: 9999px; background: #e5e7eb; overflow: hidden">
+                      <div style="height: 100%; border-radius: 9999px; background: #15803d; width: {{d.w}}"></div>
+                    </div>
+                    <span style="font-size: 12px; color: #6b7280">{{d.meta}}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </section>
+
+            <section aria-label="Largest files" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 6px">
+              <h2 style="margin: 0 0 8px; font-size: 16px; font-weight: 700">Largest files</h2>
+              <sc-for list="{{st.largest}}" as="it" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 10px; min-height: 44px">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{it.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{it.icon}}"></path></svg>
+                  <button type="button" onClick="{{it.open}}" class="hd-ghost" style="flex: 1 1 auto; min-width: 0; border: 0; background: transparent; padding: 6px; border-radius: 6px; text-align: left; display: flex; flex-direction: column; gap: 1px; color: #1f2937">
+                    <span style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%">{{it.display}}</span>
+                    <span style="font-size: 12px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%">{{it.kindShort}} · {{it.pathLabel}}</span>
+                  </button>
+                  <span style="font-size: 13px; font-weight: 600; color: #374151; flex: 0 0 auto">{{it.sizeLabel}}</span>
+                  <button type="button" aria-label="{{it.deleteAria}}" onClick="{{it.remove}}" class="hd-danger" style="width: 36px; height: 36px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #dc2626">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                </div>
+              </sc-for>
+            </section>
+
+            <section aria-label="Free up space" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700">Free up space</h2>
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #fef2f2; color: #b91c1c; display: flex; align-items: center; justify-content: center">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </span>
+                <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-weight: 600">Trash</span>
+                  <span style="font-size: 12px; color: #6b7280">{{st.trashLabel}}</span>
+                </div>
+                <button type="button" onClick="{{goTrash}}" class="hd-ghost" style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 600">Open</button>
+                <button type="button" onClick="{{emptyTrash}}" disabled="{{st.trashEmpty}}" class="hd-danger" style="height: 36px; padding: 0 12px; border: 1px solid #fecaca; border-radius: 8px; background: #ffffff; color: #b91c1c; font-size: 13px; font-weight: 600">Empty</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #fffbeb; color: #b45309; display: flex; align-items: center; justify-content: center">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                </span>
+                <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-weight: 600">Old backups</span>
+                  <span style="font-size: 12px; color: #6b7280">Older than 3 weeks · 21.7 GB</span>
+                </div>
+                <button type="button" onClick="{{reviewBackups}}" class="hd-ghost" style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 600">Review</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #f5f3ff; color: #6d28d9; display: flex; align-items: center; justify-content: center">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </span>
+                <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-weight: 600">Large videos</span>
+                  <span style="font-size: 12px; color: #6b7280">Videos take up the most space</span>
+                </div>
+                <button type="button" onClick="{{reviewVideos}}" class="hd-ghost" style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 600">Review</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isBrowser}}" hint-placeholder-val="{{ true }}">
+      <div class="hd-par-{{par}}" style="display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px">
+        <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+          <nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 6px">
+            <button type="button" onClick="{{goBack}}" disabled="{{noBack}}" aria-label="{{backAria}}" class="hd-ghost" style="flex: 0 0 auto; height: 36px; padding: 0 12px 0 8px; display: flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 9999px; background: #ffffff; color: #166534; font-size: 13px; font-weight: 600">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+              <span class="hd-lbl" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{backLabel}}</span>
+            </button>
+            <ol style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0; min-width: 0; overflow-x: auto; white-space: nowrap">
+              <sc-for list="{{crumbs}}" as="c" hint-placeholder-count="3">
+                <li style="display: flex; align-items: center; flex: 0 0 auto">
+                  <sc-if value="{{c.notFirst}}" hint-placeholder-val="{{ true }}">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{c.link}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{c.go}}" class="hd-ghost" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #15803d; font-size: 13px; font-weight: 500">
+                      <sc-if value="{{c.home}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg></sc-if>
+                      {{c.label}}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{c.here}}" hint-placeholder-val="{{ false }}">
+                    <span aria-current="page" style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; font-size: 13px; font-weight: 700; color: #111827">
+                      <sc-if value="{{c.home}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg></sc-if>
+                      {{c.label}}
+                    </span>
+                  </sc-if>
+                </li>
+              </sc-for>
+            </ol>
+          </nav>
+          <div style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px">
+            <h1 class="hd-h1 hd-hin" style="margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700; color: #111827; word-break: break-word">{{pageTitle}}</h1>
+            <span style="font-size: 13px; color: #6b7280">{{countLabel}}</span>
+          </div>
+        </div>
+        <div role="group" aria-label="View" style="display: flex; padding: 3px; gap: 2px; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff">
+          <button type="button" aria-label="Grid view" aria-pressed="{{isGrid}}" onClick="{{setGrid}}" style="height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; background: {{gridBg}}; color: {{gridFg}}">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span class="hd-lbl">Grid</span>
+          </button>
+          <button type="button" aria-label="List view" aria-pressed="{{isList}}" onClick="{{setList}}" style="height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; background: {{listBg}}; color: {{listFg}}">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <span class="hd-lbl">List</span>
+          </button>
+        </div>
+      </div>
+
+      <sc-if value="{{hasUploads}}" hint-placeholder-val="{{ false }}">
+        <div class="hd-fade" style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280">
+            <span style="font-weight: 600; color: #1f2937; font-size: 14px">{{uploadTitle}}</span>
+            <span>to {{folderName}}</span>
+          </div>
+          <sc-for list="{{uploads}}" as="u" hint-placeholder-count="2">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{u.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{u.icon}}"></path></svg>
+              <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px">
+                  <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{u.name}}</span>
+                  <span style="color: #6b7280; flex: 0 0 auto">{{u.pctLabel}}</span>
+                </div>
+                <div style="height: 6px; border-radius: 9999px; background: #e5e7eb; overflow: hidden">
+                  <div class="hd-bar" style="height: 100%; border-radius: 9999px; background: #15803d; width: {{u.w}}"></div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showQuick}}" hint-placeholder-val="{{ true }}">
+        <section aria-label="Quick access" style="display: flex; flex-direction: column; gap: 8px">
+          <h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #4b5563">Quick access</h2>
+          <div class="hd-quick" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px">
+            <sc-for list="{{quick}}" as="it" hint-placeholder-count="3">
+              <button type="button" onClick="{{it.open}}" class="hd-card hd-cin" style="animation-delay: {{it.delay}}; display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; text-align: left; color: #111827; min-width: 0">
+                <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="#fef9c3" stroke="#a16207" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{it.icon}}"></path></svg>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+                  <span style="font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.display}}</span>
+                  <span style="font-size: 12px; color: #6b7280">{{it.sizeLabel}}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px">
+        <section aria-label="Files" id="hd-files" ref="{{filesRef}}" style="position: relative; flex: 999 1 420px; min-width: 0">
+          <sc-if value="{{ghostOn}}" hint-placeholder-val="{{ false }}">
+            <div class="hd-zoomghost" ref="{{ghostRef}}" aria-hidden="true" style="left: {{ghost.x}}; top: {{ghost.y}}; width: {{ghost.w}}; height: {{ghost.h}}"></div>
+          </sc-if>
+
+          <sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+            <div class="hd-fade" style="background: #ffffff; border: 1px dashed #d1d5db; border-radius: 12px; padding: 56px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+              <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{emptyIcon}}"></path></svg>
+              <span style="font-size: 16px; font-weight: 600">{{emptyTitle}}</span>
+              <span style="color: #6b7280">{{emptyBody}}</span>
+              <sc-if value="{{emptyCanAdd}}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{openAdd}}" class="hd-primary" style="margin-top: 8px; height: 44px; padding: 0 20px; display: flex; align-items: center; gap: 8px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+                  Add Something
+                </button>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{showGrid}}" hint-placeholder-val="{{ true }}">
+            <div class="hd-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px">
+              <sc-for list="{{items}}" as="it" hint-placeholder-count="8">
+                <div id="hdc-{{it.id}}" class="hd-card hd-cin {{it.selCls}}" style="position: relative; min-width: 0; border: 1px solid #e5e7eb; border-radius: 12px; border-color: {{it.bc}}; background: {{it.bg}}; box-shadow: {{it.sh}}; animation-delay: {{it.delay}}">
+                  <button type="button" onClick="{{it.open}}" aria-label="{{it.openAria}}" style="width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 8px 8px 12px; border: 0; border-radius: 12px; background: transparent; text-align: left; color: #111827">
+                    <span id="hdt-{{it.id}}" style="display: block"><dc-import name="Thumb" item="{{it.thumb}}" h="{{thumbH}}" z="{{ 1 }}" hint-size="100%,150px"></dc-import></span>
+                    <span style="display: flex; align-items: flex-start; gap: 8px; padding: 0 40px 0 4px; min-width: 0">
+                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{it.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px"><path d="{{it.icon}}"></path></svg>
+                      <span class="hd-clamp" style="font-size: 15px; line-height: 1.35; font-weight: 600; color: #111827; word-break: break-word">{{it.display}}</span>
+                    </span>
+                    <span style="padding: 0 40px 0 30px; display: flex; align-items: center; gap: 6px; min-width: 0">
+                      <sc-if value="{{it.starred}}" hint-placeholder-val="{{ false }}">
+                        <svg role="img" aria-label="Starred" width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round" style="flex: 0 0 auto"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{it.shared}}" hint-placeholder-val="{{ false }}">
+                        <svg role="img" aria-label="Shared" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                      </sc-if>
+                      <span style="flex: 1 1 auto; min-width: 0; font-size: 12px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.meta}}</span>
+                    </span>
+                  </button>
+                  <sc-if value="{{it.canShare}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" aria-label="{{it.shareAria}}" onClick="{{it.share}}" class="hd-share" style="position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: rgba(255,255,255,0.95); color: #166534; box-shadow: 0 1px 3px rgba(0,0,0,0.2)">
+                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    </button>
+                  </sc-if>
+                  <button type="button" aria-label="{{it.infoAria}}" aria-pressed="{{it.selected}}" onClick="{{it.info}}" class="hd-info" style="position: absolute; right: 6px; bottom: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{it.infoBg}}; color: {{it.infoFg}}">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  </button>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{showList}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: flex-start; gap: 16px">
+            <sc-if value="{{showRail}}" hint-placeholder-val="{{ false }}">
+              <nav aria-label="Folder path" class="hd-rail" style="flex: 0 0 220px; min-width: 0; box-sizing: border-box; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 8px; display: flex; flex-direction: column; gap: 4px">
+                <span style="padding: 2px 10px 6px; font-size: 12px; font-weight: 600; color: #6b7280">You are here</span>
+                <sc-for list="{{rail}}" as="r" hint-placeholder-count="3">
+                  <button type="button" id="hdf-{{r.id}}" onClick="{{r.go}}" aria-current="{{r.current}}" class="hd-nav" style="position: relative; display: flex; align-items: center; gap: 8px; height: 40px; padding-right: 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13px; padding-left: {{r.pad}}; background: {{r.bg}}; color: {{r.fg}}; font-weight: {{r.fw}}">
+                    <sc-if value="{{r.notFirst}}" hint-placeholder-val="{{ true }}">
+                      <span aria-hidden="true" style="position: absolute; top: -14px; width: 10px; height: 34px; box-sizing: border-box; border-left: 2px solid #bbf7d0; border-bottom: 2px solid #bbf7d0; border-bottom-left-radius: 6px; left: {{r.line}}"></span>
+                    </sc-if>
+                    <sc-if value="{{r.home}}" hint-placeholder-val="{{ true }}">
+                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </sc-if>
+                    <sc-if value="{{r.isFolder}}" hint-placeholder-val="{{ false }}">
+                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="#fef9c3" stroke="#a16207" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    </sc-if>
+                    <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.label}}</span>
+                  </button>
+                </sc-for>
+              </nav>
+            </sc-if>
+            <div class="hd-cin" style="flex: 1 1 auto; min-width: 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow-x: auto">
+              <div style="min-width: 720px">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-items: center; padding: 0 8px 0 16px; height: 40px; border-bottom: 1px solid #e5e7eb">
+                  <div style="display: grid; grid-template-columns: minmax(220px, 1fr) 130px 90px 150px; gap: 12px">
+                    <sc-for list="{{sortCols}}" as="s" hint-placeholder-count="3">
+                      <button type="button" onClick="{{s.go}}" style="border: 0; background: transparent; padding: 0; text-align: left; font-size: 12px; font-weight: {{s.weight}}; color: {{s.fg}}">{{s.label}}</button>
+                    </sc-for>
+                    <span style="font-size: 12px; font-weight: 500; color: #6b7280">Sharing</span>
+                  </div>
+                  <span></span>
+                </div>
+                <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+                  <div id="hdr-{{it.id}}" class="hd-row hd-rin {{it.selCls}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-items: center; padding: 0 8px 0 0; border-bottom: 1px solid #f3f4f6; background: {{it.rowBg}}; animation-delay: {{it.delay}}">
+                    <button type="button" onClick="{{it.open}}" aria-label="{{it.openAria}}" style="display: grid; grid-template-columns: minmax(220px, 1fr) 130px 90px 150px; align-items: center; gap: 12px; padding: 0 0 0 16px; height: 56px; border: 0; background: transparent; text-align: left; font-size: 14px; color: #1f2937">
+                      <span style="display: flex; align-items: center; gap: 12px; min-width: 0">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{it.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{it.icon}}"></path></svg>
+                        <span id="hdf-{{it.id}}" style="font-size: 15px; font-weight: 600; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.display}}</span>
+                        <sc-if value="{{it.starred}}" hint-placeholder-val="{{ false }}">
+                          <svg role="img" aria-label="Starred" width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round" style="flex: 0 0 auto"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                        </sc-if>
+                      </span>
+                      <span style="color: #4b5563; font-size: 13px">{{it.when}}</span>
+                      <span style="color: #4b5563; font-size: 13px">{{it.sizeLabel}}</span>
+                      <span style="font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: {{it.shareFg}}; font-weight: {{it.shareWeight}}">{{it.shareLabel}}</span>
+                    </button>
+                    <div style="display: flex; gap: 4px; justify-content: flex-end">
+                      <button type="button" aria-label="{{it.infoAria}}" aria-pressed="{{it.selected}}" onClick="{{it.info}}" class="hd-info" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{it.infoBg}}; color: {{it.infoFg}}">
+                        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      </button>
+                      <sc-if value="{{it.canShare}}" hint-placeholder-val="{{ true }}">
+                        <button type="button" aria-label="{{it.shareAria}}" onClick="{{it.share}}" class="hd-share" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: #166534">
+                          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        </button>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            </div>
+          </sc-if>
+        </section>
+
+        <sc-if value="{{hasSel}}" hint-placeholder-val="{{ false }}">
+          <button type="button" aria-label="Close info" onClick="{{closeSel}}" class="hd-sheet-bg" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 41; border: 0; padding: 0; background: rgba(0,0,0,0.4)"></button>
+          <aside aria-label="Info" class="hd-fade hd-aside" style="flex: 1 1 280px; max-width: 100%; box-sizing: border-box; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span style="font-size: 13px; font-weight: 600; color: #4b5563">Info</span>
+              <button type="button" aria-label="Close info" onClick="{{closeSel}}" class="hd-ghost" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #6b7280">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <dc-import name="Thumb" item="{{sel.thumb}}" h="200px" z="{{ 1.25 }}" hint-size="100%,200px"></dc-import>
+            <div style="display: flex; align-items: flex-start; gap: 8px">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{sel.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 2px"><path d="{{sel.icon}}"></path></svg>
+              <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+                <span style="font-size: 18px; line-height: 1.3; font-weight: 700; color: #111827; word-break: break-word">{{sel.display}}</span>
+                <span style="font-size: 13px; color: #6b7280">{{sel.typeLabel}} · {{sel.sizeLabel}}</span>
+              </div>
+            </div>
+            <sc-if value="{{selLive}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+                  <button type="button" onClick="{{openSel}}" class="hd-primary" style="height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{sel.openIcon}}"></path></svg>
+                    {{sel.openLabel}}
+                  </button>
+                  <button type="button" onClick="{{shareSel}}" class="hd-ghost" style="height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; color: #166534; font-size: 14px; font-weight: 600">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    Share
+                  </button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                  <button type="button" onClick="{{download}}" class="hd-ghost" style="height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 500">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Save
+                  </button>
+                  <button type="button" onClick="{{toggleStar}}" class="hd-ghost" style="height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 500">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="{{starFill}}" stroke="{{starStroke}}" stroke-width="2" stroke-linejoin="round"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                    {{starLabel}}
+                  </button>
+                  <button type="button" onClick="{{trashSel}}" class="hd-danger" style="height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #dc2626; font-size: 13px; font-weight: 500">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid #f3f4f6">
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span style="font-size: 13px; font-weight: 600; color: #4b5563">Who has access</span>
+                  <button type="button" onClick="{{shareSel}}" class="hd-ghost" style="border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #15803d">Manage</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <div style="display: flex">
+                    <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 9999px; border: 2px solid #ffffff; background: #166534; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">AJ</span>
+                    <sc-for list="{{sel.avatars}}" as="p" hint-placeholder-count="2">
+                      <span aria-hidden="true" style="width: 28px; height: 28px; margin-left: -8px; border-radius: 9999px; border: 2px solid #ffffff; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{p.color}}">{{p.initials}}</span>
+                    </sc-for>
+                  </div>
+                  <span style="font-size: 13px; color: #374151">{{sel.accessSummary}}</span>
+                </div>
+              </div>
+            </sc-if>
+            <dl style="margin: 0; display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px 12px; font-size: 13px">
+              <dt style="color: #6b7280">File name</dt><dd style="margin: 0; word-break: break-word">{{sel.name}}</dd>
+              <dt style="color: #6b7280">Modified</dt><dd style="margin: 0">{{sel.when}}</dd>
+              <dt style="color: #6b7280">Location</dt><dd style="margin: 0; word-break: break-word">{{sel.pathLabel}}</dd>
+            </dl>
+            <sc-if value="{{selTrashed}}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{restoreSel}}" class="hd-primary" style="height: 44px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">Restore</button>
+            </sc-if>
+          </aside>
+        </sc-if>
+      </div>
+
+      <p class="hd-hide-m" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; color: #6b7280; font-size: 12px">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+        Drop files anywhere to upload
+      </p>
+      </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <nav class="hd-tabbar" aria-label="Sections" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; background: #ffffff; border-top: 1px solid #e5e7eb; padding: 0 4px 8px; justify-content: space-around">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <button type="button" onClick="{{t.go}}" aria-current="{{t.current}}" style="flex: 1 1 0; min-width: 0; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; font-size: 11px; font-weight: 600; border-top: 2px solid {{t.bc}}; color: {{t.fg}}">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{t.icon}}"></path></svg>
+        {{t.label}}
+      </button>
+    </sc-for>
+  </nav>
+  <button type="button" aria-label="Add new" onClick="{{openAdd}}" class="hd-fab hd-primary" style="position: fixed; right: 16px; bottom: 88px; z-index: 36; width: 56px; height: 56px; align-items: center; justify-content: center; border: 0; border-radius: 16px; background: #15803d; color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2), 0 4px 6px -4px rgba(0,0,0,0.2)">
+    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+  </button>
+
+  <sc-if value="{{addOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="hd-modal-wrap" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box">
+      <button type="button" aria-label="Close" onClick="{{closeAdd}}" class="hd-bdin" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; border: 0; padding: 0; background: rgba(0,0,0,0.4)"></button>
+      <div role="dialog" aria-modal="true" aria-labelledby="hd-add-title" class="hd-mopen hd-modal" style="position: relative; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; box-sizing: border-box; background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); padding: 20px; display: flex; flex-direction: column; gap: 16px; color: #1f2937">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+            <h2 id="hd-add-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #111827">{{addTitle}}</h2>
+            <span style="font-size: 13px; color: #6b7280">in {{folderName}}</span>
+          </div>
+          <button type="button" aria-label="Close" onClick="{{closeAdd}}" class="hd-ghost" style="width: 36px; height: 36px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #6b7280">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <sc-if value="{{addPick}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <sc-for list="{{addTiles}}" as="a" hint-placeholder-count="4">
+              <button type="button" onClick="{{a.go}}" class="hd-tile" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; text-align: left; color: #1f2937; min-height: 120px">
+                <span style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: {{a.tint}}; color: {{a.color}}">
+                  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{a.icon}}"></path></svg>
+                </span>
+                <span style="font-size: 15px; font-weight: 600">{{a.label}}</span>
+                <span style="font-size: 12px; line-height: 1.4; color: #6b7280">{{a.desc}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{addFolder}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <label for="hd-folder-name" style="font-size: 13px; font-weight: 600; color: #374151">Folder name</label>
+            <input id="hd-folder-name" value="{{folderDraft}}" onChange="{{onFolderDraft}}" placeholder="New folder" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 15px; color: #1f2937; background: #ffffff">
+            <div style="display: flex; justify-content: flex-end; gap: 8px">
+              <button type="button" onClick="{{addBack}}" class="hd-ghost" style="height: 44px; padding: 0 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff; color: #374151; font-size: 14px; font-weight: 600">Back</button>
+              <button type="button" onClick="{{createFolder}}" class="hd-primary" style="height: 44px; padding: 0 20px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">Create Folder</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{viewOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-modal="true" aria-label="{{vx.display}}" class="hd-vopen hd-par-{{vpar}}" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 45; background: #111827; color: #ffffff; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #1f2937">
+        <button type="button" aria-label="Close" onClick="{{closeView}}" class="hd-dark" style="width: 40px; height: 40px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: #ffffff">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{vx.lightColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{vx.icon}}"></path></svg>
+        <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+          <span style="font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{vx.display}}</span>
+          <span style="font-size: 12px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{vx.meta}}</span>
+        </div>
+        <div style="display: flex; gap: 6px; flex: 0 0 auto">
+          <button type="button" aria-label="Share" onClick="{{shareView}}" class="hd-primary" style="height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9999px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+            <span class="hd-lbl">Share</span>
+          </button>
+          <button type="button" aria-label="Download" onClick="{{downloadView}}" class="hd-dark" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #1f2937; color: #ffffff">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          </button>
+          <button type="button" aria-label="Info" aria-pressed="{{viewInfo}}" onClick="{{toggleViewInfo}}" class="hd-dark" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{viewInfoBg}}; color: #ffffff">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div style="position: relative; flex: 1 1 auto; min-height: 0; display: flex">
+        <div class="hd-stage" style="position: relative; flex: 1 1 auto; min-width: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 24px 64px; box-sizing: border-box">
+          <div class="hd-vstage" style="width: 100%; max-width: {{vw.maxW}}; display: flex; flex-direction: column; gap: 12px">
+            <dc-import name="Thumb" item="{{vx.thumb}}" h="{{vw.h}}" z="{{vw.z}}" full="{{ true }}" hint-size="100%,600px"></dc-import>
+            <sc-if value="{{vw.media}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: #1f2937">
+                <button type="button" aria-label="{{playAria}}" onClick="{{togglePlay}}" class="hd-primary" style="width: 40px; height: 40px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #15803d; color: #ffffff">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="{{playIcon}}"></path></svg>
+                </button>
+                <span style="font-size: 12px; color: #d1d5db; flex: 0 0 auto">{{playPos}}</span>
+                <div style="flex: 1 1 auto; height: 6px; border-radius: 9999px; background: #374151; overflow: hidden">
+                  <div style="height: 100%; border-radius: 9999px; background: #4ade80; width: {{playPct}}"></div>
+                </div>
+                <span style="font-size: 12px; color: #d1d5db; flex: 0 0 auto">{{vx.durLabel}}</span>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{hasPrev}}" hint-placeholder-val="{{ true }}">
+            <button type="button" aria-label="Previous file" onClick="{{prevView}}" class="hd-dark hd-navbtn" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #1f2937; color: #ffffff">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+          </sc-if>
+          <sc-if value="{{hasNext}}" hint-placeholder-val="{{ true }}">
+            <button type="button" aria-label="Next file" onClick="{{nextView}}" class="hd-dark hd-navbtn" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #1f2937; color: #ffffff">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+            </button>
+          </sc-if>
+        </div>
+        <sc-if value="{{viewInfo}}" hint-placeholder-val="{{ false }}">
+          <aside aria-label="Info" class="hd-fade hd-vinfo" style="flex: 0 1 300px; min-width: 240px; overflow-y: auto; background: #ffffff; color: #1f2937; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+            <span style="font-size: 16px; font-weight: 700">Info</span>
+            <dl style="margin: 0; display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px 12px; font-size: 13px">
+              <dt style="color: #6b7280">Type</dt><dd style="margin: 0">{{vx.typeLabel}}</dd>
+              <dt style="color: #6b7280">Size</dt><dd style="margin: 0">{{vx.sizeLabel}}</dd>
+              <dt style="color: #6b7280">Modified</dt><dd style="margin: 0">{{vx.when}}</dd>
+              <dt style="color: #6b7280">File name</dt><dd style="margin: 0; word-break: break-word">{{vx.name}}</dd>
+              <dt style="color: #6b7280">Location</dt><dd style="margin: 0; word-break: break-word">{{vx.pathLabel}}</dd>
+              <dt style="color: #6b7280">Access</dt><dd style="margin: 0">{{vx.accessSummary}}</dd>
+            </dl>
+            <button type="button" onClick="{{shareView}}" class="hd-ghost" style="height: 44px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #166534; font-size: 13px; font-weight: 600">Manage Sharing</button>
+          </aside>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{edOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-modal="true" aria-label="{{edTitle}}" class="hd-eopen" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 45; background: #f3f4f6; display: flex; flex-direction: column; color: #1f2937">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #ffffff; border-bottom: 1px solid #e5e7eb">
+        <button type="button" aria-label="Close and save" onClick="{{closeEditor}}" class="hd-ghost" style="width: 40px; height: 40px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: #374151">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{edColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto"><path d="{{edIcon}}"></path></svg>
+        <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+          <label for="hd-ed-title" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">File name</label>
+          <input id="hd-ed-title" value="{{edTitle}}" onChange="{{onEdTitle}}" style="width: 100%; min-width: 0; box-sizing: border-box; height: 32px; padding: 0 6px; margin-left: -6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #111827; font-size: 16px; font-weight: 600">
+          <span style="font-size: 12px; color: #6b7280; display: flex; align-items: center; gap: 6px">
+            <span style="width: 6px; height: 6px; border-radius: 9999px; background: {{edDot}}"></span>
+            {{edStatus}}
+          </span>
+        </div>
+        <sc-if value="{{edIsText}}" hint-placeholder-val="{{ true }}">
+          <div role="group" aria-label="Editor mode" style="display: flex; padding: 3px; gap: 2px; border-radius: 8px; background: #f3f4f6; flex: 0 0 auto">
+            <button type="button" aria-pressed="{{edRich}}" onClick="{{toRich}}" style="height: 32px; padding: 0 10px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; background: {{edRichBg}}; color: {{edRichFg}}; box-shadow: {{edRichSh}}">Edit</button>
+            <button type="button" aria-pressed="{{edSrc}}" onClick="{{toSrc}}" style="height: 32px; padding: 0 10px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; background: {{edSrcBg}}; color: {{edSrcFg}}; box-shadow: {{edSrcSh}}">.md</button>
+          </div>
+        </sc-if>
+        <button type="button" aria-label="Share" onClick="{{shareEditor}}" class="hd-primary" style="height: 40px; padding: 0 12px; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9999px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+          <span class="hd-lbl">Share</span>
+        </button>
+      </div>
+
+      <sc-if value="{{edRichOn}}" hint-placeholder-val="{{ true }}">
+        <div role="toolbar" aria-label="Formatting" class="hd-edtool" style="display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px 12px; background: #ffffff; border-bottom: 1px solid #e5e7eb">
+          <sc-for list="{{tools}}" as="t" hint-placeholder-count="11">
+            <sc-if value="{{t.sep}}" hint-placeholder-val="{{ false }}">
+              <span aria-hidden="true" style="flex: 0 0 auto; width: 1px; height: 24px; margin: 0 6px; background: #e5e7eb"></span>
+            </sc-if>
+            <button type="button" aria-label="{{t.label}}" title="{{t.label}}" onMouseDown="{{t.run}}" class="hd-tool" style="flex: 0 0 auto; min-width: 40px; height: 40px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #374151; font-size: 14px; font-weight: 700">
+              <sc-if value="{{t.hasIcon}}" hint-placeholder-val="{{ true }}">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{t.icon}}"></path></svg>
+              </sc-if>
+              <sc-if value="{{t.hasText}}" hint-placeholder-val="{{ false }}">
+                <span style="font-family: {{t.font}}; font-style: {{t.fstyle}}">{{t.text}}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div class="hd-edscroll" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px 16px">
+          <div class="hd-paper" style="max-width: 780px; margin: 0 auto; box-sizing: border-box; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 48px 56px; min-height: 100%">
+            <div class="hd-rich" contentEditable="true" suppressContentEditableWarning="{{ true }}" spellCheck="true" role="textbox" aria-multiline="true" aria-label="Document text" ref="{{edRef}}" onInput="{{onEdInput}}" style="min-height: 480px; font-size: 16px; line-height: 1.65; color: #1f2937">
+              <sc-for list="{{edBlocks}}" as="b" hint-placeholder-count="6">
+                <sc-if value="{{b.h1}}" hint-placeholder-val="{{ false }}"><h1><sc-for list="{{b.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></h1></sc-if>
+                <sc-if value="{{b.h2}}" hint-placeholder-val="{{ false }}"><h2><sc-for list="{{b.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></h2></sc-if>
+                <sc-if value="{{b.h3}}" hint-placeholder-val="{{ false }}"><h3><sc-for list="{{b.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></h3></sc-if>
+                <sc-if value="{{b.p}}" hint-placeholder-val="{{ true }}"><p><sc-for list="{{b.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></p></sc-if>
+                <sc-if value="{{b.quote}}" hint-placeholder-val="{{ false }}"><blockquote><sc-for list="{{b.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></blockquote></sc-if>
+                <sc-if value="{{b.ul}}" hint-placeholder-val="{{ false }}"><ul><sc-for list="{{b.items}}" as="li" hint-placeholder-count="2"><li><sc-for list="{{li.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></li></sc-for></ul></sc-if>
+                <sc-if value="{{b.ol}}" hint-placeholder-val="{{ false }}"><ol><sc-for list="{{b.items}}" as="li" hint-placeholder-count="2"><li><sc-for list="{{li.segs}}" as="s" hint-placeholder-count="1"><span style="font-weight: {{s.fw}}; font-style: {{s.fi}}">{{s.t}}</span></sc-for></li></sc-for></ol></sc-if>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{edSrcOn}}" hint-placeholder-val="{{ false }}">
+        <div class="hd-edscroll" style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 24px 16px">
+          <div class="hd-paper" style="flex: 1 1 auto; width: 100%; max-width: 780px; margin: 0 auto; box-sizing: border-box; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+            <label for="hd-md" style="font-size: 12px; font-weight: 600; color: #6b7280">Markdown source · {{edFileName}}</label>
+            <textarea id="hd-md" value="{{edMd}}" onChange="{{onEdMd}}" spellCheck="false" style="flex: 1 1 auto; min-height: 420px; width: 100%; box-sizing: border-box; resize: none; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.6; color: #1f2937; background: #f9fafb"></textarea>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{edIsSheet}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ffffff; border-bottom: 1px solid #e5e7eb">
+          <span style="flex: 0 0 auto; min-width: 44px; height: 32px; padding: 0 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; font-weight: 600; color: #374151">{{xs.ref}}</span>
+          <span aria-hidden="true" style="flex: 0 0 auto; font-style: italic; font-weight: 600; color: #15803d">fx</span>
+          <label for="hd-fx" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Cell contents</label>
+          <input id="hd-fx" value="{{xs.raw}}" onChange="{{xs.onRaw}}" placeholder="Type a value or a formula like =SUM(B2:B10)" style="flex: 1 1 auto; min-width: 0; height: 32px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; color: #1f2937; background: #ffffff">
+        </div>
+        <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px">
+          <div style="display: inline-block; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden">
+            <div style="display: flex">
+              <span style="width: 44px; height: 32px; flex: 0 0 auto; background: #f3f4f6; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb"></span>
+              <sc-for list="{{xs.cols}}" as="c" hint-placeholder-count="6">
+                <span style="width: 120px; height: 32px; flex: 0 0 auto; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: {{c.bg}}; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; color: #4b5563">{{c.label}}</span>
+              </sc-for>
+            </div>
+            <sc-for list="{{xs.rows}}" as="r" hint-placeholder-count="12">
+              <div style="display: flex">
+                <span style="width: 44px; height: 36px; flex: 0 0 auto; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; background: {{r.bg}}; color: #4b5563">{{r.n}}</span>
+                <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="6">
+                  <input class="hd-cell" aria-label="{{c.ref}}" value="{{c.value}}" onFocus="{{c.focus}}" onChange="{{c.change}}" style="width: 120px; height: 36px; flex: 0 0 auto; box-sizing: border-box; padding: 0 8px; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; border-radius: 0; font-size: 14px; color: #1f2937; text-align: {{c.align}}; font-weight: {{c.fw}}; background: {{c.bg}}; box-shadow: {{c.sh}}">
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 12px">
+            <button type="button" onClick="{{xs.addRow}}" class="hd-ghost" style="height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 600">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+              Add Row
+            </button>
+            <button type="button" onClick="{{xs.addCol}}" class="hd-ghost" style="height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 600">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+              Add Column
+            </button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{shareOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="hd-modal-wrap" style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box">
+      <button type="button" aria-label="Close" onClick="{{closeShare}}" class="hd-bdin" style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; border: 0; padding: 0; background: rgba(0,0,0,0.4)"></button>
+      <div role="dialog" aria-modal="true" aria-labelledby="hd-share-title" class="hd-mopen hd-modal" style="position: relative; width: 100%; max-width: 500px; max-height: 92vh; overflow-y: auto; background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; color: #1f2937">
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 20px 20px 16px">
+          <span style="width: 72px; flex: 0 0 auto">
+            <dc-import name="Thumb" item="{{sh.thumb}}" h="52px" z="{{ 0.5 }}" hint-size="72px,52px"></dc-import>
+          </span>
+          <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <h2 id="hd-share-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #111827">Share</h2>
+            <span style="font-size: 14px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{sh.display}}</span>
+          </div>
+          <button type="button" aria-label="Close" onClick="{{closeShare}}" class="hd-ghost" style="width: 36px; height: 36px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #6b7280">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <section aria-label="People" style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px">
+          <span style="font-size: 13px; font-weight: 600; color: #4b5563">People on this server</span>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <div style="display: flex; align-items: center; gap: 12px; height: 44px">
+              <span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9999px; background: #166534; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">AJ</span>
+              <span style="flex: 1 1 auto; font-weight: 500">Alex <span style="color: #6b7280; font-weight: 400">(you)</span></span>
+              <span style="font-size: 13px; color: #6b7280; padding-right: 8px">Owner</span>
+            </div>
+            <sc-for list="{{sharePeople}}" as="p" hint-placeholder-count="1">
+              <div class="hd-pin" style="display: flex; align-items: center; gap: 12px; height: 44px">
+                <span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9999px; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{p.color}}">{{p.initials}}</span>
+                <span style="flex: 1 1 auto; font-weight: 500">{{p.name}}</span>
+                <button type="button" onClick="{{p.toggle}}" aria-label="{{p.toggleAria}}" class="hd-ghost" style="height: 32px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; font-size: 13px; font-weight: 500">
+                  {{p.accessLabel}}
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                </button>
+                <button type="button" onClick="{{p.remove}}" aria-label="{{p.removeAria}}" class="hd-danger" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #6b7280">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{hasAddable}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <span style="font-size: 12px; color: #6b7280">Add people</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                <sc-for list="{{addable}}" as="p" hint-placeholder-count="3">
+                  <button type="button" onClick="{{p.add}}" aria-label="{{p.addAria}}" class="hd-chip" style="height: 36px; padding: 0 12px 0 4px; display: flex; align-items: center; gap: 8px; border: 1px solid #e5e7eb; border-radius: 9999px; background: #ffffff; color: #1f2937; font-size: 13px; font-weight: 500">
+                    <span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 9999px; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{p.color}}">{{p.initials}}</span>
+                    {{p.name}}
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16m8-8H4"></path></svg>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </section>
+
+        <section aria-label="Share link" style="padding: 20px; border-top: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="width: 40px; height: 40px; flex: 0 0 auto; border-radius: 10px; background: #f0fdf4; color: #166534; display: flex; align-items: center; justify-content: center">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            </span>
+            <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+              <span id="hd-link-label" style="font-weight: 600">Share link</span>
+              <span style="font-size: 13px; color: #6b7280">{{linkDesc}}</span>
+            </div>
+            <button type="button" role="switch" aria-checked="{{linkOn}}" aria-labelledby="hd-link-label" onClick="{{toggleLink}}" style="position: relative; width: 48px; height: 28px; flex: 0 0 auto; border: 0; border-radius: 9999px; padding: 0; background: {{switchBg}}">
+              <span class="hd-knob" style="position: absolute; top: 3px; width: 22px; height: 22px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.2); left: {{knobLeft}}"></span>
+            </button>
+          </div>
+          <sc-if value="{{linkOn}}" hint-placeholder-val="{{ true }}">
+            <div class="hd-fade" style="display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; gap: 8px">
+                <label for="hd-link" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Link address</label>
+                <input id="hd-link" readonly="readonly" value="{{sh.linkUrl}}" style="flex: 1 1 auto; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; color: #374151; font-size: 14px">
+                <button type="button" onClick="{{copyLink}}" class="hd-primary" style="height: 44px; padding: 0 16px; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                  Copy
+                </button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <span style="font-size: 12px; color: #6b7280">People with the link</span>
+                  <div role="group" aria-label="Link access" style="display: flex; padding: 3px; gap: 2px; border-radius: 8px; background: #f3f4f6">
+                    <sc-for list="{{accessOpts}}" as="o" hint-placeholder-count="2">
+                      <button type="button" aria-pressed="{{o.on}}" onClick="{{o.go}}" style="flex: 1 1 0; min-width: 0; height: 32px; padding: 0 4px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; background: {{o.bg}}; color: {{o.fg}}; box-shadow: {{o.sh}}">{{o.label}}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <span style="font-size: 12px; color: #6b7280">Link expires</span>
+                  <div role="group" aria-label="Link expiry" style="display: flex; padding: 3px; gap: 2px; border-radius: 8px; background: #f3f4f6">
+                    <sc-for list="{{expiryOpts}}" as="o" hint-placeholder-count="3">
+                      <button type="button" aria-pressed="{{o.on}}" onClick="{{o.go}}" style="flex: 1 1 0; min-width: 0; height: 32px; padding: 0 4px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; background: {{o.bg}}; color: {{o.fg}}; box-shadow: {{o.sh}}">{{o.label}}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </section>
+
+        <div style="padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end">
+          <button type="button" onClick="{{closeShare}}" class="hd-primary" style="height: 44px; padding: 0 24px; border: 0; border-radius: 12px; background: #15803d; color: #ffffff; font-size: 14px; font-weight: 600">Done</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{burstOn}}" hint-placeholder-val="{{ false }}">
+    <div class="hd-burst" aria-hidden="true">
+      <sc-for list="{{bits}}" as="b" hint-placeholder-count="16">
+        <span class="hd-ray" style="transform: rotate({{b.a}})">
+          <span class="hd-bit" style="width: {{b.size}}; height: {{b.size}}; border-radius: {{b.r}}; background: {{b.c}}; animation-duration: {{b.d}}; animation-delay: {{b.del}}"></span>
+        </span>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div role="status" class="hd-tin hd-toast" style="position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 32px); box-sizing: border-box; bottom: 24px; z-index: 60; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: #1f2937; color: #ffffff; font-size: 14px; font-weight: 500; white-space: nowrap; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="hd-check" d="M5 13l4 4L19 7"></path></svg>
+      {{toast}}
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mobile":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const it = (id, name, type, parent, size, ago, extra) => Object.assign({ id, name, type, parent, size, ago, starred: false, trashed: false, link: false, linkAccess: 'view', expiry: 'never', people: [] }, extra || {});
+    const notes = '# Server notes\n\nEverything that runs on **nas.local**.\n\n## Services\n\n- Homedrive on port 8080\n- Nightly backups at 02:00\n- Photo library on port 2342\n\n## To do\n\n1. Replace the disk 2 fan\n2. Renew certificates\n\n> Update this note after every change.';
+    const shopping = '# Shopping list\n\n- Bread\n- Milk\n- Apples\n- *Good* coffee';
+    const budget = [
+      ['Month', 'Income', 'Spent', 'Saved', '', ''],
+      ['Jan', '4200', '3150', '=B2-C2', '', ''], ['Feb', '4200', '2980', '=B3-C3', '', ''], ['Mar', '4350', '3410', '=B4-C4', '', ''],
+      ['Apr', '4200', '3020', '=B5-C5', '', ''], ['May', '4200', '3300', '=B6-C6', '', ''], ['Jun', '4500', '3600', '=B7-C7', '', ''],
+      ['Jul', '4200', '3880', '=B8-C8', '', ''], ['Aug', '4200', '3250', '=B9-C9', '', ''], ['Sep', '4350', '3100', '=B10-C10', '', ''],
+      ['Total', '=SUM(B2:B10)', '=SUM(C2:C10)', '=SUM(D2:D10)', '', ''], ['', '', '', '', '', '']
+    ];
+    this.state = {
+      folder: 'root', nav: 'files', view: 'grid', sort: 'name', q: '', selected: null, shareId: null, viewId: null, viewInfo: false, playing: false,
+      addOpen: false, addStep: 'pick', folderDraft: '',
+      editId: null, edMode: 'rich', edMd: '', edSnap: '', edTitle: '', edStatus: 'saved', focus: [1, 1], narrow: false,
+      uploads: [], toast: null, seq: 100, hist: [], tick: 0, vtick: 0, serverOpen: false, burstOn: false, fx: null, ghost: null,
+      items: [
+        it('photos', 'Photos', 'folder', 'root', 0, 90, { starred: true, people: [{ id: 'anna', access: 'edit' }] }),
+        it('docs', 'Documents', 'folder', 'root', 0, 300, { starred: true }),
+        it('media', 'Media', 'folder', 'root', 0, 2880),
+        it('backups', 'Backups', 'folder', 'root', 0, 60, { starred: true }),
+        it('projects', 'Projects', 'folder', 'root', 0, 25),
+        it('f1', 'family-budget-2026.xlsx', 'sheet', 'root', 48210, 1440, { people: [{ id: 'anna', access: 'edit' }], cells: budget }),
+        it('f2', 'Server notes.md', 'text', 'root', 6120, 35, { starred: true, md: notes }),
+        it('f3', 'Shopping list.md', 'text', 'root', 120, 200, { md: shopping, people: [{ id: 'anna', access: 'edit' }] }),
+        it('ard', 'Summer 2026 Ardennes', 'folder', 'photos', 0, 43200, { people: [{ id: 'anna', access: 'view' }, { id: 'lukas', access: 'view' }], link: true }),
+        it('phone', 'Phone camera roll', 'folder', 'photos', 0, 120),
+        it('p1', 'IMG_4821.jpg', 'image', 'photos', 4813000, 4320),
+        it('p2', 'IMG_4822.jpg', 'image', 'photos', 5120400, 4320),
+        it('p3', 'kids-birthday.mp4', 'video', 'photos', 812400000, 10080, { starred: true, dur: '4:12', link: true, expiry: '7d' }),
+        it('a1', 'lake-sunset.jpg', 'image', 'ard', 6210000, 43200),
+        it('a2', 'hike-trail.jpg', 'image', 'ard', 5880000, 43200),
+        it('a3', 'campfire.jpg', 'image', 'ard', 4980000, 43180),
+        it('c1', 'IMG_5102.heic', 'image', 'phone', 2410000, 120),
+        it('taxes', 'Taxes 2025', 'folder', 'docs', 0, 20160),
+        it('d1', 'invoice-2026-09.pdf', 'pdf', 'docs', 184300, 300),
+        it('d2', 'car-insurance.pdf', 'pdf', 'docs', 920100, 64800),
+        it('d3', 'cv-alex.docx', 'doc', 'docs', 74200, 129600),
+        it('t1', 'tax-return-2025.pdf', 'pdf', 'taxes', 1240000, 20160),
+        it('homevid', 'Home videos', 'folder', 'media', 0, 2880),
+        it('h1', 'first-steps.mp4', 'video', 'homevid', 320000000, 2880, { dur: '1:05' }),
+        it('m1', 'road-trip-mix.mp3', 'audio', 'media', 9340000, 7200, { dur: '52:10' }),
+        it('m2', 'vacation-edit.mp4', 'video', 'media', 1420000000, 2880, { dur: '12:48' }),
+        it('b1', 'laptop-2026-10-20.tar.gz', 'archive', 'backups', 48200000000, 10080),
+        it('b2', 'phone-2026-10-01.zip', 'archive', 'backups', 21700000000, 37440),
+        it('b3', 'router-config.bak', 'archive', 'backups', 88400, 60),
+        it('homelab', 'homelab', 'folder', 'projects', 0, 25),
+        it('j1', 'docker-compose.yml', 'code', 'homelab', 3200, 25, { starred: true }),
+        it('j2', 'Caddyfile', 'code', 'homelab', 880, 180),
+        it('j3', 'website-mockup.png', 'image', 'projects', 1830000, 4320, { ui: true })
+      ]
+    };
+    this.edRef = (el) => { this.ed = el; };
+    this.filesRef = (el) => { this.filesEl = el; };
+    this.ghostRef = (el) => { this.ghostEl = el; };
+    this.onResize = () => { const n = window.innerWidth < 700; if (n !== this.state.narrow) this.setState({ narrow: n }); };
+  }
+
+  componentDidMount() { this.onResize(); window.addEventListener('resize', this.onResize); }
+  componentDidUpdate(pp, ps) {
+    const s = this.state;
+    if (ps.viewId !== s.viewId && s.viewId) this.setState({ vtick: s.vtick + 1 });
+    if ((ps.nav !== s.nav || ps.folder !== s.folder) && s.fx === 'anim' && this.manualSnap) {
+      const snap = this.manualSnap; this.manualSnap = null;
+      this.animateNav(ps, snap);
+    }
+    if (ps.nav !== s.nav || ps.folder !== s.folder || (ps.q !== s.q && (!ps.q || !s.q))) {
+      if (ps.nav !== s.nav || ps.folder !== s.folder) {
+        if (this.goingBack) { this.goingBack = false; this.setState({ tick: s.tick + 1 }); return; }
+        this.setState({ tick: s.tick + 1, hist: (s.hist || []).concat([{ nav: ps.nav, folder: ps.folder }]).slice(-30) });
+      } else this.setState({ tick: s.tick + 1 });
+    }
+  }
+
+  locLabel(l) {
+    const names = { files: 'My Files', recent: 'Recent', starred: 'Starred', shared: 'Shared', storage: 'Storage', trash: 'Trash', videos: 'Videos' };
+    if (l.nav === 'files' && l.folder !== 'root') { const f = this.state.items.find((x) => x.id === l.folder); return f ? f.name : 'My Files'; }
+    return names[l.nav] || 'My Files';
+  }
+
+  goBack() {
+    const s = this.state;
+    const h = s.hist || [];
+    if (h.length) {
+      const last = h[h.length - 1];
+      const moves = last.nav !== s.nav || last.folder !== s.folder;
+      if (moves) this.goingBack = true;
+      this.manualSnap = this.reduced() ? null : this.collect();
+      this.setState({ nav: last.nav, folder: last.folder, hist: h.slice(0, -1), selected: null, q: '', fx: 'anim', ghost: null });
+      return;
+    }
+    if (s.nav === 'files' && s.folder !== 'root') {
+      const f = s.items.find((x) => x.id === s.folder);
+      this.navTo({ folder: f ? f.parent : 'root' });
+    }
+  }
+  componentWillUnmount() { clearTimeout(this.ghostTimer); clearTimeout(this.burstTimer); clearInterval(this.timer); clearTimeout(this.toastTimer); clearTimeout(this.saveTimer); window.removeEventListener('resize', this.onResize); }
+
+  users() {
+    return {
+      anna: { name: 'Anna', initials: 'A', color: '#be185d' },
+      lukas: { name: 'Lukas', initials: 'L', color: '#0f766e' },
+      mila: { name: 'Mila', initials: 'M', color: '#6d28d9' },
+      guest: { name: 'Guest', initials: 'G', color: '#475569' }
+    };
+  }
+
+  types() {
+    return {
+      folder: { c: '#a16207', lc: '#fde047', bg: '#fefce8', l: 'Folder', s: 'Folder', d: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
+      text: { c: '#0369a1', lc: '#7dd3fc', bg: '#f3f4f6', l: 'Text document', s: 'Text', d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+      image: { c: '#0f766e', lc: '#5eead4', bg: '#f0fdfa', l: 'Image', s: 'Photo', d: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+      video: { c: '#6d28d9', lc: '#c4b5fd', bg: '#f5f3ff', l: 'Video', s: 'Video', d: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+      pdf: { c: '#b91c1c', lc: '#fca5a5', bg: '#f3f4f6', l: 'PDF document', s: 'PDF', d: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
+      doc: { c: '#1d4ed8', lc: '#93c5fd', bg: '#f3f4f6', l: 'Word document', s: 'Word', d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+      sheet: { c: '#15803d', lc: '#86efac', bg: '#f0fdf4', l: 'Spreadsheet', s: 'Spreadsheet', d: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+      archive: { c: '#b45309', lc: '#fcd34d', bg: '#fffbeb', l: 'Archive', s: 'Archive', d: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
+      audio: { c: '#be185d', lc: '#f9a8d4', bg: '#831843', l: 'Audio', s: 'Audio', d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
+      code: { c: '#475569', lc: '#cbd5e1', bg: '#1e293b', l: 'Code file', s: 'Code', d: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' }
+    };
+  }
+
+  previews() {
+    return {
+      'invoice-2026-09.pdf': { blocks: [{ k: 'h', t: 'Invoice' }, { k: 's', t: 'No. 2026-09 · 30 Sep 2026' }, { k: 'rule' }, { k: 'row', t: 'Fiber internet', r: '€ 59.00' }, { k: 'row', t: 'TV option', r: '€ 12.00' }, { k: 'row', t: 'VAT 21%', r: '€ 14.91' }, { k: 'rule' }, { k: 'tot', t: 'Total due', r: '€ 85.91' }, { k: 'p', t: 'Please pay before 15 October 2026.' }] },
+      'car-insurance.pdf': { blocks: [{ k: 'h', t: 'Car insurance' }, { k: 's', t: 'Policy summary · 2026' }, { k: 'rule' }, { k: 'row', t: 'Vehicle', r: 'Hatchback, 2021' }, { k: 'row', t: 'Cover', r: 'Full omnium' }, { k: 'row', t: 'Deductible', r: '€ 500' }, { k: 'rule' }, { k: 'tot', t: 'Yearly premium', r: '€ 742.00' }, { k: 'p', t: 'Renews automatically on 1 January.' }] },
+      'tax-return-2025.pdf': { blocks: [{ k: 'h', t: 'Tax return' }, { k: 's', t: 'Income year 2025 · Submitted' }, { k: 'rule' }, { k: 'sec', t: 'Income' }, { k: 'row', t: 'Salary', r: '[AMOUNT]' }, { k: 'row', t: 'Other income', r: '[AMOUNT]' }, { k: 'sec', t: 'Deductions' }, { k: 'row', t: 'Commuting', r: '[AMOUNT]' }, { k: 'row', t: 'Childcare', r: '[AMOUNT]' }] },
+      'cv-alex.docx': { blocks: [{ k: 'h', t: 'Alex Janssens' }, { k: 's', t: 'alex@example.com' }, { k: 'sec', t: 'Experience' }, { k: 'p', t: '[Company] · [Your role]' }, { k: 'p', t: '[Dates and key projects]' }, { k: 'sec', t: 'Skills' }, { k: 'p', t: '[Skill] · [Skill] · [Skill]' }, { k: 'sec', t: 'Education' }, { k: 'p', t: '[Degree, school]' }] },
+      'meeting-notes.pdf': { blocks: [{ k: 'h', t: 'Meeting notes' }, { k: 's', t: '27 Oct 2026' }, { k: 'sec', t: 'Agenda' }, { k: 'p', t: '1. Status update' }, { k: 'p', t: '2. Next steps' }, { k: 'sec', t: 'Actions' }, { k: 'p', t: '[Owner] · [Task]' }] },
+      'docker-compose.yml': { code: ['services:', '  homedrive:', '    image: homedrive:latest', '    ports:', '      - "8080:8080"', '    volumes:', '      - /srv/files:/data', '    restart: unless-stopped'] },
+      'Caddyfile': { code: ['nas.local {', '  reverse_proxy localhost:8080', '  encode gzip', '}', '', 'photos.nas.local {', '  reverse_proxy localhost:2342', '}'] },
+      'laptop-2026-10-20.tar.gz': { title: 'laptop-2026-10-20', list: ['Documents/', 'Pictures/', 'Projects/', '.config/', 'notes.txt', 'todo.md'] },
+      'phone-2026-10-01.zip': { title: 'phone-2026-10-01', list: ['DCIM/', 'WhatsApp/', 'Downloads/', 'Contacts.vcf', 'Calendar.ics'] },
+      'router-config.bak': { title: 'router-config', list: ['router.conf', 'dhcp-leases', 'firewall.rules', 'wifi.conf'] },
+      'receipts-oct.zip': { title: 'receipts-oct', list: ['groceries-01.pdf', 'fuel-03.pdf', 'pharmacy-09.pdf'] },
+      'road-trip-mix.mp3': { title: 'Road Trip Mix', sub: '14 tracks · 52 min' },
+      'playlist-oct.mp3': { title: 'October playlist', sub: '9 tracks · 34 min' }
+    };
+  }
+
+  hash(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100003; return h; }
+
+  baseName(x) {
+    if (x.type === 'folder') return x.name;
+    const n = x.name;
+    if (/\.tar\.gz$/i.test(n)) return n.slice(0, -7);
+    const i = n.lastIndexOf('.');
+    return i > 0 ? n.slice(0, i) : n;
+  }
+
+  extFor(x) { return x.type === 'text' ? '.md' : x.type === 'sheet' ? '.xlsx' : ''; }
+
+  scene(id) {
+    const scenes = [
+      ['#bfdbfe', '#fde68a', '#4ade80', '#16a34a'], ['#fed7aa', '#fb923c', '#c2410c', '#7c2d12'],
+      ['#c7d2fe', '#f5f5f4', '#818cf8', '#3730a3'], ['#a5f3fc', '#fef08a', '#2dd4bf', '#0f766e'],
+      ['#fecdd3', '#fde047', '#a3e635', '#4d7c0f']
+    ];
+    return scenes[this.hash(id) % scenes.length];
+  }
+
+  // ---------- markdown ----------
+  segs(text) {
+    const out = [];
+    const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push({ t: text.slice(last, m.index), fw: 'inherit', fi: 'inherit' });
+      const tok = m[0];
+      if (tok.indexOf('**') === 0) out.push({ t: tok.slice(2, -2), fw: '700', fi: 'inherit' });
+      else if (tok[0] === '*') out.push({ t: tok.slice(1, -1), fw: 'inherit', fi: 'italic' });
+      else out.push({ t: tok.slice(1, -1), fw: 'inherit', fi: 'inherit' });
+      last = m.index + tok.length;
+    }
+    if (last < text.length) out.push({ t: text.slice(last), fw: 'inherit', fi: 'inherit' });
+    if (!out.length) out.push({ t: '', fw: 'inherit', fi: 'inherit' });
+    return out;
+  }
+
+  parseMd(md) {
+    const lines = (md || '').split('\n');
+    const blocks = [];
+    const push = (kind, text) => blocks.push({ kind, text });
+    lines.forEach((ln) => {
+      const l = ln.replace(/\s+$/, '');
+      if (!l.trim()) return;
+      let m;
+      if ((m = l.match(/^###\s+(.*)/))) push('h3', m[1]);
+      else if ((m = l.match(/^##\s+(.*)/))) push('h2', m[1]);
+      else if ((m = l.match(/^#\s+(.*)/))) push('h1', m[1]);
+      else if ((m = l.match(/^>\s?(.*)/))) push('quote', m[1]);
+      else if ((m = l.match(/^\s*[-*]\s+(.*)/))) {
+        const prev = blocks[blocks.length - 1];
+        if (prev && prev.kind === 'ul') prev.items.push(m[1]); else blocks.push({ kind: 'ul', items: [m[1]] });
+      } else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) {
+        const prev = blocks[blocks.length - 1];
+        if (prev && prev.kind === 'ol') prev.items.push(m[1]); else blocks.push({ kind: 'ol', items: [m[1]] });
+      } else push('p', l);
+    });
+    return blocks;
+  }
+
+  renderBlocks(md) {
+    const blocks = this.parseMd(md);
+    if (!blocks.length) blocks.push({ kind: 'p', text: '' });
+    return blocks.map((b) => ({
+      h1: b.kind === 'h1', h2: b.kind === 'h2', h3: b.kind === 'h3', p: b.kind === 'p', quote: b.kind === 'quote', ul: b.kind === 'ul', ol: b.kind === 'ol',
+      segs: this.segs(b.text || ''), items: (b.items || []).map((t) => ({ segs: this.segs(t) }))
+    }));
+  }
+
+  toMd(root) {
+    if (!root) return '';
+    const inline = (node) => {
+      let s = '';
+      node.childNodes.forEach((n) => {
+        if (n.nodeType === 3) { s += n.textContent; return; }
+        if (n.nodeType !== 1) return;
+        const tag = n.tagName.toLowerCase();
+        if (tag === 'br') return;
+        const st = n.style || {};
+        let inner = inline(n);
+        if (!inner.trim()) { s += inner; return; }
+        const fw = parseInt(st.fontWeight, 10);
+        if (tag === 'b' || tag === 'strong' || fw >= 600) inner = '**' + inner + '**';
+        if (tag === 'i' || tag === 'em' || st.fontStyle === 'italic') inner = '*' + inner + '*';
+        if (tag === 'code') inner = '`' + inner + '`';
+        s += inner;
+      });
+      return s.replace(/ /g, ' ').replace(/\*\*\*\*/g, '');
+    };
+    const out = [];
+    const add = (kind, text) => out.push({ kind, text });
+    const block = (n) => {
+      if (n.nodeType === 3) { const t = n.textContent.trim(); if (t) add('p', t); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase();
+      if (tag === 'h1') add('h', '# ' + inline(n).trim());
+      else if (tag === 'h2') add('h', '## ' + inline(n).trim());
+      else if (tag === 'h3' || tag === 'h4') add('h', '### ' + inline(n).trim());
+      else if (tag === 'blockquote') add('p', '> ' + inline(n).trim());
+      else if (tag === 'ul') Array.from(n.children).forEach((li) => add('li', '- ' + inline(li).trim()));
+      else if (tag === 'ol') { let k = 1; Array.from(n.children).forEach((li) => add('li', (k++) + '. ' + inline(li).trim())); }
+      else if ((tag === 'div' || tag === 'p') && n.querySelector('h1,h2,h3,ul,ol,blockquote,p,div')) n.childNodes.forEach(block);
+      else { const t = inline(n).trim(); if (t) add('p', t); }
+    };
+    root.childNodes.forEach(block);
+    let md = '';
+    out.forEach((b, i) => {
+      if (!b.text.replace(/[#>\-\d.\s*]/g, '')) return;
+      if (i > 0) md += (b.kind === 'li' && out[i - 1].kind === 'li') ? '\n' : '\n\n';
+      md += b.text;
+    });
+    return md.trim() + '\n';
+  }
+
+  // ---------- spreadsheet ----------
+  colName(i) { let s = ''; i += 1; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+  colIdx(s) { let n = 0; for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64); return n - 1; }
+
+  evalSheet(cells) {
+    const memo = {};
+    const get = (r, c, d) => {
+      const key = r + ',' + c;
+      if (key in memo) return memo[key];
+      if (d > 40) return NaN;
+      const raw = String((cells[r] && cells[r][c]) || '');
+      let v;
+      if (raw.indexOf('=') === 0) {
+        try {
+          let ex = raw.slice(1).toUpperCase();
+          ex = ex.replace(/(SUM|AVERAGE|MIN|MAX|COUNT)\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)/g, (m0, fn, c1, r1, c2, r2) => {
+            const vals = [];
+            const ca = this.colIdx(c1), cb = this.colIdx(c2);
+            for (let rr = Math.min(r1, r2) - 1; rr <= Math.max(r1, r2) - 1; rr++) {
+              for (let cc = Math.min(ca, cb); cc <= Math.max(ca, cb); cc++) {
+                const x = get(rr, cc, d + 1);
+                if (typeof x === 'number' && !isNaN(x)) vals.push(x);
+              }
+            }
+            const sum = vals.reduce((a, b) => a + b, 0);
+            if (fn === 'SUM') return '(' + sum + ')';
+            if (fn === 'AVERAGE') return '(' + (vals.length ? sum / vals.length : 0) + ')';
+            if (fn === 'MIN') return '(' + (vals.length ? Math.min.apply(null, vals) : 0) + ')';
+            if (fn === 'MAX') return '(' + (vals.length ? Math.max.apply(null, vals) : 0) + ')';
+            return '(' + vals.length + ')';
+          });
+          ex = ex.replace(/([A-Z]+)(\d+)/g, (m0, cl, rw) => {
+            const x = get(Number(rw) - 1, this.colIdx(cl), d + 1);
+            return (typeof x === 'number' && !isNaN(x)) ? '(' + x + ')' : '0';
+          });
+          if (!/^[0-9+\-*/().\s]*$/.test(ex)) throw new Error('bad');
+          v = Function('return (' + ex + ')')();
+          if (typeof v !== 'number' || !isFinite(v)) v = NaN;
+        } catch (e) { v = NaN; }
+      } else {
+        const n = Number(raw.replace(/,/g, ''));
+        v = raw.trim() !== '' && !isNaN(n) ? n : raw;
+      }
+      memo[key] = v;
+      return v;
+    };
+    return cells.map((row, r) => row.map((_, c) => {
+      const v = get(r, c, 0);
+      if (typeof v === 'number') return isNaN(v) ? '#ERR' : v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return v;
+    }));
+  }
+
+  thumbFor(x, kids) {
+    const t = this.types()[x.type];
+    const h = this.hash(x.id);
+    const p = this.scene(x.id);
+    const pv = Object.assign({}, this.previews()[x.name] || {});
+    const kind = x.ui ? 'ui' : x.type;
+    const base = {
+      kind, accent: t.c, bg: x.ui ? '#e0e7ff' : t.bg,
+      sky: p[0], sun: p[1], hill: p[2], hill2: p[3], sunX: 36 + (h % 90), dur: x.dur || '', seed: (h % 50) + 1,
+      title: this.baseName(x), sub: ''
+    };
+    if (x.type === 'folder') {
+      const other = {
+        pdf: { bg: '#ffffff', stripe: '#fecaca' }, doc: { bg: '#ffffff', stripe: '#bfdbfe' }, text: { bg: '#ffffff', stripe: '#bae6fd' },
+        sheet: { bg: '#ffffff', stripe: '#86efac' }, code: { bg: '#1e293b', stripe: '#475569' }, archive: { bg: '#fef3c7', stripe: '#f59e0b' },
+        audio: { bg: '#831843', stripe: '#f9a8d4' }, folder: { bg: '#fef9c3', stripe: '#fde047' }
+      };
+      base.minis = (kids || []).slice(0, 4).map((c) => {
+        if (c.type === 'image' || c.type === 'video') { const sp = this.scene(c.id); return { bg: sp[0], stripe: sp[2] }; }
+        return other[c.type];
+      });
+    }
+    if (x.type === 'text') {
+      const strip = (s) => s.replace(/\*\*|\*|`/g, '');
+      const bl = [];
+      this.parseMd(x.md).forEach((b) => {
+        if (b.kind === 'h1') bl.push({ k: 'h', t: strip(b.text) });
+        else if (b.kind === 'h2' || b.kind === 'h3') bl.push({ k: 'sec', t: strip(b.text) });
+        else if (b.kind === 'ul') b.items.forEach((i) => bl.push({ k: 'p', t: '•  ' + strip(i) }));
+        else if (b.kind === 'ol') b.items.forEach((i, n) => bl.push({ k: 'p', t: (n + 1) + '.  ' + strip(i) }));
+        else bl.push({ k: 'p', t: strip(b.text) });
+      });
+      pv.blocks = bl.length ? bl : [{ k: 'p', t: ' ' }];
+      base.accent = '#111827';
+    }
+    if (x.type === 'sheet') pv.rows = this.evalSheet(x.cells || [['']]);
+    if ((x.type === 'pdf' || x.type === 'doc') && !pv.blocks) pv.blocks = [{ k: 'h', t: this.baseName(x) }, { k: 's', t: 'Document' }, { k: 'p', t: '[Content preview]' }];
+    if (x.type === 'archive' && !pv.list) pv.list = ['[Archive contents]'];
+    if (x.type === 'audio' && !pv.sub) pv.sub = 'Audio';
+    return Object.assign(base, pv);
+  }
+
+  fmtSize(b) {
+    if (!b) return '—';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0, v = b;
+    while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+    return (i === 0 ? v : v.toFixed(v < 10 ? 1 : 0)) + ' ' + u[i];
+  }
+
+  fmtWhen(ago) {
+    if (ago < 1) return 'Just now';
+    if (ago < 60) return ago + ' min ago';
+    if (ago < 1440) return Math.round(ago / 60) + ' h ago';
+    if (ago < 2880) return 'Yesterday';
+    const d = new Date(Date.UTC(2026, 9, 27) - ago * 60000);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  motion() { return 'mix'; }
+
+  rectOf(el) { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }
+
+  collect() {
+    const out = { cards: {}, thumbs: {}, flips: {}, box: null };
+    const root = this.filesRoot();
+    if (!root || !root.querySelectorAll) return out;
+    out.box = this.rectOf(root);
+    root.querySelectorAll('[id^="hdc-"]').forEach((el) => { out.cards[el.id.slice(4)] = this.rectOf(el); });
+    root.querySelectorAll('[id^="hdt-"]').forEach((el) => { out.thumbs[el.id.slice(4)] = this.rectOf(el); });
+    root.querySelectorAll('[id^="hdf-"]').forEach((el) => { out.flips[el.id.slice(4)] = this.rectOf(el); });
+    return out;
+  }
+
+  filesRoot() {
+    if (this.filesEl && this.filesEl.querySelectorAll) return this.filesEl;
+    try { return document.getElementById('hd-files'); } catch (e) { return null; }
+  }
+
+  reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
+
+  navTo(patch) {
+    this.manualSnap = this.reduced() ? null : this.collect();
+    const s = this.state;
+    let ghost = null;
+    const snap = this.manualSnap;
+    if (snap && s.view === 'grid' && patch.folder && snap.thumbs[patch.folder] && snap.box) {
+      const t = snap.thumbs[patch.folder];
+      ghost = { x: (t.x - snap.box.x) + 'px', y: (t.y - snap.box.y) + 'px', w: t.w + 'px', h: t.h + 'px' };
+    }
+    this.setState(Object.assign({ nav: 'files', fx: 'anim', ghost, selected: null, q: '' }, patch));
+  }
+
+  animateNav(ps, snap) {
+    try { this.runNavAnim(ps, snap); } catch (e) { /* animation is decoration only */ }
+  }
+
+  runNavAnim(ps, snap) {
+    const root = this.filesRoot();
+    if (!root || !snap || !root.animate || this.reduced()) return;
+    const s = this.state;
+    const byId = (id) => s.items.find((x) => x.id === id);
+    const cur = byId(s.folder);
+    const entering = !!cur && cur.parent === ps.folder;
+    let child = null;
+    let c = byId(ps.folder);
+    while (c) { if (c.parent === s.folder) { child = c.id; break; } c = byId(c.parent); }
+    const spring = 'cubic-bezier(.2,.9,.25,1.08)';
+    if (s.view === 'grid') {
+      const cards = Array.from(root.querySelectorAll('[id^="hdc-"]'));
+      const t = snap.thumbs[s.folder];
+      if (entering && t) {
+        const box = this.rectOf(root);
+        const gEl = this.ghostEl || root.querySelector('.hd-zoomghost');
+        if (gEl && gEl.animate) {
+          gEl.animate([
+            { opacity: 1, transform: 'none' },
+            { opacity: 0, transform: 'translate(' + (-(t.x - box.x)) + 'px,' + (-(t.y - box.y)) + 'px) scale(' + (box.w / t.w) + ',' + (Math.min(box.h, 700) / t.h) + ')' }
+          ], { duration: 480, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards' });
+        }
+        const pad = 10, gap = 4;
+        const mw = (t.w - 2 * pad - gap) / 2, mh = (t.h - 2 * pad - gap) / 2;
+        cards.forEach((el, i) => {
+          const r = el.getBoundingClientRect();
+          let fx, fy, fw, op;
+          if (i < 4) { fx = t.x + pad + (i % 2) * (mw + gap); fy = t.y + pad + Math.floor(i / 2) * (mh + gap); fw = mw; op = 1; }
+          else { fw = t.w * 0.22; fx = t.x + t.w / 2 - fw / 2; fy = t.y + t.h / 2 - fw / 3; op = 0; }
+          const k = fw / r.width;
+          el.animate([
+            { transformOrigin: '0 0', transform: 'translate(' + (fx - r.left) + 'px,' + (fy - r.top) + 'px) scale(' + k + ')', opacity: op },
+            { transformOrigin: '0 0', transform: 'none', opacity: 1 }
+          ], { duration: 520, delay: i < 4 ? 40 : 160 + Math.min(i - 4, 10) * 24, easing: spring, fill: 'backwards' });
+        });
+        clearTimeout(this.ghostTimer);
+        this.ghostTimer = setTimeout(() => this.setState({ ghost: null }), 560);
+        return;
+      }
+      if (child) {
+        cards.forEach((el, i) => {
+          const id = el.id.slice(4);
+          if (id === child) {
+            el.animate([{ transform: 'scale(1.7)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: spring });
+          } else {
+            el.animate([{ transform: 'scale(.9)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 320, delay: 80 + Math.min(i, 12) * 18, easing: 'ease-out', fill: 'backwards' });
+          }
+        });
+      }
+      return;
+    }
+    const flipping = {};
+    root.querySelectorAll('[id^="hdf-"]').forEach((el) => {
+      const id = el.id.slice(4);
+      const o = snap.flips[id];
+      if (!o) return;
+      const r = el.getBoundingClientRect();
+      const dx = o.x - r.left, dy = o.y - r.top;
+      if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      flipping[id] = true;
+      el.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 460, easing: spring });
+    });
+    Array.from(root.querySelectorAll('[id^="hdr-"]')).forEach((el, i) => {
+      if (flipping[el.id.slice(4)]) return;
+      el.animate([{ opacity: 0, transform: 'translateX(36px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: 120 + Math.min(i, 12) * 24, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' });
+    });
+  }
+
+  celebrate() {
+    if (this.motion() === 'swift') return;
+    clearTimeout(this.burstTimer);
+    const fire = () => {
+      this.setState({ burstOn: true });
+      this.burstTimer = setTimeout(() => this.setState({ burstOn: false }), this.motion() === 'party' ? 1000 : 800);
+    };
+    if (this.state.burstOn) { this.setState({ burstOn: false }); setTimeout(fire, 20); } else fire();
+  }
+
+  flash(msg) {
+    clearTimeout(this.toastTimer);
+    this.setState({ toast: msg });
+    this.toastTimer = setTimeout(() => this.setState({ toast: null }), 2200);
+  }
+
+  pathOf(id) {
+    const byId = {};
+    this.state.items.forEach((x) => { byId[x.id] = x; });
+    const out = [];
+    let cur = id;
+    while (cur && cur !== 'root' && byId[cur]) { out.unshift(byId[cur]); cur = byId[cur].parent; }
+    return out;
+  }
+
+  isShared(x) { return x.link || x.people.length > 0; }
+
+  patchItem(id, p) {
+    this.setState((st) => ({ items: st.items.map((x) => (x.id === id ? Object.assign({}, x, typeof p === 'function' ? p(x) : p) : x)) }));
+  }
+
+  targetFolder() { return this.state.nav === 'files' ? this.state.folder : 'root'; }
+
+  newItem(type, name, extra) {
+    const seq = this.state.seq + 1;
+    const x = Object.assign({ id: 'n' + seq, name, type, parent: this.targetFolder(), size: 0, ago: 0, starred: false, trashed: false, link: false, linkAccess: 'view', expiry: 'never', people: [] }, extra || {});
+    this.setState((st) => ({ items: st.items.concat([x]), seq, nav: 'files', folder: x.parent, q: '', addOpen: false, addStep: 'pick' }));
+    return x;
+  }
+
+  openItem(x) {
+    if (x.type === 'folder') { this.navTo({ folder: x.id }); return; }
+    if (x.type === 'text') {
+      this.setState({ editId: x.id, edMode: 'rich', edMd: x.md || '', edSnap: x.md || '', edTitle: this.baseName(x), edStatus: 'saved', selected: null });
+      setTimeout(() => { try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {} if (this.ed) this.ed.focus(); }, 60);
+      return;
+    }
+    if (x.type === 'sheet') { this.setState({ editId: x.id, edTitle: this.baseName(x), edStatus: 'saved', focus: [1, 1], selected: null }); return; }
+    this.setState({ viewId: x.id, playing: false });
+  }
+
+  currentMd() {
+    if (this.state.edMode === 'rich' && this.ed) return this.toMd(this.ed);
+    return this.state.edMd;
+  }
+
+  saveEditor() {
+    const s = this.state;
+    const x = s.items.find((i) => i.id === s.editId);
+    if (!x) return;
+    const title = (s.edTitle || '').trim() || 'Untitled';
+    const patch = { name: title + this.extFor(x), ago: 0 };
+    if (x.type === 'text') { const md = this.currentMd(); patch.md = md; patch.size = md.length; }
+    if (x.type === 'sheet') patch.size = JSON.stringify(x.cells).length;
+    this.patchItem(x.id, patch);
+  }
+
+  closeEditor() { this.saveEditor(); clearTimeout(this.saveTimer); this.setState({ editId: null }); this.flash('Saved'); }
+
+  startUpload() {
+    const pool = [
+      ['IMG_5230.jpg', 'image', 4200000], ['meeting-notes.pdf', 'pdf', 380000], ['drone-flight.mp4', 'video', 640000000],
+      ['receipts-oct.zip', 'archive', 22000000], ['playlist-oct.mp3', 'audio', 7800000], ['Packing list.md', 'text', 900]
+    ];
+    const pick = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+    let seq = this.state.seq;
+    const parent = this.targetFolder();
+    const ups = pick.map(([name, type, size]) => ({ id: 'u' + (seq++), name, type, size, parent, pct: 0, speed: 6 + Math.random() * 14 }));
+    this.setState({ uploads: this.state.uploads.concat(ups), seq, nav: 'files', folder: parent, q: '', addOpen: false, addStep: 'pick' });
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.tick(), 120);
+  }
+
+  tick() {
+    const done = [];
+    const ups = this.state.uploads.map((u) => {
+      const pct = Math.min(100, u.pct + u.speed * (0.6 + Math.random()));
+      if (pct >= 100) done.push(u);
+      return Object.assign({}, u, { pct });
+    }).filter((u) => u.pct < 100);
+    let items = this.state.items;
+    if (done.length) {
+      items = items.concat(done.map((u) => ({
+        id: u.id, name: u.name, type: u.type, parent: u.parent, size: u.size, ago: 0, starred: false, trashed: false, link: false, linkAccess: 'view', expiry: 'never', people: [],
+        dur: u.type === 'video' ? '1:36' : (u.type === 'audio' ? '34:02' : ''),
+        md: u.type === 'text' ? '# Packing list\n\n- Passport\n- Chargers\n- Rain jacket' : undefined
+      })));
+    }
+    this.setState({ uploads: ups, items });
+    if (!ups.length) { clearInterval(this.timer); this.flash('Upload complete'); this.celebrate(); }
+  }
+
+  copy(url) {
+    try { if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {}); } catch (e) {}
+    this.flash('Link copied');
+    this.celebrate();
+  }
+
+  tool(cmd, arg) {
+    return (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      try { document.execCommand(cmd, false, arg); } catch (err) {}
+      this.onEdInputFn();
+    };
+  }
+
+  onEdInputFn() {
+    if (this.state.edStatus !== 'saving') this.setState({ edStatus: 'saving' });
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => { this.pendingMd = this.currentMd(); this.setState({ edStatus: 'saved' }); }, 700);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const T = this.types();
+    const U = this.users();
+    const mobile = !!this.props.mobile || s.narrow;
+    const live = s.items.filter((x) => !x.trashed);
+    const q = s.q.trim().toLowerCase();
+    const isStorage = !q && s.nav === 'storage';
+
+    let list;
+    if (q) list = live.filter((x) => x.name.toLowerCase().indexOf(q) !== -1);
+    else if (s.nav === 'recent') list = live.filter((x) => x.type !== 'folder').sort((a, b) => a.ago - b.ago).slice(0, 12);
+    else if (s.nav === 'starred') list = live.filter((x) => x.starred);
+    else if (s.nav === 'shared') list = live.filter((x) => this.isShared(x));
+    else if (s.nav === 'trash') list = s.items.filter((x) => x.trashed);
+    else if (s.nav === 'videos') list = live.filter((x) => x.type === 'video');
+    else if (isStorage) list = [];
+    else list = live.filter((x) => x.parent === s.folder);
+
+    if (s.nav !== 'recent' || q) {
+      list = list.slice().sort((a, b) => {
+        if ((a.type === 'folder') !== (b.type === 'folder')) return a.type === 'folder' ? -1 : 1;
+        if (s.sort === 'modified') return a.ago - b.ago;
+        if (s.sort === 'size') return b.size - a.size;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+    }
+
+    const kidsOf = (id) => live.filter((x) => x.parent === id).sort((a, b) => {
+      if ((a.type === 'folder') !== (b.type === 'folder')) return a.type === 'folder' ? -1 : 1;
+      if (s.sort === 'modified') return a.ago - b.ago;
+      if (s.sort === 'size') return b.size - a.size;
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+    const eyeIcon = 'M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z';
+    const penIcon = 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z';
+    const decorate = (x) => {
+      const t = T[x.type];
+      const sel = x.id === s.selected;
+      const isFolder = x.type === 'folder';
+      const editable = x.type === 'text' || x.type === 'sheet';
+      const kids = isFolder ? kidsOf(x.id) : [];
+      const n = kids.length;
+      const sizeLabel = isFolder ? n + (n === 1 ? ' item' : ' items') : this.fmtSize(x.size);
+      const when = this.fmtWhen(x.ago);
+      const shared = this.isShared(x);
+      const names = x.people.map((p) => U[p.id].name);
+      let shareLabel = 'Only you';
+      if (names.length) shareLabel = (names.length <= 2 ? names.join(', ') : names[0] + ' +' + (names.length - 1)) + (x.link ? ' · Link' : '');
+      else if (x.link) shareLabel = 'Anyone with the link';
+      let accessSummary = 'Only you can open this';
+      if (names.length && x.link) accessSummary = 'You, ' + names.join(', ') + ' and anyone with the link';
+      else if (names.length) accessSummary = 'You and ' + names.join(', ');
+      else if (x.link) accessSummary = 'You and anyone with the link';
+      const display = this.baseName(x);
+      return Object.assign({}, x, {
+        display, icon: t.d, color: t.c, lightColor: t.lc, typeLabel: t.l, kindShort: t.s,
+        sizeLabel, when, meta: (isFolder ? sizeLabel : t.s + ' · ' + sizeLabel) + ' · ' + when,
+        durLabel: x.dur || '',
+        thumb: this.thumbFor(x, kids),
+        openLabel: isFolder ? 'Open' : editable ? 'Edit' : 'Open', openIcon: editable ? penIcon : eyeIcon,
+        selected: sel, selCls: sel ? 'sel' : '',
+        bc: sel ? '#15803d' : '#e5e7eb', bg: sel ? '#f0fdf4' : '#ffffff',
+        sh: sel ? '0 0 0 1px #15803d, 0 4px 6px -1px rgba(0,0,0,0.1)' : 'none',
+        rowBg: sel ? '#f0fdf4' : '#ffffff',
+        infoBg: sel ? '#dcfce7' : 'transparent', infoFg: sel ? '#166534' : '#6b7280',
+        shared, shareLabel, accessSummary,
+        shareFg: shared ? '#166534' : '#6b7280', shareWeight: shared ? '600' : '400',
+        avatars: x.people.map((p) => U[p.id]),
+        pathLabel: ['My Files'].concat(this.pathOf(x.parent).map((f) => f.name)).join(' / '),
+        canShare: !x.trashed, shareAria: 'Share ' + display, infoAria: 'Info about ' + display,
+        openAria: (isFolder ? 'Open folder ' : editable ? 'Edit ' : 'Open ') + display, deleteAria: 'Delete ' + display,
+        share: () => this.setState({ shareId: x.id }),
+        info: () => this.setState({ selected: sel ? null : x.id }),
+        remove: () => { this.patchItem(x.id, { trashed: true }); this.flash('Moved to Trash'); },
+        linkUrl: 'http://nas.local/s/' + this.hash(x.id + 'k').toString(36) + this.hash(x.name).toString(36),
+        open: () => { if (!x.trashed) this.openItem(x); else this.setState({ selected: x.id }); }
+      });
+    };
+    const mo = this.motion();
+    const step = 30;
+    const withDelay = (arr) => arr.map((x, i) => Object.assign(x, { delay: (Math.min(i, 12) * step) + 'ms' }));
+    const items = withDelay(list.map(decorate));
+
+    const ic = {
+      files: T.folder.d,
+      recent: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+      starred: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
+      shared: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+      storage: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055zM20.488 9H15V3.512A9.025 9.025 0 0120.488 9z',
+      trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'
+    };
+    const go = (id) => () => this.setState({ nav: id, folder: 'root', selected: null, q: '', fx: null, ghost: null });
+    const navDefs = [
+      ['files', 'My Files', ''], ['recent', 'Recent', ''], ['starred', 'Starred', String(live.filter((x) => x.starred).length)],
+      ['shared', 'Shared', String(live.filter((x) => this.isShared(x)).length)],
+      ['trash', 'Trash', String(s.items.filter((x) => x.trashed).length || '')]
+    ];
+    const navItems = navDefs.map(([id, label, count]) => {
+      const on = !q && s.nav === id;
+      return { label, icon: ic[id], count, bg: on ? '#dcfce7' : 'transparent', fg: on ? '#166534' : '#374151', go: go(id) };
+    });
+    const tabs = [['files', 'Files'], ['recent', 'Recent'], ['starred', 'Starred'], ['shared', 'Shared']].map(([id, label]) => {
+      const on = !q && (s.nav === id || (id === 'storage' && s.nav === 'trash'));
+      return { label, icon: ic[id], go: go(id), current: on ? 'page' : 'false', bc: on ? '#166534' : 'transparent', fg: on ? '#166534' : '#4b5563' };
+    });
+
+    const mk = (label, fn, home) => ({ label, go: fn || (() => {}), home: !!home });
+    const homeC = mk('My Files', () => this.navTo({ folder: 'root' }), true);
+    let pageTitle;
+    let crumbs;
+    if (q) { pageTitle = 'Results for “' + s.q.trim() + '”'; crumbs = [homeC, mk('Search results')]; }
+    else if (s.nav === 'videos') { pageTitle = 'All videos'; crumbs = [homeC, mk('Storage', go('storage')), mk('Videos')]; }
+    else if (s.nav === 'trash') { pageTitle = 'Trash'; crumbs = [homeC, mk('Storage', go('storage')), mk('Trash')]; }
+    else if (s.nav === 'storage') { pageTitle = 'Storage'; crumbs = [homeC, mk('Storage')]; }
+    else if (s.nav !== 'files') { pageTitle = (navDefs.find((n) => n[0] === s.nav) || ['', ''])[1]; crumbs = [homeC, mk(pageTitle)]; }
+    else {
+      const path = this.pathOf(s.folder);
+      pageTitle = path.length ? path[path.length - 1].name : 'My Files';
+      crumbs = [homeC].concat(path.map((f) => mk(f.name, () => this.navTo({ folder: f.id }))));
+    }
+    crumbs = crumbs.map((c, i, arr) => Object.assign(c, { notFirst: i > 0, here: i === arr.length - 1, link: i < arr.length - 1 }));
+    const hl = s.hist || [];
+    let backTo = null;
+    if (hl.length) backTo = this.locLabel(hl[hl.length - 1]);
+    else if (!q && s.nav === 'files' && s.folder !== 'root') { const f = s.items.find((x) => x.id === s.folder); backTo = this.locLabel({ nav: 'files', folder: f ? f.parent : 'root' }); }
+
+    const tf = this.targetFolder();
+    const folderName = tf === 'root' ? 'My Files' : (s.items.find((x) => x.id === tf) || {}).name;
+    const blank = { thumb: null, display: '', name: '', typeLabel: '', sizeLabel: '', when: '', pathLabel: '', avatars: [], accessSummary: '', icon: '', color: '', lightColor: '', meta: '', durLabel: '', linkUrl: '', openLabel: '', openIcon: '' };
+    const selRaw = s.items.find((x) => x.id === s.selected);
+    const sel = selRaw ? decorate(selRaw) : blank;
+
+    const vRaw = s.items.find((x) => x.id === s.viewId);
+    const vx = vRaw ? decorate(vRaw) : blank;
+    const vk = vRaw ? (vRaw.ui ? 'ui' : vRaw.type) : 'pdf';
+    const vw = Object.assign({}, {
+      pdf: { maxW: '680px', h: 'min(80vh, 900px)', z: 2.3 }, doc: { maxW: '680px', h: 'min(80vh, 900px)', z: 2.3 },
+      code: { maxW: '900px', h: 'min(66vh, 560px)', z: 2.3 },
+      archive: { maxW: '640px', h: 'min(66vh, 520px)', z: 2.4 }, audio: { maxW: '520px', h: '420px', z: 2.6 },
+      image: { maxW: '1100px', h: 'min(72vh, 700px)', z: 3 }, ui: { maxW: '1100px', h: 'min(72vh, 700px)', z: 3 },
+      video: { maxW: '1100px', h: 'min(66vh, 620px)', z: 2.6 }
+    }[vk] || { maxW: '900px', h: '600px', z: 2 });
+    if (mobile) { vw.z = Math.max(1.2, vw.z * 0.55); vw.h = vk === 'pdf' || vk === 'doc' ? '520px' : '300px'; }
+    vw.media = vk === 'video' || vk === 'audio';
+    const viewable = items.filter((x) => x.type !== 'folder' && x.type !== 'text' && x.type !== 'sheet');
+    const vi = viewable.findIndex((x) => x.id === s.viewId);
+
+    // editor
+    const edRaw = s.items.find((x) => x.id === s.editId);
+    const edIsText = !!edRaw && edRaw.type === 'text';
+    const edIsSheet = !!edRaw && edRaw.type === 'sheet';
+    const seg = (on) => ({ on, bg: on ? '#ffffff' : 'transparent', fg: on ? '#166534' : '#4b5563', sh: on ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' });
+    const richSeg = seg(s.edMode === 'rich'), srcSeg = seg(s.edMode === 'md');
+    const I = {
+      undo: 'M3 10h10a5 5 0 015 5v2M3 10l5-5M3 10l5 5', redo: 'M21 10H11a5 5 0 00-5 5v2m15-7l-5-5m5 5l-5 5',
+      ul: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01', ol: 'M10 6h10M10 12h10M10 18h10M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1',
+      quote: 'M7 8h4v4c0 2-1 3.5-3 4M14 8h4v4c0 2-1 3.5-3 4'
+    };
+    const tools = [
+      { label: 'Undo', icon: I.undo, run: this.tool('undo') }, { label: 'Redo', icon: I.redo, run: this.tool('redo') },
+      { label: 'Heading 1', text: 'H1', run: this.tool('formatBlock', 'H1'), sep: true }, { label: 'Heading 2', text: 'H2', run: this.tool('formatBlock', 'H2') },
+      { label: 'Normal text', text: 'T', run: this.tool('formatBlock', 'P') },
+      { label: 'Bold', text: 'B', run: this.tool('bold'), sep: true }, { label: 'Italic', text: 'I', italic: true, run: this.tool('italic') },
+      { label: 'Bulleted list', icon: I.ul, run: this.tool('insertUnorderedList'), sep: true }, { label: 'Numbered list', icon: I.ol, run: this.tool('insertOrderedList') },
+      { label: 'Quote', icon: I.quote, run: this.tool('formatBlock', 'BLOCKQUOTE') }
+    ].map((t) => Object.assign({ sep: false, icon: '', text: '' }, t, { hasIcon: !!t.icon, hasText: !!t.text, font: t.text === 'T' ? 'Georgia, serif' : 'inherit', fstyle: t.italic ? 'italic' : 'normal' }));
+
+    let xs = { ref: '', raw: '', onRaw: () => {}, cols: [], rows: [], addRow: () => {}, addCol: () => {} };
+    if (edIsSheet) {
+      const cells = edRaw.cells;
+      const disp = this.evalSheet(cells);
+      const fr = Math.min(s.focus[0], cells.length - 1), fc = Math.min(s.focus[1], cells[0].length - 1);
+      const setCell = (r, c, v) => {
+        this.patchItem(edRaw.id, (x) => ({ cells: x.cells.map((row, ri) => (ri === r ? row.map((cv, ci) => (ci === c ? v : cv)) : row)), ago: 0 }));
+        this.setState({ edStatus: 'saved' });
+      };
+      xs = {
+        ref: this.colName(fc) + (fr + 1), raw: cells[fr][fc],
+        onRaw: (ev) => setCell(fr, fc, ev.target.value),
+        cols: cells[0].map((_, c) => ({ label: this.colName(c), bg: c === fc ? '#dcfce7' : '#f3f4f6' })),
+        rows: cells.map((row, r) => ({
+          n: String(r + 1), bg: r === fr ? '#dcfce7' : '#f3f4f6',
+          cells: row.map((raw, c) => {
+            const focused = r === fr && c === fc;
+            const d = disp[r][c];
+            const isNum = /^-?[\d,.]+$/.test(String(d)) || d === '#ERR';
+            return {
+              ref: this.colName(c) + (r + 1), value: focused ? raw : d,
+              align: isNum && r > 0 ? 'right' : 'left', fw: r === 0 || c === 0 ? '600' : '400',
+              bg: r === 0 ? '#f0fdf4' : (String(raw).indexOf('=') === 0 ? '#fafafa' : '#ffffff'),
+              sh: focused ? 'inset 0 0 0 2px #15803d' : 'none',
+              focus: () => { if (!(s.focus[0] === r && s.focus[1] === c)) this.setState({ focus: [r, c] }); },
+              change: (ev) => setCell(r, c, ev.target.value)
+            };
+          })
+        })),
+        addRow: () => this.patchItem(edRaw.id, (x) => ({ cells: x.cells.concat([x.cells[0].map(() => '')]) })),
+        addCol: () => this.patchItem(edRaw.id, (x) => ({ cells: x.cells.map((row) => row.concat([''])) }))
+      };
+    }
+
+    const shRaw = s.items.find((x) => x.id === s.shareId);
+    const sh = shRaw ? decorate(shRaw) : blank;
+    const sid = s.shareId;
+    const sharePeople = shRaw ? shRaw.people.map((p) => {
+      const u = U[p.id];
+      return {
+        name: u.name, initials: u.initials, color: u.color,
+        accessLabel: p.access === 'edit' ? 'Can edit' : 'Can view',
+        toggleAria: u.name + ': ' + (p.access === 'edit' ? 'can edit, switch to view only' : 'can view, switch to edit'),
+        removeAria: 'Remove ' + u.name,
+        toggle: () => this.patchItem(sid, (x) => ({ people: x.people.map((q2) => (q2.id === p.id ? { id: p.id, access: q2.access === 'edit' ? 'view' : 'edit' } : q2)) })),
+        remove: () => this.patchItem(sid, (x) => ({ people: x.people.filter((q2) => q2.id !== p.id) }))
+      };
+    }) : [];
+    const addable = shRaw ? Object.keys(U).filter((id) => !shRaw.people.some((p) => p.id === id)).map((id) => ({
+      name: U[id].name, initials: U[id].initials, color: U[id].color, addAria: 'Share with ' + U[id].name,
+      add: () => { this.patchItem(sid, (x) => ({ people: x.people.concat([{ id, access: 'view' }]) })); this.flash('Shared with ' + U[id].name); this.celebrate(); }
+    })) : [];
+    const linkOn = !!(shRaw && shRaw.link);
+    const accessOpts = [['view', 'Can view'], ['edit', 'Can edit']].map(([v, label]) => Object.assign(seg(!!shRaw && shRaw.linkAccess === v), { label, go: () => this.patchItem(sid, { linkAccess: v }) }));
+    const expiryOpts = [['never', 'Never'], ['7d', '7 days'], ['1d', '1 day']].map(([v, label]) => Object.assign(seg(!!shRaw && shRaw.expiry === v), { label, go: () => this.patchItem(sid, { expiry: v }) }));
+    const expiryText = shRaw && shRaw.expiry === '7d' ? ', expires in 7 days' : shRaw && shRaw.expiry === '1d' ? ', expires tomorrow' : '';
+
+    const ups = s.uploads.map((u) => ({ name: u.name, icon: T[u.type].d, color: T[u.type].c, w: Math.round(u.pct) + '%', pctLabel: Math.round(u.pct) + '%' }));
+
+    const addTiles = [
+      { label: 'Folder', desc: 'Keep files together', icon: 'M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z', color: '#a16207', tint: '#fef9c3', go: () => this.setState({ addStep: 'folder', folderDraft: '' }) },
+      { label: 'Text document', desc: 'Write and format notes, saved as Markdown', icon: T.text.d, color: '#0369a1', tint: '#e0f2fe', go: () => { const x = this.newItem('text', 'Untitled document.md', { md: '# Untitled document\n\n' }); setTimeout(() => this.openItem(x), 0); } },
+      { label: 'Spreadsheet', desc: 'Rows, columns and formulas', icon: T.sheet.d, color: '#15803d', tint: '#dcfce7', go: () => { const blankCells = []; for (let r = 0; r < 12; r++) blankCells.push(['', '', '', '', '', '']); const x = this.newItem('sheet', 'Untitled spreadsheet.xlsx', { cells: blankCells }); setTimeout(() => this.openItem(x), 0); } },
+      { label: 'Upload files', desc: 'Photos, PDFs, videos and anything else', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12', color: '#374151', tint: '#f3f4f6', go: () => this.startUpload() }
+    ];
+
+    const empty = {
+      files: ['This folder is empty', 'Add a folder, a document or upload files.', T.folder.d],
+      recent: ['Nothing recent', 'Files you add or change show up here.', ic.recent],
+      starred: ['No starred files', 'Star a file to pin it here.', ic.starred],
+      shared: ['Nothing shared yet', 'Use the share button on any file to give someone access.', ic.shared],
+      trash: ['Trash is empty', 'Deleted files stay here until you empty it.', ic.trash],
+      videos: ['No videos', 'Videos you upload show up here.', T.video.d],
+      storage: ['', '', '']
+    }[s.nav];
+    const e = q ? ['No matches', 'Try a different name or file type.', 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'] : empty;
+
+    const sortCols = [['name', 'Name'], ['modified', 'Modified'], ['size', 'Size']].map(([id, label]) => ({
+      label: s.sort === id ? label + ' ↓' : label, weight: s.sort === id ? '600' : '500', fg: s.sort === id ? '#1f2937' : '#6b7280',
+      go: () => this.setState({ sort: id })
+    }));
+
+    const total = 2000;
+    const segDefs = [['Photos', 412, '#0f766e'], ['Videos', 286, '#6d28d9'], ['Backups', 198, '#b45309'], ['Documents', 14, '#1d4ed8'], ['Other', 6, '#475569']];
+    const used = segDefs.reduce((a, b) => a + b[1], 0);
+    const gb = (v) => (v >= 1000 ? (v / 1000).toFixed(2) + ' TB' : v + ' GB');
+    const trashed = s.items.filter((x) => x.trashed);
+    const trashSize = trashed.reduce((a, x) => a + x.size, 0);
+    const st = {
+      segs: segDefs.map(([label, v, c]) => ({ label, c, w: (v / total * 100).toFixed(1) + '%', sizeLabel: gb(v), pct: Math.round(v / total * 100) + '%' })),
+      usedLabel: gb(used), totalLabel: '2 TB', freeLabel: gb(total - used), shortLabel: gb(used) + ' of 2 TB',
+      disks: [
+        { name: 'Disk 1 · 2 TB HDD', health: 'Healthy', w: (used / total * 100).toFixed(1) + '%', meta: '36 °C · Powered on 412 days' },
+        { name: 'Disk 2 · 2 TB HDD', health: 'Healthy', w: (used / total * 100).toFixed(1) + '%', meta: '38 °C · Powered on 412 days' }
+      ],
+      largest: live.filter((x) => x.type !== 'folder').sort((a, b) => b.size - a.size).slice(0, 5).map(decorate),
+      trashLabel: trashed.length ? trashed.length + (trashed.length === 1 ? ' item' : ' items') + ' · ' + this.fmtSize(trashSize) : 'Already empty',
+      trashEmpty: trashed.length === 0
+    };
+
+    const pal = ['#22c55e', '#facc15', '#f472b6', '#60a5fa', '#a78bfa', '#fb923c'];
+    const nBits = 14;
+    const bits = [];
+    for (let i = 0; i < nBits; i++) {
+      const a = -100 + (200 / (nBits - 1)) * i + ((i * 37) % 11) - 5;
+      bits.push({ a: a.toFixed(0) + 'deg', c: pal[i % pal.length], size: (6 + (i * 7) % 4) + 'px', r: i % 3 === 0 ? '2px' : '9999px', d: (560 + (i * 53) % 300) + 'ms', del: ((i * 13) % 60) + 'ms' });
+    }
+
+    const railPath = this.pathOf(s.folder);
+    const rail = [{ id: 'root', label: 'My Files' }].concat(railPath.map((f) => ({ id: f.id, label: f.name }))).map((r, d, arr) => {
+      const last = d === arr.length - 1;
+      return {
+        id: r.id, label: r.label, home: d === 0, isFolder: d > 0, notFirst: d > 0,
+        pad: (10 + d * 16) + 'px', line: (d * 16 - 2) + 'px',
+        current: last ? 'page' : 'false', bg: last ? '#dcfce7' : 'transparent', fg: last ? '#166534' : '#374151', fw: last ? '700' : '500',
+        go: () => { if (!last) this.navTo({ folder: r.id }); }
+      };
+    });
+
+    const isGrid = s.view === 'grid';
+    const edSaving = s.edStatus === 'saving';
+    return {
+      par: s.fx === 'anim' ? 'z' : String(s.tick % 2), vpar: String(s.vtick % 2),
+      filesRef: this.filesRef, ghostRef: this.ghostRef, ghostOn: !!s.ghost, ghost: s.ghost || { x: '0', y: '0', w: '0', h: '0' },
+      showRail: !isGrid && !q && s.nav === 'files' && s.folder !== 'root' && !mobile, rail,
+      serverOpen: s.serverOpen, toggleServer: () => this.setState({ serverOpen: !s.serverOpen }),
+      openStorage: () => this.setState({ serverOpen: false, nav: 'storage', folder: 'root', selected: null, q: '' }),
+      burstOn: s.burstOn, bits,
+      modeCls: mobile ? 'hd-m' : '', thumbH: mobile ? '120px' : '150px',
+      q: s.q, hasQuery: !!s.q,
+      onSearch: (ev) => this.setState({ q: ev.target.value, selected: null, fx: null }),
+      clearSearch: () => this.setState({ q: '' }),
+      openAdd: () => this.setState({ addOpen: true, addStep: 'pick' }),
+      closeAdd: () => this.setState({ addOpen: false, addStep: 'pick' }),
+      addOpen: s.addOpen, addPick: s.addStep === 'pick', addFolder: s.addStep === 'folder',
+      addTitle: s.addStep === 'folder' ? 'New folder' : 'Add new', addTiles,
+      folderDraft: s.folderDraft, onFolderDraft: (ev) => this.setState({ folderDraft: ev.target.value }),
+      addBack: () => this.setState({ addStep: 'pick' }),
+      createFolder: () => { this.newItem('folder', s.folderDraft.trim() || 'New folder'); this.flash('Folder created'); },
+      goStorage: go('storage'), goTrash: go('trash'),
+      navItems, tabs, crumbs, hasCrumbs: crumbs.length > 0, pageTitle,
+      goBack: () => this.goBack(), noBack: !backTo, backLabel: backTo ? 'Back to ' + backTo : 'Back', backAria: backTo ? 'Back to ' + backTo : 'Back',
+      isStorage, isBrowser: !isStorage, st,
+      emptyTrash: () => { this.setState({ items: s.items.filter((x) => !x.trashed) }); this.flash('Trash emptied'); },
+      reviewBackups: () => this.setState({ nav: 'files', folder: 'backups', view: 'list', sort: 'size', selected: null }),
+      reviewVideos: () => this.setState({ nav: 'videos', folder: 'root', view: 'list', sort: 'size', selected: null }),
+      countLabel: items.length + (items.length === 1 ? ' item' : ' items'),
+      isGrid, isList: !isGrid,
+      gridBg: isGrid ? '#dcfce7' : 'transparent', gridFg: isGrid ? '#166534' : '#4b5563',
+      listBg: !isGrid ? '#dcfce7' : 'transparent', listFg: !isGrid ? '#166534' : '#4b5563',
+      setGrid: () => this.setState({ view: 'grid', fx: null, tick: s.tick + 1 }), setList: () => this.setState({ view: 'list', fx: null, tick: s.tick + 1 }),
+      hasUploads: ups.length > 0, uploads: ups,
+      uploadTitle: 'Uploading ' + ups.length + (ups.length === 1 ? ' file' : ' files'), folderName,
+      showQuick: !q && s.nav === 'files' && s.folder === 'root',
+      quick: withDelay(live.filter((x) => x.starred && x.type === 'folder').map(decorate)),
+      items, isEmpty: items.length === 0 && !isStorage, emptyCanAdd: !q && s.nav === 'files',
+      showGrid: isGrid && items.length > 0, showList: !isGrid && items.length > 0,
+      emptyTitle: e[0], emptyBody: e[1], emptyIcon: e[2],
+      sortCols,
+      hasSel: !!selRaw, sel, selLive: !!selRaw && !selRaw.trashed, selTrashed: !!selRaw && selRaw.trashed,
+      closeSel: () => this.setState({ selected: null }),
+      openSel: () => this.openItem(selRaw),
+      shareSel: () => this.setState({ shareId: s.selected }),
+      download: () => this.flash('Downloading ' + sel.display),
+      toggleStar: () => { this.patchItem(s.selected, { starred: !selRaw.starred }); this.flash(selRaw.starred ? 'Removed from Starred' : 'Added to Starred'); },
+      starFill: selRaw && selRaw.starred ? '#f59e0b' : 'none', starStroke: selRaw && selRaw.starred ? '#f59e0b' : 'currentColor',
+      starLabel: selRaw && selRaw.starred ? 'Starred' : 'Star',
+      trashSel: () => { this.patchItem(s.selected, { trashed: true }); this.setState({ selected: null }); this.flash('Moved to Trash'); },
+      restoreSel: () => { this.patchItem(s.selected, { trashed: false }); this.setState({ selected: null }); this.flash('Restored'); },
+      viewOpen: !!vRaw, vx, vw, viewInfo: s.viewInfo, viewInfoBg: s.viewInfo ? '#15803d' : '#1f2937',
+      closeView: () => this.setState({ viewId: null, playing: false }),
+      toggleViewInfo: () => this.setState({ viewInfo: !s.viewInfo }),
+      shareView: () => this.setState({ shareId: s.viewId }),
+      downloadView: () => this.flash('Downloading ' + vx.display),
+      hasPrev: vi > 0, hasNext: vi !== -1 && vi < viewable.length - 1,
+      prevView: () => { if (vi > 0) this.setState({ viewId: viewable[vi - 1].id, playing: false }); },
+      nextView: () => { if (vi < viewable.length - 1) this.setState({ viewId: viewable[vi + 1].id, playing: false }); },
+      togglePlay: () => this.setState({ playing: !s.playing }),
+      playIcon: s.playing ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M8 5v14l11-7z',
+      playAria: s.playing ? 'Pause' : 'Play', playPos: s.playing ? '0:42' : '0:00', playPct: s.playing ? '18%' : '0%',
+      edOpen: !!edRaw, edIsText, edIsSheet, edRichOn: edIsText && s.edMode === 'rich', edSrcOn: edIsText && s.edMode === 'md',
+      edTitle: s.edTitle, onEdTitle: (ev) => this.setState({ edTitle: ev.target.value }),
+      edIcon: edRaw ? T[edRaw.type].d : '', edColor: edRaw ? T[edRaw.type].c : '',
+      edFileName: ((s.edTitle || 'Untitled').trim() || 'Untitled') + '.md',
+      edStatus: edSaving ? 'Saving…' : (edIsText ? 'Saved · Markdown' : 'Saved'), edDot: edSaving ? '#f59e0b' : '#22c55e',
+      edRich: s.edMode === 'rich', edSrc: s.edMode === 'md',
+      edRichBg: richSeg.bg, edRichFg: richSeg.fg, edRichSh: richSeg.sh, edSrcBg: srcSeg.bg, edSrcFg: srcSeg.fg, edSrcSh: srcSeg.sh,
+      toRich: () => { if (s.edMode !== 'rich') this.setState({ edMode: 'rich', edSnap: s.edMd }); },
+      toSrc: () => { if (s.edMode !== 'md') { const md = this.currentMd(); this.setState({ edMode: 'md', edMd: md }); } },
+      edMd: s.edMd, onEdMd: (ev) => { this.setState({ edMd: ev.target.value }); this.onEdInputFn(); },
+      edBlocks: this.renderBlocks(s.edSnap), edRef: this.edRef, onEdInput: () => this.onEdInputFn(), tools,
+      closeEditor: () => this.closeEditor(),
+      shareEditor: () => { this.saveEditor(); this.setState({ shareId: s.editId }); },
+      xs,
+      shareOpen: !!shRaw, sh, sharePeople, addable, hasAddable: addable.length > 0,
+      closeShare: () => this.setState({ shareId: null }),
+      linkOn, switchBg: linkOn ? '#15803d' : '#d1d5db', knobLeft: linkOn ? '23px' : '3px',
+      linkDesc: linkOn ? 'Anyone with the link can open it' + expiryText : 'Off. Only the people above can open it',
+      toggleLink: () => { this.patchItem(sid, { link: !linkOn }); if (!linkOn) { this.flash('Share link created'); this.celebrate(); } },
+      copyLink: () => this.copy(sh.linkUrl),
+      accessOpts, expiryOpts,
+      hasToast: !!s.toast, toast: s.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

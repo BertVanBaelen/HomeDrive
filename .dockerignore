@@ -1,0 +1,12 @@
+.git
+.github
+**/node_modules
+web/dist
+server/bin
+dev
+docs
+homedrive-mockup
+homedrive
+*.md
+.env
+.env.*

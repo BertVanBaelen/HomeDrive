@@ -1,0 +1,50 @@
+# Homedrive with a Cloudflare Tunnel, without Home Assistant.
+#
+# 1. In the Cloudflare Zero Trust dashboard, create a tunnel and add a public
+#    hostname (for example drive.example.com) with service http://homedrive:8080.
+#    Put the tunnel token in a .env file next to this one: TUNNEL_TOKEN=...
+# 2. Create the folders and give them to the container user:
+#      mkdir -p config files && sudo chown 1000:1000 config files
+#    "files" holds the file contents. It can be any local folder or disk, or a
+#    mounted network share; it must be empty on first start. The config folder
+#    holds the database and must be on a local disk, never on a network share.
+# 3. Put the SMTP password in smtp_password.txt (readable by user 1000).
+# 4. docker compose up -d
+
+services:
+  homedrive:
+    image: ghcr.io/bertvanbaelen/homedrive:latest
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+    environment:
+      HOMEDRIVE_PUBLIC_URL: https://drive.example.com
+      HOMEDRIVE_SMTP_HOST: smtp.example.com
+      HOMEDRIVE_SMTP_PORT: "587"
+      HOMEDRIVE_SMTP_SECURITY: starttls
+      HOMEDRIVE_SMTP_USERNAME: drive@example.com
+      HOMEDRIVE_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      HOMEDRIVE_SMTP_FROM: Homedrive <drive@example.com>
+      # HOMEDRIVE_BACKUP_PATH: /backup
+      TZ: Etc/UTC # your time zone, used for the backup schedule
+    secrets: [smtp_password]
+    volumes:
+      - ./config:/config
+      - ./files:/data # or a disk or NAS mount, e.g. /mnt/nas/homedrive:/data
+      # - /mnt/usb/homedrive-backup:/backup # preferably another disk
+    # No published port: cloudflared reaches Homedrive on the compose network.
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.5
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on: [homedrive]
+
+secrets:
+  smtp_password:
+    file: ./smtp_password.txt

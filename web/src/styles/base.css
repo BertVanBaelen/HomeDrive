@@ -1,0 +1,160 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-800);
+  background: var(--gray-50);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--primary-700);
+}
+
+a:hover {
+  color: var(--primary-900);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Header */
+.hd-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: env(safe-area-inset-top) var(--gutter) 0;
+  min-height: calc(56px + env(safe-area-inset-top));
+  color: #fff;
+  background: var(--primary-900);
+  box-shadow: var(--shadow-float);
+}
+
+.hd-header__name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Page */
+.hd-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--gutter);
+}
+
+.hd-page h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--gray-900);
+}
+
+@media (max-width: 699px) {
+  .hd-page h1 {
+    font-size: 24px;
+  }
+}
+
+.hd-muted {
+  color: var(--gray-500);
+}
+
+.hd-card {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-card);
+  background: #fff;
+}
+
+.hd-notice {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  color: var(--primary-900);
+  background: var(--primary-50);
+}
+
+.hd-notice--error {
+  color: var(--danger-strong);
+  background: #fef2f2;
+}
+
+/* File list on the save page */
+.hd-files {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hd-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--gray-200);
+}
+
+.hd-files li:first-child {
+  border-top: 0;
+}
+
+.hd-files__name {
+  overflow-wrap: anywhere;
+}
+
+.hd-button {
+  min-height: var(--touch);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-card);
+  color: var(--gray-800);
+  background: #fff;
+}
+
+.hd-button:hover {
+  background: #f3f4f6;
+}
+
+.hd-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
