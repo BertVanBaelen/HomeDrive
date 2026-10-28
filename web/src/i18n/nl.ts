@@ -316,6 +316,7 @@ export const nl: Messages = {
   'error.reauth_required': 'Bevestig je wachtwoord om dit te doen.',
   'error.not_trashed': 'Alleen wat in de prullenbak zit, kan definitief worden verwijderd.',
   'error.backup_running': 'Er loopt al een back-up.',
+  'error.disk_full': 'De schijf van Homedrive is bijna vol. Vraag wie Homedrive beheert om plaats te maken.',
   'error.backup_disabled': 'Back-ups staan uit.',
   'error.too_many_devices': 'Je hebt het maximum aantal toestelsleutels. Verwijder er eerst een.',
 

@@ -365,3 +365,23 @@ func (s *Service) Audit(ctx context.Context, userID, ip, event, detail string) {
 		s.log.Warn("writing audit log", "event", event, "error", err)
 	}
 }
+
+// Cleanup deletes what has run out: expired sessions, old sign-in codes and
+// password links, and audit entries older than a year.
+func (s *Service) Cleanup(ctx context.Context) error {
+	now := s.now()
+	for _, q := range []struct {
+		sql string
+		arg time.Time
+	}{
+		{`DELETE FROM sessions WHERE expires_at <= ?`, now},
+		{`DELETE FROM email_codes WHERE created_at <= ?`, now.Add(-24 * time.Hour)},
+		{`DELETE FROM invitations WHERE expires_at <= ?`, now.Add(-30 * 24 * time.Hour)},
+		{`DELETE FROM audit_log WHERE at <= ?`, now.AddDate(-1, 0, 0)},
+	} {
+		if _, err := s.db.ExecContext(ctx, q.sql, db.FormatTime(q.arg)); err != nil {
+			return err
+		}
+	}
+	return nil
+}

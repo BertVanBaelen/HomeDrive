@@ -139,6 +139,7 @@ var apiErrors = []struct {
 	{files.ErrIncomplete, http.StatusConflict, "incomplete"},
 	{files.ErrUploadFailed, http.StatusBadRequest, "upload_failed"},
 	{files.ErrNotTrashed, http.StatusConflict, "not_trashed"},
+	{files.ErrDiskFull, http.StatusInsufficientStorage, "disk_full"},
 	{accounts.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{accounts.ErrInvalidCode, http.StatusUnauthorized, "invalid_code"},
 	{accounts.ErrTooManyCodes, http.StatusTooManyRequests, "too_many_codes"},

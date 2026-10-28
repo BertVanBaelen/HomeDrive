@@ -314,6 +314,7 @@ export const en = {
   'error.reauth_required': 'Confirm your password to do this.',
   'error.not_trashed': 'Only items in the trash can be deleted for good.',
   'error.backup_running': 'A backup is already running.',
+  'error.disk_full': 'Homedrive’s disk is almost full. Ask whoever runs it to free up space.',
   'error.backup_disabled': 'Backups are off.',
   'error.too_many_devices': 'You have the maximum number of device keys. Remove one first.',
 

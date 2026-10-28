@@ -44,6 +44,9 @@ func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name strin
 	if _, err := s.editableFolder(ctx, s.db, userID, parentID); err != nil {
 		return Upload{}, err
 	}
+	if err := s.checkSpace(size); err != nil {
+		return Upload{}, err
+	}
 	u := Upload{ID: db.NewID(), ParentID: parentID, Name: name, Size: size, ChunkSize: ChunkSize}
 	if err := s.store.CreateUpload(u.ID); err != nil {
 		return Upload{}, err
@@ -236,6 +239,10 @@ const MaxInboxUpload = 95 << 20
 func (s *Service) UploadToInbox(ctx context.Context, userID, name string, r io.Reader) (Node, error) {
 	name, err := ValidateName(name)
 	if err != nil {
+		return Node{}, err
+	}
+	// The size isn't known up front; assume the largest allowed.
+	if err := s.checkSpace(MaxInboxUpload); err != nil {
 		return Node{}, err
 	}
 	inbox, err := s.inbox(ctx, userID)

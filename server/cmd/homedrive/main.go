@@ -126,7 +126,10 @@ func run() error {
 		go bk.Schedule(ctx)
 	}
 
-	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: files.New(conn, store, log), Backup: bk})
+	fs := files.New(conn, store, log)
+	go housekeeping(ctx, log, fs, acc)
+
+	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: fs, Backup: bk})
 	if err != nil {
 		return err
 	}
@@ -190,4 +193,28 @@ func export(args []string) int {
 		}
 	}
 	return 0
+}
+
+// housekeeping runs the cleanup jobs shortly after start and then every
+// hour: unfinished uploads, leftovers of interrupted writes, expired
+// sessions and codes.
+func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc *accounts.Service) {
+	timer := time.NewTimer(time.Minute)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+		if res, err := fs.Cleanup(ctx); err != nil {
+			log.Warn("cleaning up files", "error", err)
+		} else if res != (files.CleanupResult{}) {
+			log.Info("cleaned up", "expired_uploads", res.Uploads, "temp_files", res.TempFiles, "orphan_objects", res.Objects)
+		}
+		if err := acc.Cleanup(ctx); err != nil {
+			log.Warn("cleaning up accounts", "error", err)
+		}
+		timer.Reset(time.Hour)
+	}
 }
