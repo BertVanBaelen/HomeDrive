@@ -35,7 +35,7 @@ See [`docker-compose.example.yml`](docker-compose.example.yml).
 
 ## Development
 
-Requirements: Go 1.27+, Node 24+.
+Requirements: Go 1.27+, Node 26+ (the version the Docker image builds with).
 
 ```bash
 cd web && npm ci && npm run build
