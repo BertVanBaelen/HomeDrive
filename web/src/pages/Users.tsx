@@ -3,6 +3,7 @@ import { api, type AdminDrive, type User, type UserInfo } from '../api'
 import { errorText, Modal } from '../components/Dialogs'
 import { MembersDialog } from '../components/Drives'
 import { Icon, icons } from '../components/Icon'
+import { SelectField } from '../components/Select'
 import { showToast } from '../components/Toast'
 import { notifyChanged, onChanged } from '../events'
 import { formatSize, formatWhen } from '../format'
@@ -244,20 +245,13 @@ function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
         <Field label={t('account.name')} required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
         <Field label={t('login.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <div className="form__row">
-          <div className="field">
-            <label htmlFor="invite-role">{t('users.role')}</label>
-            <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="member">{t('role.member')}</option>
-              <option value="admin">{t('role.admin')}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="invite-lang">{t('users.language')}</label>
-            <select id="invite-lang" value={lang} onChange={(e) => setLang(e.target.value)}>
-              <option value="en">English</option>
-              <option value="nl">Nederlands</option>
-            </select>
-          </div>
+          <SelectField label={t('users.role')} value={role} onChange={setRole}
+            options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`), hint: t(`role.${r}.hint`) }))} />
+          <SelectField label={t('users.language')} value={lang} onChange={setLang}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'nl', label: 'Nederlands' },
+            ]} />
         </div>
         {drives.length > 0 && (
           <fieldset className="checks" aria-describedby={drivesId}>

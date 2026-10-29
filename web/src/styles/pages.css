@@ -224,20 +224,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-.field select {
-  height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-control);
-  font-size: 15px;
-  color: var(--gray-800);
-  background: #fff;
-}
-.field select:focus {
-  outline: none;
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--focus);
-}
 
 .badge {
   display: inline-flex;
@@ -512,21 +498,6 @@
   display: flex;
   align-items: center;
   gap: 4px;
-}
-.member__actions select {
-  height: 36px;
-  padding: 0 8px;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-control);
-  background: #fff;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 500;
-}
-.member__actions select:focus {
-  outline: none;
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--focus);
 }
 .member__actions .icon-btn:hover:not(:disabled) {
   background: #fee2e2;

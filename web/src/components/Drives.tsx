@@ -6,6 +6,7 @@ import { navigate } from '../router'
 import { ConfirmDialog, errorText, Modal, NameDialog } from './Dialogs'
 import { Icon, icons } from './Icon'
 import { initials } from './Shell'
+import { Select } from './Select'
 import { showToast } from './Toast'
 
 export const driveRoles: DriveRole[] = ['viewer', 'editor', 'manager']
@@ -251,12 +252,10 @@ export function MembersDialog({
                 {m.disabled && <span className="badge badge--disabled">{t('status.disabled')}</span>}
                 {manager ? (
                   <span className="member__actions">
-                    <select aria-label={t('members.roleFor', { name: m.name })} value={m.role} disabled={busy === m.userId}
-                      onChange={(e) => setRole(m.userId, e.target.value as DriveRole)}>
-                      {driveRoles.map((r) => (
-                        <option key={r} value={r}>{roleLabel(t, r)}</option>
-                      ))}
-                    </select>
+                    <Select size="small" value={m.role} disabled={busy === m.userId}
+                      ariaLabel={t('members.roleFor', { name: m.name })} title={t('members.roleFor', { name: m.name })}
+                      options={driveRoles.map((r) => ({ value: r, label: roleLabel(t, r), hint: t(`driveRole.${r}.hint`) }))}
+                      onChange={(r) => setRole(m.userId, r)} />
                     {removable ? (
                       <button type="button" className="icon-btn" aria-label={t('members.remove', { name: m.name })}
                         disabled={busy === m.userId} onClick={() => remove(m.userId)}>
