@@ -38,14 +38,17 @@ Release gate
 
 ## v2
 
-- Shared drives: create, rename, members with viewer / editor / manager roles.
-- Content thumbnails (images, video posters, PDF first page, documents, spreadsheets, folder 2×2).
-- Markdown editor (WYSIWYG + source) and spreadsheet editor (`.xlsx`).
-- Sharing with people and public view-only links.
-- Storage page: usage by type, largest files, free-up-space actions, backup status.
-- Descriptions on files and folders: plain text, edited in the info panel, found by search. Text shared together with a file fills it in.
-- Saving links from the share sheet (Android share target and the iPhone Shortcut) as `.url` files, shown as link cards: thumbnail, title, site and author for YouTube and TikTok through their oEmbed endpoints, the shared title for other sites. Tapping a card opens the original app or site. Design in [`architecture.md`](architecture.md#descriptions-and-saved-links-v2).
-- Log in with a Home Assistant username and password (add-on only, opt-in): a "Log in with Home Assistant" button under the email form opens its own login page, headed by the Home Assistant logo and the Homedrive logo joined by a chain link. The password is checked through the Supervisor, and the email code still follows. Design in [`architecture.md`](architecture.md#5-authentication).
+Status 2026-10-29: refined and in progress on `v2/development`, built in this order. The design is in [`architecture.md`](architecture.md); the release gate in [`security.md`](security.md#v2-release-gate-security-check).
+
+1. **Shared drives** ([design](architecture.md#shared-drives-and-roles-v2)): anyone creates them and becomes manager; members are viewer, editor or manager. "Family" becomes a normal shared drive; the invite form picks the drives a new user joins. Admins manage every drive's members without seeing its files. A manager deletes a drive once it is empty. New navigation: a *Shared drives* group in the sidebar, *Shared with me*, and on phones the tabs Files, Shared, Recent, Starred, Trash.
+2. **Sharing and public links** ([people](architecture.md#sharing-with-people-v2), [links](architecture.md#public-links-v2)): share with people as *Can view* or *Can edit* (only people who can edit an item may share it). One view-only public link per item with expiry Never / 7 days / 1 day and an optional password. Visitors browse shared folders and download single files or everything as a `.zip`. Signed-in users can download folders as `.zip` too.
+3. **Descriptions and saved links** ([design](architecture.md#descriptions-and-saved-links-v2)): plain-text descriptions on files and folders, edited in the info panel and found by search; text shared together with a file fills it in. Links saved from the share sheet (Android share target and the iPhone Shortcut) become `.url` files shown as link cards, with thumbnail, title, site and author for YouTube and TikTok through their oEmbed endpoints. Tapping a card opens the original app or site.
+4. **Thumbnails** ([design](architecture.md#thumbnails-and-previews-v2)): content previews for images, video posters with their length, audio cover art, PDF first pages, text and code snippets, spreadsheet tables, `.zip` contents lists, and folders as 2×2. iPhone HEIC photos open in the viewer through a converted preview. Made on the server with libvips, ffmpeg and poppler (the image grows by about 150 MB).
+5. **Storage page** ([design](architecture.md#storage-page-v2)): your usage by type, your largest files, *Empty trash* and *Delete old versions*. Admins also see the data disk, the usage per person and per shared drive, and the backup status (the Backup page moves here).
+6. **Home Assistant login** ([design](architecture.md#5-authentication), add-on only, opt-in): a "Log in with Home Assistant" button under the email form opens its own login page, headed by the Home Assistant logo and the Homedrive logo joined by a chain link. The password is checked through the Supervisor, and the email code still follows.
+7. **Editors** ([design](architecture.md#editors-versions-and-edit-locks-v2)): Markdown (WYSIWYG + source), a plain text editor for `.txt` and code, and a spreadsheet grid for `.xlsx` (one sheet; arithmetic, `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`; anything more opens read-only). One person edits at a time: others see who is editing, and an overlapping save offers *Reload* or *Save as a copy*. Versions in the info panel, kept for `backup_retention_days`, can be opened and restored. Uploading a name that already exists asks *Replace* (a new version) or *Keep both*.
+
+Not in v2: storage quotas, disk health and RAID status, public links that allow editing, editing `.xls`, `.ods` or `.docx`, playing saved videos inside Homedrive.
 
 ## v3
 
@@ -57,6 +60,10 @@ Release gate
   - admins: a failed backup, or the data disk running low on free space.
 
   Per user, each kind can be turned off in Account Settings (security emails cannot), and sharing emails can be bundled into one daily summary. Emails never contain file contents or previews, only names and links that require a login. Sent in the user's language.
+
+## VX — version not decided
+
+- Real-time co-editing: several people typing in the same document or spreadsheet at once, seeing each other's cursors. Needs a live connection (WebSockets) and merging of edits (for example CRDTs). Until then, v2's edit lock lets one person edit at a time.
 
 ## Later
 

@@ -1,6 +1,6 @@
 # Homedrive architecture
 
-Status: agreed design, before implementation. Decisions here are binding until changed in this file.
+Status: agreed design. v1 is built; the parts marked *v2* are refined (2026-10-29) and built on the `v2/development` branch. Decisions here are binding until changed in this file.
 The visual design and interaction spec live in [`homedrive-mockup/README.md`](../homedrive-mockup/README.md).
 
 ## 1. Goals and hard requirements
@@ -52,7 +52,7 @@ Every option has the same name in the add-on (`snake_case`) and as an environmen
 | `data_path` | `/data` (Docker), `/share/homedrive` (add-on) | Absolute. Must not overlap the state dir or `backup_path`. |
 | `backup_path` | empty | Absolute, optional. |
 | `backup_time` | `03:00` | Local time (`TZ`). |
-| `backup_retention_days` | `30` | How long deleted and overwritten files stay in the backup. |
+| `backup_retention_days` | `30` | How long deleted and overwritten files stay in the backup. From v2 also how long old versions stay in the data folder (§4), with or without a backup. |
 | `smtp_host`, `smtp_port`, `smtp_security` (`starttls`/`tls`), `smtp_username`, `smtp_password`, `smtp_from` | port `587`, `starttls` | Required: email is the second login factor. Plain-text SMTP is not supported. `HOMEDRIVE_SMTP_PASSWORD_FILE` reads the password from a Docker secret. |
 | `trusted_proxies` | loopback + private ranges | Only requests from these addresses may set `CF-Connecting-IP` / `X-Forwarded-For`. |
 | `log_level` | `info` | `debug`, `info`, `warn`, `error`. |
@@ -93,29 +93,95 @@ Restoring without the app stays possible: `homedrive export <backup> <target>` r
 ## 4. Data model (SQLite, WAL)
 
 ```
-meta            (key, value)                      instance_id, schema info
+meta            (key, value)                      instance_id, schema info, link_grant_key (v2)
 users           (id, email UNIQUE, name, password_hash, role admin|member, locale, created_at, disabled_at,
                  ha_username UNIQUE NULL)                                   ha_username: v2
 sessions        (id_hash, user_id, created_at, last_seen_at, expires_at, recent_auth_at, user_agent, ip)
 email_codes     (id, user_id, purpose, code_hash, expires_at, attempts, used_at)
+invitations     (token_hash, user_id, purpose invite|reset, created_by, created_at, expires_at, used_at)
 device_tokens   (id, user_id, name, token_hash, scope, created_at, last_used_at, revoked_at)   iOS Shortcut uploads
-drives          (id, kind personal|shared, name, owner_user_id NULL for shared, created_at)
+drives          (id, kind personal|shared, name, owner_user_id NULL for shared, root_id, created_at,
+                 join_by_default)                                           join_by_default: v2
 drive_members   (drive_id, user_id, role viewer|editor|manager)
 nodes           (id, drive_id, parent_id, kind folder|file, name, current_version_id, size, mime,
                  created_by, created_at, modified_at, trashed_at, trashed_by,
                  description, description_key)                              description: v2
                  UNIQUE (drive_id, parent_id, lower(name)) WHERE trashed_at IS NULL
-versions        (id, node_id, object_id, size, sha256, created_by, created_at, superseded_at)
+versions        (id, node_id, object_id, size, sha256, created_by, created_at, superseded_at,
+                 edit_lock_id NULL)                                         edit_lock_id: v2
+uploads         (id, user_id, parent_id, name, size, received, created_at, expires_at,
+                 replace_node_id NULL)                                      replace_node_id: v2
+media           (version_id, duration_ms)                                   v2, video and audio length
+edit_locks      (node_id, lock_id, user_id, acquired_at, expires_at)        v2
 link_previews   (node_id, url, site, author, fetched_at)                    v2, saved links
 stars           (user_id, node_id)
 recents         (user_id, node_id, at)
-people_shares   (node_id, user_id, access view|edit)                      v2
-links           (id, node_id, token_hash, expires_at, password_hash, created_by, created_at, revoked_at)   v2, view-only
+people_shares   (node_id, user_id, access view|edit, created_by, created_at)                  v2
+links           (node_id UNIQUE, token, token_hash UNIQUE, expires_at, password_hash,
+                 created_by, created_at, updated_at)                        v2, view-only
 audit_log       (id, at, user_id, ip, event, detail)
 ```
 
-- **Drives from day one.** Every user has a personal drive ("My Files"). v1 ships one shared drive, "Family", with every user as editor. v2 adds creating shared drives with members and roles.
-- IDs are random (UUIDv7 for rows, 128-bit random for objects). Every API call that takes an ID checks access through the drive membership or share — never "the ID was valid".
+- **Drives from day one.** Every user has a personal drive ("My Files"). v1 ships one shared drive, "Family", with every user as editor. From v2 anyone can create shared drives with members and roles (below).
+- IDs are random (UUIDv7 for rows, 128-bit random for objects). Every API call that takes an ID checks access through the drive membership or a share — never "the ID was valid".
+
+### Shared drives and roles (v2)
+
+- Anyone can create a shared drive with *New shared drive* (desktop sidebar, phone *Shared* tab) and becomes its manager. Drive names follow the file name rules, are at most 60 characters, and don't have to be unique.
+- Roles:
+
+  | | Viewer | Editor | Manager |
+  |---|:-:|:-:|:-:|
+  | Browse, open, download, download as `.zip`, star | ✓ | ✓ | ✓ |
+  | Add, upload, edit, rename, move, trash and restore items | | ✓ | ✓ |
+  | Delete forever and empty the drive's trash (password again) | | ✓ | ✓ |
+  | Share items with people, make public links | | ✓ | ✓ |
+  | Rename the drive, add and remove members, change roles | | | ✓ |
+  | Delete the drive when it is empty, trash included | | | ✓ |
+
+- The owner of a personal drive has a manager's rights on it. A personal drive has no members and can't be renamed or deleted.
+- Every member can see who is in the drive (*Members* in the drive's header). Managers add people from every account that isn't disabled (invited people who haven't signed in yet included), change roles and remove members. Any member can leave. A drive always keeps a manager: the last one can't leave, be removed or be given another role.
+- A manager can delete the drive only when nothing is left in it, not even in its trash.
+- **Family.** v1's "Family" drive becomes a normal shared drive. The migration makes admins its managers; everyone else stays an editor. v1 stored the name in English and translated it on screen; now the stored name is shown, so the migration renames it "Familie" when the first admin uses Dutch. A new installation creates the first shared drive during setup, named "Family" or "Familie" after the admin's language, with the admin as manager.
+- **New users** are no longer added to a drive automatically. The invite form lists every shared drive with a checkbox. Drives marked *join by default* (`drives.join_by_default`: Family after the migration and at setup) are ticked. New members join as editors.
+- **Admins** see every shared drive on the Users page (*Shared drives* tab): name, size, members with their roles, and whether new users get it ticked. They can add and remove members and change roles on any shared drive, including adding themselves. They can't open a drive's files unless they are a member. This is how an admin fixes a drive whose last manager was disabled, and how someone joins drives after their invitation.
+- A disabled user keeps their memberships, so enabling them again restores their access. A disabled manager still counts as the drive's manager.
+- Moving items between drives works as in v1 (edit rights on both sides). Shares and the public link move with the item.
+- Audit: `drive.create`, `drive.rename`, `drive.delete`, `drive.member` (add, role, remove, leave; with `admin` when done through the admin list), `drive.default` (an admin turns *join by default* on or off).
+
+**Navigation (v2).**
+
+- Desktop sidebar: *+ New*, My Files, a *Shared drives* group with each drive by name and *New shared drive*, Shared with me, Recent, Starred, Trash. A storage meter at the bottom opens the Storage page.
+- Phone tab bar: Files, Shared, Recent, Starred, Trash. *Shared* lists the shared drives with *New shared drive*, then the items shared with you. Storage is in the account menu.
+- Routes: `/d/<drive-id>` is a shared drive's top folder, `/shared` is Shared with me (on a phone also the drives), `/storage` the Storage page. `/family` and `/backup` redirect to the first shared drive and to Storage, so old bookmarks keep working.
+- The drive's own name replaces the fixed "Family" label everywhere: sidebar, breadcrumbs, the move dialog, and item locations in search, Recent, Starred and Trash.
+
+### Sharing with people (v2)
+
+- Anyone who can edit an item on its drive can share it: the owner of My Files, and editors and managers of a shared drive. People it is shared with can't share it further.
+- The Share dialog (mockup) lists who has access: the drive's members as one line ("Members of Holiday house"), then each person it is shared with, set to *Can view* or *Can edit*, with *Remove*. *Add people* picks from the same list as drive members (`/api/people`), leaving out people who already have that much access through the drive.
+- `people_shares` holds one row per item and person. A user's access to an item is the strongest of their drive role and every share on the item or a folder above it.
+- **Can view** works like a viewer, for that item and everything in it.
+- **Can edit** on a folder: add, upload, edit, rename and move items within the shared folder, and trash them. Not allowed: moving anything out of it, deleting forever, sharing or making links, and renaming, moving or trashing the shared folder itself. **Can edit** on a file: change its contents and restore its versions, but not rename, move or trash it.
+- Items a recipient trashed show up in their Trash and in the drive's trash. Both they and the drive's editors can restore them.
+- Recipients find shared items under *Shared with me* (name, who shared it, when) and in search, Recent and Starred. Breadcrumbs start at the shared item ("Shared with me › Holiday › Day 1"): the names of the folders above it stay private.
+- Shares belong to the item, not to the person who made them. They follow it through renames and moves (also to another drive), stay when that person leaves the drive, are hidden while the item is in the trash, and end when it is deleted forever or the share is removed. A disabled user's shares grant nothing until they are enabled again.
+- Cards and rows show a people icon on items that are shared or have a public link, to people who can manage sharing. Recipients see "Shared by <name>" in the info panel.
+- Audit: `share.add`, `share.change`, `share.remove`.
+
+### Public links (v2)
+
+- One link per file or folder, managed in the Share dialog by anyone who can share the item. Links are view-only: visitors can look and download, never change anything.
+- Settings: expiry *Never*, *7 days* or *1 day* (counted from when it is set) and an optional password (at least 8 characters, Argon2id like account passwords). Changing the settings keeps the address. Turning the link off deletes it; turning it on again makes a new address, so the old one stays dead.
+- The address is `https://drive.example.com/s/<token>` with a 128-bit random token (22 characters, base64url). The full token is kept in `links.token`, so *Copy link* always works (decided 2026-10-29). Requests find the link through its SHA-256 in `links.token_hash`. The trade-off: anyone who has the database or a backup of it can use the live links (see [`security.md`](security.md#share-links-v2)).
+- **Visitor page** `/s/<token>`, served by the PWA: the Homedrive logo and the item's name, never the names of people or descriptions. A file is shown as in the viewer (same inline rules, HEIC through its preview) with *Download*. A folder can be browsed (breadcrumbs start at the shared folder) with thumbnails; files open in the viewer and download one by one, and *Download all* gives a `.zip`. No search, stars or info panel.
+- With a password the page asks for it first. The right password sets a cookie `__Host-hd_link_<link-id>` (Secure, HttpOnly, SameSite=Lax, 12 hours) holding an HMAC over the link and its password hash, signed with `meta.link_grant_key`. Changing or removing the password ends the grants given before. A cookie rather than a header is needed so `<img>`, `<video>` and `Range` downloads work.
+- An unknown, expired or switched-off link and a link to an item in the trash all get the same "This link doesn't work" page. A link to a restored item works again unless it expired. Every node ID in a link request must be inside the linked item and not in the trash.
+- Links belong to the item like shares: they move with it and survive the person who made them leaving the drive.
+- Limits per client address: 20 unknown tokens per 10 minutes; 5 wrong passwords per link per 15 minutes, and 50 per link per hour over all addresses; one `.zip` at a time, and two over all links. Link pages and their API answers carry `X-Robots-Tag: noindex, nofollow` and `Cache-Control: no-store` (file contents keep `private, no-cache`).
+- Request logs show the token as `…`. Audit: `link.create`, `link.change`, `link.remove`. Visits aren't logged.
+
+**Download as `.zip`.** A folder downloads as `<folder name>.zip`: for signed-in users from the folder's menu and info panel (any folder they can open), and on link pages. The zip is streamed with Go's `archive/zip` without compression (*Store*): documents and photos are mostly compressed already, and a Raspberry Pi stays responsive. UTF-8 names, Zip64 when large, modification times kept, empty folders included, items in the trash left out. The size isn't known in advance. At most 2 zips per user at a time.
 
 ### Descriptions and saved links (v2)
 
@@ -139,6 +205,98 @@ audit_log       (id, at, user_id, ip, event, detail)
 - **iPhone:** the Shortcut sends links to `POST /api/inbox/link` (JSON `{url, title, text}`, same device token scope `upload`), which saves the link to the Inbox in the same way.
 - Not in v2: playing videos inside Homedrive. That would need `frame-src` exceptions for the providers' embedded players.
 
+### Thumbnails and previews (v2)
+
+Thumbnails show the file's contents, not an icon (mockup §4). The server makes and caches them; the browser only lays out text snippets.
+
+| Type | Thumbnail |
+|---|---|
+| Images: JPEG, PNG, WebP, GIF, AVIF, HEIC/HEIF, TIFF, BMP | libvips (`vips thumbnail`), turned upright from EXIF |
+| Video | a frame at 10 % of the length (at most 30 s in) through ffmpeg, then libvips; plus the length |
+| Audio | the embedded cover art through ffmpeg, else the mockup's title-and-waveform card; plus the length |
+| PDF | the first page through `pdftoppm` (poppler), then libvips |
+| Text, Markdown, code | *snippet*: the first 12 lines (at most 2 KB), drawn as a page, or as a dark code block for code |
+| Spreadsheets (`.xlsx`, `.csv`) | *snippet*: the first 6 rows × 4 columns as Excel shows them (`.xlsx` through excelize, from the cached results) |
+| Zip archives | *snippet*: the first 8 entry names and the total, read from the archive's directory only |
+| Saved links | the oEmbed thumbnail (above), else the site's icon |
+| Folders | 2×2 of the first four items' thumbnails (v1's minis, now with thumbnails) |
+| SVG, Word, `.xls`, `.ods`, other archives, anything else | the type's placeholder (Word previews are *Later*) |
+
+- Images are WebP in two sizes, `grid` (400 px on the long side) and `list` (80 px): `GET /api/nodes/{id}/thumb?size=grid|list&v=<version>`. Snippets are JSON: `GET /api/nodes/{id}/snippet?v=<version>`. Each node in a listing says which kind it has (`thumb: "image" | "snippet" | ""`) and carries its current `version`, so a new version gets a new URL. Answers use `Cache-Control: private, no-cache` like file contents, with the version as `ETag`.
+- Cache: `<state dir>/cache/thumbs/<first 2 characters>/<version-id>-<size>.webp` (and `.json`). It is not in any backup (Home Assistant backups exclude `*/cache/*`) and can be deleted at any time. The hourly cleanup removes entries whose version is gone.
+- A background worker makes them after each upload or save. A request for a missing one makes it on the spot and waits up to 15 s. At most 2 tools run at a time. A file that fails gets a `.failed` marker for that version and shows the placeholder; it isn't tried again until a new version.
+- **Viewer previews:** HEIC/HEIF and TIFF, which most browsers can't show, open in the viewer as a WebP of at most 2048 px from `GET /api/nodes/{id}/preview`, made and cached the same way. *Download* still gives the original.
+- **Lengths** of video and audio go into `media` and show on cards and in the info panel.
+- Tools: Alpine's `vips-tools` (with `vips-heif`), `ffmpeg` and `poppler-utils`, about 150 MB on the image. Without them (a development machine) every file shows its placeholder; one log line at startup says which tools are missing.
+- Each tool runs as a sandboxed subprocess: time, CPU and memory limits, a pixel limit, no shell, nothing from the user on its command line, and ffmpeg can't open other files or the network ([`security.md`](security.md#files)).
+
+### Storage page (v2)
+
+`/storage`, opened from the storage meter at the bottom of the desktop sidebar or the account menu on a phone. The v1 Backup page moves into it.
+
+For everyone:
+
+- **Your files:** the size of My Files, split by type (documents, spreadsheets, PDFs, images, video, audio, archives, other) as one bar with a legend (mockup), plus its trash and old versions on their own lines.
+- **Largest files:** the 10 largest files on the drives you can edit (My Files and shared drives where you are editor or manager), with where they are. Each can be opened or moved to the trash.
+- **Free up space:** *Empty trash* (with the size it frees, for the drives you can edit, like the Trash page) and *Delete old versions* (versions replaced by newer ones on the drives you can edit, with the size; asks for your password). Otherwise old versions go by themselves after `backup_retention_days`.
+
+For admins also:
+
+- **Data disk:** used, free and total of the disk under `data_path`, with the 512 MB that uploads keep free.
+- **Usage per person** (My Files with its trash and old versions) and **per shared drive** (with its number of members). Sizes only: admins see no file names this way.
+- **Backup:** the v1 Backup page (last run, duration, size, errors, *Back up now*).
+
+The storage meter shows "<size> used" (My Files) to members. Admins see a bar of the data disk instead.
+
+Left out from the mockup: disk health and RAID (a container can't read them reliably), *old backups* (backup retention is automatic) and *large videos* (the largest files list covers it). Quotas are not in v2.
+
+### Editors, versions and edit locks (v2)
+
+Editors open for people who can edit the file: the owner of My Files, editors and managers of its drive, and people it is shared with to edit. Everyone else gets the read-only view.
+
+**New files.** *+ New* → *Text document* makes `Untitled document.md` ("Naamloos document.md") and *Spreadsheet* `Untitled spreadsheet.xlsx` ("Naamloos rekenblad.xlsx") in the current folder (`POST /api/files`), with `(2)` when the name is taken, and opens the editor.
+
+**Markdown (`.md`).**
+
+- TipTap with `tiptap-markdown`: a WYSIWYG page with the mockup's toolbar (Undo, Redo, H1, H2, Normal, Bold, Italic, bullets, numbers, quote) plus *Link*, and the *.md* toggle to edit the Markdown source. The file name is edited in the title field.
+- Supported: headings 1–3, paragraphs, bold, italic, inline code, code blocks, bullet and numbered lists (nested), quotes, links (`http`, `https`, `mailto`), horizontal rules and line breaks. Raw HTML is never rendered; it stays visible as text.
+- The editor never rewrites what it doesn't understand: on opening, the file is read and written back in memory. If that changes it (tables, footnotes, front matter, other spacing — line endings and the final newline aside), the file opens in source mode with a note, and stays there.
+- People who can't edit see the same rendering, read-only.
+
+**Text and code** (`.txt`, `.log`, `.csv` and the code types): a plain text editor, the source mode without the toolbar, in a monospace font. Only UTF-8 files up to 1 MB; others open in the read-only text viewer. Windows line endings stay Windows line endings.
+
+**Spreadsheets (`.xlsx`).**
+
+- A grid like the mockup: A1 references, a formula bar (cell and its raw value or formula), *Add row* and *Add column*.
+- Formulas: arithmetic (`+ - * /`, brackets) with numbers and cell references, and `SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` over cells and ranges. Errors and circular references show `#ERR`. The engine is a small TypeScript module that recalculates as you type.
+- The server converts with excelize: `GET /api/nodes/{id}/sheet` gives the grid as JSON (values as Excel shows them, raw values, formulas). `PUT` writes the changed cells into the original workbook, so styles, column widths and number formats stay. It stores each formula with its result as calculated by the browser, so previews and other apps show values, and marks the workbook to be recalculated when Excel opens it.
+- Editable only with one sheet, no merged cells, at most 1,000 rows and 52 columns, and only the formulas above (the server checks with the same grammar). Anything else opens read-only with a note: the values of each sheet with sheet tabs, and *Download*.
+- `.xls`, `.ods` and `.csv` aren't opened in the grid (`.csv` opens as text).
+
+**Edit locks.** One person edits a file at a time.
+
+- Opening the editor takes a lock: `POST /api/nodes/{id}/lock` returns a `lockId`. The editor renews it every 30 s (`PUT`) and gives it back on close (`DELETE`, sent with `keepalive`). A lock expires 2 minutes after its last renewal.
+- When someone else holds it, the file opens read-only with "Anna is editing" and checks every 30 s whether the lock is free. When you hold it yourself in another window or device, *Edit here* takes it over; the other window turns read-only with a note.
+- A lock only blocks content changes: saves from other editors and *Replace* uploads. Rename, move and trash still work.
+
+**Saving and conflicts.**
+
+- Autosave 700 ms after the last change, one request at a time, "Saving…" → "Saved"; also on close. Text and Markdown go to `PUT /api/nodes/{id}/content`, spreadsheets to `PUT /api/nodes/{id}/sheet`. Each save carries the lock ID and the version it started from (`If-Match`).
+- When the file changed in the meantime (the lock lapsed while offline, or someone uploaded with *Replace* before the lock was taken), the save is refused with `edit_conflict`. The editor says who changed it and when, and offers *Reload* (drop your changes) or *Save as a copy* (`<name> (copy).md` next to it, or in My Files if the folder is gone).
+
+**Versions.**
+
+- Every saved content is a version: an upload with *Replace*, an editing session, a restore. Autosaves within one editing session (one lock) update that session's version (`versions.edit_lock_id`): each save writes a new object, and the one it replaces is deleted.
+- A replaced version gets `superseded_at`. It stays for `backup_retention_days`, then the hourly cleanup deletes it with its object. *Delete old versions* on the Storage page does this early.
+- The info panel of a file has *Versions*: the current one first, then older ones with date, who saved it and size. Anyone who can open the file can open an old version in the viewer (`GET /api/nodes/{id}/versions/{version-id}/content`) or download it. Editors can *Restore*: the old contents are copied into a new current version, so nothing is lost and objects are never shared between versions.
+
+**Replace or keep both.** When an upload has the name of a file already in the folder (ignoring case), the app asks *Replace* or *Keep both*, with *Do this for all* when several files collide.
+
+- *Replace* makes the upload a new version of that file: it keeps its name, ID, description, shares, link and stars. It needs edit rights and is refused while someone else holds the edit lock.
+- *Keep both* adds `name (2)` as in v1. A folder with that name only allows *Keep both*.
+- `POST /api/uploads` takes `conflict: "ask" | "replace" | "keep"`. With `ask`, a taken name answers `name_taken` with the existing item before any bytes are sent. *Replace* records `uploads.replace_node_id` and is checked again on completion.
+- The Save page (Android share target) asks the same. iPhone Shortcut uploads always keep both.
+
 ## 5. Authentication
 
 - **No self-registration.** The admin creates accounts; users receive an email invitation.
@@ -161,11 +319,43 @@ audit_log       (id, at, user_id, ip, event, detail)
 ## 6. HTTP surface
 
 - `/api/…` JSON API (shape as sketched in the mockup README), `/s/<token>` share pages (v2), `/healthz`, static PWA.
+- **v2 additions** (access rules in §4):
+
+  ```
+  POST   /api/drives                            {name} → new shared drive, caller is manager
+  PATCH  /api/drives/{id}                       {name}                                  manager
+  DELETE /api/drives/{id}                       only when empty                         manager
+  GET    /api/drives/{id}/members                                                       members
+  PUT    /api/drives/{id}/members/{user-id}     {role}                                  manager
+  DELETE /api/drives/{id}/members/{user-id}     remove (manager) or leave (yourself)
+  GET    /api/people                            accounts that aren't disabled: id, name, email
+  GET    /api/admin/drives                      every shared drive: members, size, joinByDefault
+  PATCH  /api/admin/drives/{id}                 {joinByDefault}
+  PUT    /api/admin/drives/{id}/members/{user-id}, DELETE …                             admin
+  POST   /api/admin/users                       v1, plus driveIds (absent: the join-by-default drives)
+  GET    /api/shared                            shared with me
+  GET    /api/nodes/{id}/shares, PUT …          people and their access                 can share
+  GET    /api/nodes/{id}/link, PUT …, DELETE …  public link settings                    can share
+  GET    /api/nodes/{id}/zip                    folder as .zip
+  GET    /api/nodes/{id}/thumb, /snippet, /preview
+  GET    /api/nodes/{id}/versions, GET …/versions/{version-id}/content
+  POST   /api/nodes/{id}/versions/{version-id}/restore
+  POST   /api/nodes/{id}/lock, PUT …, DELETE …  edit lock
+  PUT    /api/nodes/{id}/content                text and Markdown (If-Match, lock)
+  GET    /api/nodes/{id}/sheet, PUT …           spreadsheet grid (If-Match, lock)
+  POST   /api/files                             {parentId, type: text|sheet}
+  GET    /api/storage, GET /api/admin/storage, DELETE /api/old-versions
+  GET    /api/link-preview?url=…, POST /api/inbox/link                                   saved links
+  GET    /api/s/{token}                         link page: the item (folder: its contents)
+  GET    /api/s/{token}/nodes/{id}/children, /content, /thumb, /snippet, /preview, /zip
+  POST   /api/s/{token}/unlock                  {password} → grant cookie
+  ```
 - **Host check:** requests whose `Host` isn't the `public_url` host are rejected (stops DNS rebinding and direct LAN access with spoofed headers). `/healthz` is exempt.
 - **CSRF:** SameSite cookies + `Origin` must equal `public_url` for every state-changing request + API only accepts `application/json` (or the upload content type on upload routes).
 - **Uploads:** chunked and resumable, chunks ≤ 32 MiB because Cloudflare rejects request bodies over 100 MB on Free/Pro plans. Each chunk must start where the last one ended; the SHA-256 is computed on completion and stored with the version. Uploads that would leave less than 512 MB free on the data disk are refused.
 - **Device uploads:** `POST /api/inbox?name=…` with `Authorization: Bearer hd_…` (a device token, scope `upload`) stores one file of at most 95 MB in the owner's *Inbox* folder. No cookie is involved, so the CSRF rules don't apply; cross-site browser requests are still refused by the Origin check. Only wrong tokens count against the client address's rate limit.
-- **Downloads:** `Range` support; files are served `Content-Disposition: attachment` unless the type is on an inline allowlist (images except SVG, PDF, audio, video, plain text), always with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`.
+- **Downloads:** `Range` support; files are served `Content-Disposition: attachment` unless the type is on an inline allowlist (images except SVG, PDF, audio, video, plain text), always with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Thumbnails, snippets and previews (v2) follow the same rules.
+- **Logs:** request logs leave out query strings, and from v2 show public link tokens as `…`.
 - **Timeouts:** header 10 s, idle 120 s, per-route read/write deadlines for uploads and downloads.
 - **Outbound requests:** only to the SMTP server and, from v2, to the fixed oEmbed providers for saved links (§4). Nothing else is fetched on a user's behalf.
 
@@ -173,7 +363,7 @@ audit_log       (id, at, user_id, ip, event, detail)
 
 - Manifest + service worker, `display: standalone`, scope `/`.
 - The service worker caches only the **app shell** (hashed static assets, index for offline start). It never caches `/api/*` or file contents, so a lost phone holds no documents.
-- **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. Files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page. From v2, a shared link without files becomes a saved link and text shared with files becomes their description (§4).
+- **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page. From v2, a shared link without files becomes a saved link, text shared with files becomes their description (§4), and a name that is already taken asks *Replace* or *Keep both*.
 - **iPhone:** iOS has no Web Share Target support, so the PWA can't be in the share sheet. Homedrive provides an Apple Shortcut ("Save to Homedrive") that uploads to the user's inbox with a device token.
 - **Desktop:** normal website, drag-and-drop upload. The app never shows an install prompt on desktop (browsers may still offer install themselves).
 - **HTTPS only:** secure cookies and service workers require it, so Homedrive is always used through its public URL, also at home.
@@ -185,7 +375,8 @@ audit_log       (id, at, user_id, ip, event, detail)
   2. Copy new objects to `backup_path/objects/` (objects are immutable, so this is incremental by nature).
   3. Objects no longer referenced by any version stay until `backup_retention_days` have passed.
 - `backup_path` carries the same instance marker as `data_path`; a mismatch disables backups with a visible error instead of mixing installations.
-- Status (last run, duration, size, errors) is shown to admins and logged.
+- Status (last run, duration, size, errors) is shown to admins and logged. From v2 it is part of the Storage page (§4).
+- From v2 files have old versions: they stay in the data folder for `backup_retention_days` after being replaced, and the backup copies them like any other object.
 - Home Assistant's own backups contain only the add-on state (`/data`, database + settings; the thumbnail cache is excluded). File contents are covered by Homedrive's backup. The add-on uses `backup: cold` so HA never copies a database mid-write.
 
 ## 9. Code layout
@@ -205,6 +396,6 @@ docker-compose.example.yml
 docs/                  architecture, security, roadmap
 ```
 
-Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons. Later: TipTap (Markdown), SheetJS official build + a formula engine, pdf.js, libvips/ffmpeg/poppler as sandboxed subprocesses for thumbnails.
+Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), excelize on the server for `.xlsx` with a small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails.
 
 UI languages: English and Dutch, chosen from the browser language, switchable per user.
