@@ -39,6 +39,7 @@ import { plural, useLocale, useT } from '../i18n'
 import { drivePath, folderPath, navigate, type ListName, type Route } from '../router'
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
+import { StorageView } from './Storage'
 
 export function Browser({ user, route, onSignOut }: { user: User; route: Route; onSignOut: () => void }) {
   const t = useT()
@@ -80,11 +81,17 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
     navigate(family ? drivePath(family.id) : '/shared', true)
   }, [route.name, drives])
 
+  // v1's Backup page is part of Storage.
+  useEffect(() => {
+    if (route.name === 'backup') navigate('/storage', true)
+  }, [route.name])
+
   let section: Section = null
   let folderId: string | null = null
   let driveId: string | null = null
   let missing = false
   if (route.name === 'trash') section = 'trash'
+  else if (route.name === 'storage') section = 'storage'
   else if (route.name === 'list' && route.list !== 'search') section = route.list
   else if (route.name === 'shared') section = 'sharedWithMe'
   else if (drives && route.name === 'drive') {
@@ -128,6 +135,7 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
             <LocatedView key={route.list} list={route.list} q={route.q} drives={drives} user={user} />
           )}
           {drives && route.name === 'trash' && <TrashView />}
+          {drives && route.name === 'storage' && <StorageView drives={drives} user={user} />}
         </main>
       </div>
       <TabBar section={section} />

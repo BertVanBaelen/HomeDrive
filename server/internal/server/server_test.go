@@ -41,6 +41,7 @@ type testEnv struct {
 	logs     *logBuffer
 	accounts *accounts.Service
 	conn     *sql.DB
+	data     string // data_path
 }
 
 // logBuffer keeps what the server logs.
@@ -151,7 +152,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn}
+	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath}
 }
 
 func do(h http.Handler, method, target string, header map[string]string) *httptest.ResponseRecorder {

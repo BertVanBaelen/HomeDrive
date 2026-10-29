@@ -402,7 +402,7 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   PUT    /api/nodes/{id}/content                text and Markdown (If-Match, lock)
   GET    /api/nodes/{id}/sheet, PUT …           spreadsheet grid (If-Match, lock)
   POST   /api/files                             {parentId, type: text|sheet}
-  GET    /api/storage, GET /api/admin/storage, DELETE /api/old-versions
+  GET    /api/storage, GET /api/storage/meter, GET /api/admin/storage, DELETE /api/old-versions
   GET    /api/link-preview?url=…, POST /api/inbox/link                                   saved links
   GET    /api/s/{token}                         link page: the item (folder: its contents)
   GET    /api/s/{token}/nodes/{id}              an item inside it, with its path from the linked item

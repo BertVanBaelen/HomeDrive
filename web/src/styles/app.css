@@ -484,6 +484,58 @@
 .nav__item--new:hover {
   color: var(--primary-900);
 }
+/* The storage meter closes the sidebar and opens the Storage page. */
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  color: #374151;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.meter:hover {
+  background: var(--gray-200);
+  color: #374151;
+}
+.meter[aria-current='page'] {
+  background: var(--primary-100);
+  border-color: var(--primary-100);
+  color: var(--primary-900);
+}
+.meter__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.meter__bar {
+  display: block;
+  height: 8px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.meter__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-700);
+}
+.meter__bar--full span {
+  background: #b45309;
+}
+.meter__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--gray-500);
+}
 .main {
   flex: 1 1 0;
   min-width: 0;

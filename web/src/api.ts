@@ -189,6 +189,47 @@ export interface BackupStatus {
   bytes: number
 }
 
+// Sizes in bytes. Trash counts what is inside trashed folders; old versions
+// are contents that newer ones replaced.
+export interface StorageUsage {
+  files: number
+  trash: number
+  oldVersions: number
+}
+
+export type StorageCategory = 'documents' | 'spreadsheets' | 'pdfs' | 'images' | 'video' | 'audio' | 'archives' | 'other'
+
+export interface StoragePage {
+  myFiles: StorageUsage & { types: Record<StorageCategory, number> }
+  largest: Located[]
+  // On every drive the user can edit: what emptying the trash and deleting
+  // old versions would free.
+  trash: number
+  oldVersions: number
+  retentionDays: number
+}
+
+// Disk is the data disk. homedrive is what all versions of all files take;
+// reserve is kept free.
+export interface Disk {
+  total: number
+  free: number
+  used: number
+  homedrive: number
+  reserve: number
+}
+
+export interface StorageMeter {
+  used: number
+  disk?: Disk | null
+}
+
+export interface HouseholdStorage {
+  disk: Disk | null
+  people: (StorageUsage & { id: string; name: string; disabled?: boolean })[]
+  drives: (StorageUsage & { id: string; name: string; members: number })[]
+}
+
 // DeviceToken is an upload key for the iPhone Shortcut.
 export interface DeviceToken {
   id: string
@@ -315,6 +356,9 @@ export const api = {
   starred: () => request<Located[]>('GET', '/api/starred'),
   recent: () => request<Located[]>('GET', '/api/recent'),
   search: (q: string) => request<Located[]>('GET', `/api/search?q=${encodeURIComponent(q)}`),
+  storage: () => request<StoragePage>('GET', '/api/storage'),
+  storageMeter: () => request<StorageMeter>('GET', '/api/storage/meter'),
+  deleteOldVersions: () => request<{ deleted: number; freed: number }>('DELETE', '/api/old-versions'),
 
   sharedWithMe: () => request<SharedItem[]>('GET', '/api/shared'),
   sharing: (id: string) => request<Sharing>('GET', `/api/nodes/${encodeURIComponent(id)}/shares`),
@@ -357,6 +401,7 @@ export const api = {
     request<void>('DELETE', `/api/admin/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
   backupStatus: () => request<BackupStatus>('GET', '/api/admin/backup'),
   backupNow: () => request<void>('POST', '/api/admin/backup'),
+  householdStorage: () => request<HouseholdStorage>('GET', '/api/admin/storage'),
 
   welcomeCheck: (token: string) => request<PasswordLink>('POST', '/api/welcome/check', { token }),
   welcomeFinish: (token: string, password: string) =>

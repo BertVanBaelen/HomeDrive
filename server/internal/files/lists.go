@@ -51,7 +51,13 @@ func (s *Service) locate(ctx context.Context, userID, where string, args []any, 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	return s.located(ctx, userID, ids, limit, trashedOK)
+}
 
+// located loads up to limit of ids as the user sees them, in order,
+// skipping those they can't see (or that are in the trash, unless
+// trashedOK).
+func (s *Service) located(ctx context.Context, userID string, ids []string, limit int, trashedOK bool) ([]Located, error) {
 	out := []Located{}
 	for _, id := range ids {
 		if len(out) == limit {

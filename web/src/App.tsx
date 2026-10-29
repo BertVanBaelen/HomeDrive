@@ -6,7 +6,6 @@ import { Page } from './components/Shell'
 import { Toast } from './components/Toast'
 import { detectLocale, LocaleContext, type Locale } from './i18n'
 import { Account } from './pages/Account'
-import { Backup } from './pages/Backup'
 import { Browser } from './pages/Browser'
 import { LinkPage } from './pages/LinkPage'
 import { Login } from './pages/Login'
@@ -74,12 +73,6 @@ export function App() {
     page = (
       <Page user={user} onSignOut={signOut}>
         <Users me={user} />
-      </Page>
-    )
-  } else if (route.name === 'backup' && user.role === 'admin') {
-    page = (
-      <Page user={user} onSignOut={signOut}>
-        <Backup />
       </Page>
     )
   } else page = <Browser user={user} route={route} onSignOut={signOut} />

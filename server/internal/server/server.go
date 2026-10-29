@@ -90,6 +90,7 @@ func (s *Server) Handler() http.Handler {
 	s.deviceRoutes(mux)
 	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
 	mux.HandleFunc("POST /api/admin/backup", s.admin(s.handleBackupNow))
+	s.storageRoutes(mux)
 	s.fileRoutes(mux)
 	s.driveRoutes(mux)
 	s.shareRoutes(mux)

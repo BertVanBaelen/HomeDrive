@@ -1,14 +1,17 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import type { Drive, User } from '../api'
-import { useT, type Translate } from '../i18n'
+import { api, type Drive, type StorageMeter as Meter, type User } from '../api'
+import { onChanged } from '../events'
+import { formatAmount } from '../format'
+import { useLocale, useT, type Translate } from '../i18n'
 import { drivePath, navigate } from '../router'
+import { onBatchDone } from '../uploads'
 import { Icon, icons } from './Icon'
 import { Logo } from './Logo'
 
 // Section is the navigation entry for the current page. Inside a shared
 // drive it is 'shared'; the sidebar then marks the drive itself. Inside
 // something shared with the user it is 'sharedWithMe'.
-export type Section = 'files' | 'shared' | 'sharedWithMe' | 'recent' | 'starred' | 'trash' | null
+export type Section = 'files' | 'shared' | 'sharedWithMe' | 'recent' | 'starred' | 'trash' | 'storage' | null
 
 // Link navigates inside the app without a page load.
 export function Link({ href, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
@@ -107,17 +110,15 @@ export function Header({ user, query, onSignOut }: { user: User; query?: string;
                     <Icon d={icons.cog} size={18} />
                     {t('account.menu')}
                   </button>
+                  <button type="button" onClick={() => go('/storage')}>
+                    <Icon d={icons.storage} size={18} />
+                    {t('storage.title')}
+                  </button>
                   {user.role === 'admin' && (
-                    <>
-                      <button type="button" onClick={() => go('/users')}>
-                        <Icon d={icons.users} size={18} />
-                        {t('account.users')}
-                      </button>
-                      <button type="button" onClick={() => go('/backup')}>
-                        <Icon d={icons.shield} size={18} />
-                        {t('backup.title')}
-                      </button>
-                    </>
+                    <button type="button" onClick={() => go('/users')}>
+                      <Icon d={icons.users} size={18} />
+                      {t('account.users')}
+                    </button>
                   )}
                   <button type="button" onClick={onSignOut}>
                     <Icon d={icons.logout} size={18} />
@@ -204,7 +205,59 @@ export function Sidebar({
           <NavItem key={s.id} s={s} section={section} counts={counts} />
         ))}
       </div>
+      <StorageMeter current={section === 'storage'} />
     </nav>
+  )
+}
+
+// StorageMeter closes the sidebar and opens the Storage page: what My
+// Files takes, or for admins how full the data disk is.
+function StorageMeter({ current }: { current: boolean }) {
+  const t = useT()
+  const locale = useLocale()
+  const [meter, setMeter] = useState<Meter | null>(null)
+
+  // Anything that changes files may change the numbers; a burst of changes
+  // is read once.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = () => api.storageMeter().then(setMeter, () => {})
+    const later = () => {
+      clearTimeout(timer)
+      timer = setTimeout(load, 500)
+    }
+    load()
+    const offChanged = onChanged(later)
+    const offBatch = onBatchDone(later)
+    return () => {
+      clearTimeout(timer)
+      offChanged()
+      offBatch()
+    }
+  }, [])
+
+  if (!meter) return null
+  const disk = meter.disk
+  const used = disk ? disk.used : meter.used
+  const full = disk && disk.total > 0 ? disk.used / disk.total : 0
+  return (
+    <Link href="/storage" className="meter" aria-current={current ? 'page' : undefined}>
+      <span className="meter__title">
+        <Icon d={icons.storage} size={18} />
+        {t('storage.title')}
+      </span>
+      {disk && (
+        <span className={'meter__bar' + (full >= 0.85 ? ' meter__bar--full' : '')}>
+          <span style={{ width: `${Math.min(100, full * 100)}%` }} />
+        </span>
+      )}
+      <span className="meter__text">
+        {t('storage.used', { size: formatAmount(used, locale) })}
+        {disk && (
+          <span>{t('storage.freeOf', { free: formatAmount(disk.free, locale), total: formatAmount(disk.total, locale) })}</span>
+        )}
+      </span>
+    </Link>
   )
 }
 

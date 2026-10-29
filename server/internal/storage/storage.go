@@ -75,6 +75,13 @@ func OpenBackup(dir, instanceID string, initialized bool) (*Store, error) {
 // Path is the folder's location on disk.
 func (s *Store) Path() string { return s.path }
 
+// FreeSpace is how many bytes can still be written to the folder's disk
+// by this process.
+func (s *Store) FreeSpace() (uint64, error) {
+	_, free, err := s.DiskUsage()
+	return free, err
+}
+
 func open(dir, label, instanceID string, initialized bool) (*Store, error) {
 	if err := ensureDir(dir, label, initialized); err != nil {
 		return nil, err
