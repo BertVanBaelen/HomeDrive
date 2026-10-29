@@ -100,9 +100,11 @@ device_tokens   (id, user_id, name, token_hash, scope, created_at, last_used_at,
 drives          (id, kind personal|shared, name, owner_user_id NULL for shared, created_at)
 drive_members   (drive_id, user_id, role viewer|editor|manager)
 nodes           (id, drive_id, parent_id, kind folder|file, name, current_version_id, size, mime,
-                 created_by, created_at, modified_at, trashed_at, trashed_by)
+                 created_by, created_at, modified_at, trashed_at, trashed_by,
+                 description, description_key)                              description: v2
                  UNIQUE (drive_id, parent_id, lower(name)) WHERE trashed_at IS NULL
 versions        (id, node_id, object_id, size, sha256, created_by, created_at, superseded_at)
+link_previews   (node_id, url, site, author, fetched_at)                    v2, saved links
 stars           (user_id, node_id)
 recents         (user_id, node_id, at)
 people_shares   (node_id, user_id, access view|edit)                      v2
@@ -112,6 +114,28 @@ audit_log       (id, at, user_id, ip, event, detail)
 
 - **Drives from day one.** Every user has a personal drive ("My Files"). v1 ships one shared drive, "Family", with every user as editor. v2 adds creating shared drives with members and roles.
 - IDs are random (UUIDv7 for rows, 128-bit random for objects). Every API call that takes an ID checks access through the drive membership or share — never "the ID was valid".
+
+### Descriptions and saved links (v2)
+
+**Descriptions.** Every file and folder can have a description, for example the caption of a saved video.
+
+- Stored in `nodes.description` (`TEXT NOT NULL DEFAULT ''`). It belongs to the item, not to a version: it stays when a new version is uploaded and follows the item through rename, move, trash and restore.
+- Plain text, at most 5,000 characters, trimmed, line breaks kept. The web app renders it as text only, never as HTML or Markdown.
+- Edited in the info panel by anyone who may edit the item. Changing it does not change `modified_at`, which tracks the content.
+- Search matches names and descriptions. `description_key` is the lower-cased copy, like `name_key`, because SQLite's `lower()` and `LIKE` only fold ASCII. If `LIKE` gets slow, switch to FTS5.
+- Backups include it through the database snapshot. `homedrive export` writes a non-empty description next to its file as `<name>.description.txt`, so it survives a restore without the app.
+- Sharing: when a share holds files *and* text, the Save page prefills each file's description with the text (title and text) instead of dropping it. The iPhone Shortcut can send a description with `POST /api/inbox` in the `X-Homedrive-Description` header (percent-encoded), so it stays out of URLs and logs.
+
+**Saved links.** A share that holds a URL and no files becomes a saved link instead of a `.txt`.
+
+- A link is a normal file `<title>.url` in the Windows internet-shortcut format (`[InternetShortcut]` / `URL=https://…`). Move, trash, search, backup and export work unchanged, and an exported link still opens on a PC. The title is the shared title, else the oEmbed title, else the host, and can be edited on the Save page. The shared text or caption becomes the description.
+- Only `http` and `https` URLs, at most 2,048 characters, without user info. `.url` files get the type `link` and are never served inline. The viewer shows a link card instead of the file's text. The card opens the URL with `rel="noopener noreferrer"`, so on a phone YouTube and TikTok links open in their apps.
+- `link_previews` keeps the parsed URL, site and author for listing. It is written whenever a `.url` version is saved, including one uploaded from a PC. The node name is the title.
+- **oEmbed lookups** run on the server, only against a fixed list of providers: `https://www.youtube.com/oembed` for `youtube.com` and `youtu.be` (including `/shorts/`), and `https://www.tiktok.com/oembed` for `tiktok.com` and `vm.tiktok.com`. The user's URL only ever travels as a query parameter: Homedrive never connects to a host taken from user input. Limits: 5 s timeout, 64 KB response, no redirects, 30 lookups per user per minute. The Save page calls `GET /api/link-preview?url=…` to prefill the title and caption. Saving never depends on the lookup: if it fails, the card shows the site's icon.
+- **Thumbnails:** the `thumbnail_url` from the oEmbed answer is fetched only when its host is on that provider's list (`i.ytimg.com`; `*.tiktokcdn.com`, `*.tiktokcdn-us.com`). It must be an image of at most 2 MB, goes through the normal thumbnail pipeline and lands in the thumbnail cache. On a cache miss the server repeats the oEmbed lookup, because TikTok's thumbnail URLs expire. The browser never loads anything from the providers, so they don't learn when a card is viewed and the Content-Security-Policy stays as it is.
+- Instagram's oEmbed needs a Facebook developer app, so Instagram and all other sites get a card from the shared title and the host only. Homedrive never fetches arbitrary pages for previews.
+- **iPhone:** the Shortcut sends links to `POST /api/inbox/link` (JSON `{url, title, text}`, same device token scope `upload`), which saves the link to the Inbox in the same way.
+- Not in v2: playing videos inside Homedrive. That would need `frame-src` exceptions for the providers' embedded players.
 
 ## 5. Authentication
 
@@ -133,12 +157,13 @@ audit_log       (id, at, user_id, ip, event, detail)
 - **Device uploads:** `POST /api/inbox?name=…` with `Authorization: Bearer hd_…` (a device token, scope `upload`) stores one file of at most 95 MB in the owner's *Inbox* folder. No cookie is involved, so the CSRF rules don't apply; cross-site browser requests are still refused by the Origin check. Only wrong tokens count against the client address's rate limit.
 - **Downloads:** `Range` support; files are served `Content-Disposition: attachment` unless the type is on an inline allowlist (images except SVG, PDF, audio, video, plain text), always with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`.
 - **Timeouts:** header 10 s, idle 120 s, per-route read/write deadlines for uploads and downloads.
+- **Outbound requests:** only to the SMTP server and, from v2, to the fixed oEmbed providers for saved links (§4). Nothing else is fetched on a user's behalf.
 
 ## 7. PWA
 
 - Manifest + service worker, `display: standalone`, scope `/`.
 - The service worker caches only the **app shell** (hashed static assets, index for offline start). It never caches `/api/*` or file contents, so a lost phone holds no documents.
-- **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. Files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page.
+- **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. Files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page. From v2, a shared link without files becomes a saved link and text shared with files becomes their description (§4).
 - **iPhone:** iOS has no Web Share Target support, so the PWA can't be in the share sheet. Homedrive provides an Apple Shortcut ("Save to Homedrive") that uploads to the user's inbox with a device token.
 - **Desktop:** normal website, drag-and-drop upload. The app never shows an install prompt on desktop (browsers may still offer install themselves).
 - **HTTPS only:** secure cookies and service workers require it, so Homedrive is always used through its public URL, also at home.

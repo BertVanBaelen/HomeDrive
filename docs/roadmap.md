@@ -43,9 +43,15 @@ Release gate
 - Markdown editor (WYSIWYG + source) and spreadsheet editor (`.xlsx`).
 - Sharing with people and public view-only links.
 - Storage page: usage by type, largest files, free-up-space actions, backup status.
+- Descriptions on files and folders: plain text, edited in the info panel, found by search. Text shared together with a file fills it in.
+- Saving links from the share sheet (Android share target and the iPhone Shortcut) as `.url` files, shown as link cards: thumbnail, title, site and author for YouTube and TikTok through their oEmbed endpoints, the shared title for other sites. Tapping a card opens the original app or site. Design in [`architecture.md`](architecture.md#descriptions-and-saved-links-v2).
 
 ## Later
 
 - Word document preview.
 - Passkeys and authenticator apps as additional second factors.
 - Custom AppArmor profile for the add-on (after testing on a real installation).
+
+## Not planned
+
+- A "Shorts" folder that downloads videos from TikTok, YouTube or Instagram (considered 2026-10-29). Downloading needs a scraper such as yt-dlp: it breaks whenever the platforms change, Instagram needs a logged-in session, it goes against the platforms' terms, and the server would fetch addresses sent by users. Saved links (v2) cover the useful part.
