@@ -1,11 +1,13 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import type { User } from '../api'
+import type { Drive, User } from '../api'
 import { useT, type Translate } from '../i18n'
-import { navigate } from '../router'
+import { drivePath, navigate } from '../router'
 import { Icon, icons } from './Icon'
 import { Logo } from './Logo'
 
-export type Section = 'files' | 'family' | 'recent' | 'starred' | 'trash' | null
+// Section is the navigation entry for the current page. Inside a shared
+// drive it is 'shared'; the sidebar then marks the drive itself.
+export type Section = 'files' | 'shared' | 'recent' | 'starred' | 'trash' | null
 
 // Link navigates inside the app without a page load.
 export function Link({ href, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
@@ -25,7 +27,7 @@ export function Link({ href, children, ...rest }: React.AnchorHTMLAttributes<HTM
   )
 }
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
 }
@@ -133,24 +135,45 @@ export function Header({ user, query, onSignOut }: { user: User; query?: string;
 const sections = (t: Translate) =>
   [
     { id: 'files', href: '/', label: t('nav.myFiles'), icon: icons.folder },
-    { id: 'family', href: '/family', label: t('nav.family'), icon: icons.family },
     { id: 'recent', href: '/recent', label: t('nav.recent'), icon: icons.recent },
     { id: 'starred', href: '/starred', label: t('nav.starred'), icon: icons.star },
     { id: 'trash', href: '/trash', label: t('nav.trash'), icon: icons.trash },
   ] as const
 
+type Counts = Partial<Record<NonNullable<Section>, number>>
+
+function NavItem({ s, section, counts }: { s: ReturnType<typeof sections>[number]; section: Section; counts: Counts }) {
+  return (
+    <Link href={s.href} className="nav__item" aria-current={section === s.id ? 'page' : undefined}>
+      <Icon d={s.icon} />
+      <span>{s.label}</span>
+      {!!counts[s.id] && <span className="nav__count">{counts[s.id]}</span>}
+    </Link>
+  )
+}
+
+// Sidebar is the desktop navigation: My Files, the shared drives, then the
+// lists that span them.
 export function Sidebar({
   section,
+  drives,
+  driveId,
   counts,
   canAdd,
   onAdd,
+  onNewDrive,
 }: {
   section: Section
-  counts: Partial<Record<NonNullable<Section>, number>>
+  drives: Drive[]
+  driveId: string | null
+  counts: Counts
   canAdd: boolean
   onAdd: () => void
+  onNewDrive: () => void
 }) {
   const t = useT()
+  const headingId = useId()
+  const [files, ...lists] = sections(t)
   return (
     <nav className="sidebar" aria-label={t('nav.sections')}>
       <button type="button" className="btn btn--primary sidebar__new" onClick={onAdd} disabled={!canAdd}>
@@ -158,26 +181,49 @@ export function Sidebar({
         {t('nav.new')}
       </button>
       <div className="nav">
-        {sections(t).map((s) => (
-          <Link key={s.id} href={s.href} className="nav__item" aria-current={section === s.id ? 'page' : undefined}>
-            <Icon d={s.icon} />
-            <span>{s.label}</span>
-            {!!counts[s.id] && <span className="nav__count">{counts[s.id]}</span>}
+        <NavItem s={files} section={section} counts={counts} />
+      </div>
+      <div className="nav" role="group" aria-labelledby={headingId}>
+        <h2 id={headingId} className="nav__heading">
+          <Link href="/shared" aria-current={section === 'shared' && !driveId ? 'page' : undefined}>
+            {t('nav.sharedDrives')}
           </Link>
+        </h2>
+        {drives.filter((d) => d.kind === 'shared').map((d) => (
+          <Link key={d.id} href={drivePath(d.id)} className="nav__item" aria-current={driveId === d.id ? 'page' : undefined}>
+            <Icon d={icons.family} />
+            <span className="nav__name">{d.name}</span>
+          </Link>
+        ))}
+        <button type="button" className="nav__item nav__item--new" onClick={onNewDrive}>
+          <Icon d={icons.plus} />
+          <span>{t('drive.new')}</span>
+        </button>
+      </div>
+      <div className="nav">
+        {lists.map((s) => (
+          <NavItem key={s.id} s={s} section={section} counts={counts} />
         ))}
       </div>
     </nav>
   )
 }
 
+// TabBar is the phone's navigation. Shared lists the shared drives.
 export function TabBar({ section }: { section: Section }) {
   const t = useT()
+  const [files, ...lists] = sections(t)
+  const tabs = [
+    { id: 'files', href: files.href, label: t('nav.filesTab'), icon: files.icon },
+    { id: 'shared', href: '/shared', label: t('nav.sharedTab'), icon: icons.family },
+    ...lists,
+  ]
   return (
     <nav className="tabbar" aria-label={t('nav.tabs')}>
-      {sections(t).map((s) => (
+      {tabs.map((s) => (
         <Link key={s.id} href={s.href} aria-current={section === s.id ? 'page' : undefined}>
           <Icon d={s.icon} size={22} />
-          {s.id === 'files' ? t('nav.filesTab') : s.label}
+          {s.label}
         </Link>
       ))}
     </nav>

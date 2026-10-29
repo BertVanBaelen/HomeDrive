@@ -138,7 +138,7 @@ func (s *Service) FinishSetup(ctx context.Context, token, code string) (User, er
 	if n > 0 {
 		return User{}, ErrSetupUnavailable
 	}
-	u, err := s.createUser(ctx, tx, p.email, p.name, p.passwordHash, "admin", p.locale)
+	u, err := s.createUser(ctx, tx, p.email, p.name, p.passwordHash, "admin", p.locale, nil)
 	if err != nil {
 		return User{}, err
 	}

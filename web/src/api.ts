@@ -19,6 +19,33 @@ export interface Drive {
   role: 'viewer' | 'editor' | 'manager'
 }
 
+export type DriveRole = Drive['role']
+
+// Member is someone in a shared drive.
+export interface Member {
+  userId: string
+  name: string
+  email: string
+  role: DriveRole
+  disabled: boolean
+}
+
+// Person is an account that can be added to a shared drive.
+export interface Person {
+  id: string
+  name: string
+  email: string
+}
+
+// AdminDrive is a shared drive in the admin's list: no file names.
+export interface AdminDrive {
+  id: string
+  name: string
+  size: number
+  joinByDefault: boolean
+  members: Member[]
+}
+
 export interface Node {
   id: string
   driveId: string
@@ -195,6 +222,15 @@ export const api = {
   recoverFinish: (token: string, code: string) => request<User>('POST', '/api/recover/finish', { token, code }),
 
   drives: () => request<Drive[]>('GET', '/api/drives'),
+  createDrive: (name: string) => request<Drive>('POST', '/api/drives', { name }),
+  renameDrive: (id: string, name: string) => request<Drive>('PATCH', `/api/drives/${encodeURIComponent(id)}`, { name }),
+  deleteDrive: (id: string) => request<void>('DELETE', `/api/drives/${encodeURIComponent(id)}`),
+  members: (id: string) => request<Member[]>('GET', `/api/drives/${encodeURIComponent(id)}/members`),
+  setMember: (id: string, userId: string, role: DriveRole) =>
+    request<void>('PUT', `/api/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { role }),
+  removeMember: (id: string, userId: string) =>
+    request<void>('DELETE', `/api/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
+  people: () => request<Person[]>('GET', '/api/people'),
   node: (id: string) => request<Details>('GET', `/api/nodes/${encodeURIComponent(id)}`),
   children: (id: string, sort: SortKey, desc: boolean) =>
     request<Node[]>('GET', `/api/nodes/${encodeURIComponent(id)}/children?sort=${sort}&order=${desc ? 'desc' : 'asc'}`),
@@ -222,11 +258,18 @@ export const api = {
   revokeDeviceToken: (id: string) => request<void>('DELETE', `/api/me/devices/${encodeURIComponent(id)}`),
 
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
-  inviteUser: (p: { email: string; name: string; role: string; locale: string }) =>
+  inviteUser: (p: { email: string; name: string; role: string; locale: string; driveIds?: string[] }) =>
     request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
   updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
+  adminDrives: () => request<AdminDrive[]>('GET', '/api/admin/drives'),
+  setJoinByDefault: (id: string, joinByDefault: boolean) =>
+    request<void>('PATCH', `/api/admin/drives/${encodeURIComponent(id)}`, { joinByDefault }),
+  adminSetMember: (id: string, userId: string, role: DriveRole) =>
+    request<void>('PUT', `/api/admin/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { role }),
+  adminRemoveMember: (id: string, userId: string) =>
+    request<void>('DELETE', `/api/admin/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
   backupStatus: () => request<BackupStatus>('GET', '/api/admin/backup'),
   backupNow: () => request<void>('POST', '/api/admin/backup'),
 

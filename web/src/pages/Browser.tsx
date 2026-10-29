@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api, type Details, type Drive, type Located, type Node, type User } from '../api'
 import { AddDialog, ConfirmDialog, errorText } from '../components/Dialogs'
+import { DriveActions, NewDriveDialog, roleLabel } from '../components/Drives'
 import { Icon, icons } from '../components/Icon'
 import { InfoPanel } from '../components/InfoPanel'
 import { useItemActions } from '../components/ItemActions'
 import {
+  driveIcon,
   driveLabel,
   Empty,
   Grid,
@@ -17,13 +19,13 @@ import {
   whereIs,
   type Crumb,
 } from '../components/Items'
-import { Fab, Header, Sidebar, TabBar, type Section } from '../components/Shell'
+import { Fab, Header, Link, Sidebar, TabBar, type Section } from '../components/Shell'
 import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
 import { notifyChanged, onChanged } from '../events'
 import { displayName } from '../format'
 import { plural, useT } from '../i18n'
-import type { ListName, Route } from '../router'
+import { drivePath, navigate, type ListName, type Route } from '../router'
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
 
@@ -32,12 +34,18 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
   const [drives, setDrives] = useState<Drive[] | null>(null)
   const [counts, setCounts] = useState({ trash: 0, starred: 0 })
   const [addOpen, setAddOpen] = useState(false)
+  const [newDrive, setNewDrive] = useState(false)
   const [folderDrive, setFolderDrive] = useState<Drive | null>(null)
   const [error, setError] = useState('')
 
+  const reloadDrives = useCallback(
+    () => api.drives().then(setDrives, (err) => setError(errorText(t, err))),
+    [t],
+  )
   useEffect(() => {
-    api.drives().then(setDrives, (err) => setError(errorText(t, err)))
-  }, [t])
+    reloadDrives()
+    return onChanged((id) => id === 'drives' && reloadDrives())
+  }, [reloadDrives])
 
   // Sidebar counts follow changes made anywhere in the app.
   useEffect(() => {
@@ -53,16 +61,34 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
 
   useEffect(() => onBatchDone((n) => showToast(plural(t, 'toast.uploaded', n))), [t])
 
+  // v1's /family address opens the Family drive, or the first shared one.
+  useEffect(() => {
+    if (route.name !== 'family' || !drives) return
+    const shared = drives.filter((d) => d.kind === 'shared')
+    const family = shared.find((d) => /^(family|familie)$/i.test(d.name)) ?? shared[0]
+    navigate(family ? drivePath(family.id) : '/shared', true)
+  }, [route.name, drives])
+
   let section: Section = null
   let folderId: string | null = null
+  let driveId: string | null = null
+  let missing = false
   if (route.name === 'trash') section = 'trash'
   else if (route.name === 'list' && route.list !== 'search') section = route.list
-  else if (drives && route.name === 'family') {
-    section = 'family'
-    folderId = drives.find((d) => d.kind === 'shared')?.rootId ?? null
+  else if (route.name === 'shared') section = 'shared'
+  else if (drives && route.name === 'drive') {
+    section = 'shared'
+    driveId = route.driveId
+    const d = drives.find((x) => x.id === route.driveId && x.kind === 'shared')
+    if (d) folderId = d.rootId
+    else missing = true
   } else if (drives && route.name === 'files') {
     folderId = route.folderId ?? drives.find((d) => d.kind === 'personal')?.rootId ?? null
-    section = !route.folderId || folderDrive?.kind === 'personal' ? 'files' : folderDrive ? 'family' : null
+    if (!route.folderId || folderDrive?.kind === 'personal') section = 'files'
+    else if (folderDrive) {
+      section = 'shared'
+      driveId = folderDrive.id
+    }
   }
   const canAdd = !!folderId && !!folderDrive && folderDrive.role !== 'viewer'
 
@@ -70,13 +96,20 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
     <div className="app">
       <Header user={user} onSignOut={onSignOut} query={route.name === 'list' && route.list === 'search' ? route.q : ''} />
       <div className="app-body">
-        <Sidebar section={section} counts={counts} canAdd={canAdd} onAdd={() => setAddOpen(true)} />
+        <Sidebar section={section} drives={drives ?? []} driveId={driveId} counts={counts} canAdd={canAdd}
+          onAdd={() => setAddOpen(true)} onNewDrive={() => setNewDrive(true)} />
         <main className="main">
           {error && <p className="form-error" role="alert">{error}</p>}
           {drives && folderId && (
-            <FolderView key={folderId} folderId={folderId} drives={drives} addOpen={addOpen}
+            <FolderView key={folderId} folderId={folderId} drives={drives} user={user} addOpen={addOpen}
               setAddOpen={setAddOpen} onDrive={setFolderDrive} />
           )}
+          {missing && (
+            <Empty icon={icons.family} title={t('drive.missingTitle')} body={t('drive.missingBody')}>
+              <Link href="/shared" className="btn btn--primary">{t('drive.toShared')}</Link>
+            </Empty>
+          )}
+          {drives && route.name === 'shared' && <SharedView drives={drives} onNewDrive={() => setNewDrive(true)} />}
           {drives && route.name === 'list' && (
             <LocatedView key={route.list} list={route.list} q={route.q} drives={drives} />
           )}
@@ -85,19 +118,69 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
       </div>
       <TabBar section={section} />
       {canAdd && <Fab onAdd={() => setAddOpen(true)} />}
+      {newDrive && (
+        <NewDriveDialog onClose={() => setNewDrive(false)}
+          onCreated={async (d) => {
+            await reloadDrives()
+            setNewDrive(false)
+            navigate(drivePath(d.id))
+          }} />
+      )}
     </div>
+  )
+}
+
+// SharedView lists the shared drives the user is in: the phone's Shared tab.
+function SharedView({ drives, onNewDrive }: { drives: Drive[]; onNewDrive: () => void }) {
+  const t = useT()
+  const shared = drives.filter((d) => d.kind === 'shared')
+  const newButton = (cls: string) => (
+    <button type="button" className={cls} onClick={onNewDrive}>
+      <Icon d={icons.plus} size={18} width={2.25} />
+      {t('drive.new')}
+    </button>
+  )
+  return (
+    <>
+      <PageHead crumbs={[]} title={t('nav.sharedDrives')} note={plural(t, 'count.drives', shared.length)}
+        actions={shared.length > 0 && newButton('btn btn--small btn--primary')} />
+      {shared.length === 0 ? (
+        <Empty icon={icons.family} title={t('empty.shared.title')} body={t('empty.shared.body')}>
+          {newButton('btn btn--primary')}
+        </Empty>
+      ) : (
+        <ul className="drive-list">
+          {shared.map((d) => (
+            <li key={d.id}>
+              <Link href={drivePath(d.id)} className="drive-row">
+                <span className="drive-row__icon" aria-hidden="true">
+                  <Icon d={icons.family} size={22} />
+                </span>
+                <span className="drive-row__text">
+                  <strong>{d.name}</strong>
+                  <span>{roleLabel(t, d.role)}</span>
+                </span>
+                <Icon d={icons.chevronRight} size={18} stroke="#9ca3af" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 
 function FolderView({
   folderId,
   drives,
+  user,
   addOpen,
   setAddOpen,
   onDrive,
 }: {
   folderId: string
   drives: Drive[]
+  user: User
   addOpen: boolean
   setAddOpen: (b: boolean) => void
   onDrive: (d: Drive) => void
@@ -160,7 +243,7 @@ function FolderView({
 
   const crumbs: Crumb[] = details
     ? [
-        { id: details.drive.rootId, name: driveLabel(t, details.drive), home: true },
+        { id: details.drive.rootId, name: driveLabel(t, details.drive), icon: driveIcon(details.drive) },
         ...details.path.slice(1),
         ...(isRoot ? [] : [{ id: details.node.id, name: details.node.name }]),
       ].map((c) => ({ ...c, href: hrefFor(c.id, drives) }))
@@ -215,7 +298,14 @@ function FolderView({
 
   return (
     <>
-      <PageHead crumbs={crumbs} title={title} count={items.length} view={view} setView={setView} />
+      <PageHead crumbs={crumbs} title={title} count={items.length} view={view} setView={setView}
+        actions={isRoot && details.drive.kind === 'shared' && (
+          <DriveActions drive={details.drive} me={user}
+            onChanged={() => {
+              load()
+              notifyChanged('drives')
+            }} />
+        )} />
       <UploadPanel />
       {isMyFiles && <QuickAccess folders={quick} drives={drives} />}
 
@@ -325,7 +415,7 @@ function LocatedView({ list, q, drives }: { list: ListName; q: string; drives: D
 
   const title = list === 'search' ? t('search.title', { q }) : t(list === 'recent' ? 'nav.recent' : 'nav.starred')
   const crumbs: Crumb[] = [
-    { name: t('nav.myFiles'), home: true, href: '/' },
+    { name: t('nav.myFiles'), icon: icons.home, href: '/' },
     { name: list === 'search' ? t('search.crumb') : title },
   ]
   const empty = {

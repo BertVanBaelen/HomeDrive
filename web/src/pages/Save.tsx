@@ -76,12 +76,13 @@ export function Save() {
       if (last) {
         try {
           const d = await api.node(last.id)
+          if (d.drive.role === 'viewer') throw new Error('read only')
           const path = [driveLabel(t, d.drive), ...d.path.slice(1).map((c) => c.name)]
           if (d.node.id !== d.drive.rootId) path.push(d.node.name)
           setTarget({ id: last.id, name: path[path.length - 1], path: path.join(' / ') })
           return
         } catch {
-          // gone or no longer reachable: fall through
+          // gone, no longer reachable or read-only: fall through
         }
       }
       const mine = ds.find((d) => d.kind === 'personal')

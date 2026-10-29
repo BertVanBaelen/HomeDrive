@@ -138,7 +138,7 @@ func (s *Service) Drives(ctx context.Context, userID string) ([]Drive, error) {
 		SELECT d.id, d.kind, d.name, d.root_id, CASE WHEN d.owner_user_id = ?1 THEN 'manager' ELSE m.role END
 		FROM drives d LEFT JOIN drive_members m ON m.drive_id = d.id AND m.user_id = ?1
 		WHERE d.owner_user_id = ?1 OR m.user_id IS NOT NULL
-		ORDER BY d.kind = 'shared', d.name`, userID)
+		ORDER BY d.kind = 'shared', lower(d.name), d.created_at`, userID)
 	if err != nil {
 		return nil, err
 	}

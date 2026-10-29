@@ -3,7 +3,9 @@ import { useSyncExternalStore } from 'react'
 // A tiny history router: the app only has a handful of routes.
 //
 //   /             My Files (top of the personal drive)
-//   /family       the family drive
+//   /d/<id>       the top of a shared drive
+//   /shared       the shared drives (the phone's Shared tab)
+//   /family       v1's family drive: goes to the first shared drive
 //   /f/<id>       a folder on any drive
 //   /recent, /starred, /trash, /search?q=…
 //   /account, /users and /backup (admins)
@@ -36,6 +38,8 @@ export type ListName = 'recent' | 'starred' | 'search'
 
 export type Route =
   | { name: 'files'; folderId: string | null }
+  | { name: 'drive'; driveId: string }
+  | { name: 'shared' }
   | { name: 'family' }
   | { name: 'list'; list: ListName; q: string }
   | { name: 'trash' }
@@ -58,6 +62,7 @@ export function parseRoute(full: string): Route {
     case '/welcome':
     case '/save':
     case '/trash':
+    case '/shared':
     case '/family':
     case '/account':
     case '/users':
@@ -71,9 +76,15 @@ export function parseRoute(full: string): Route {
   }
   const m = /^\/f\/([0-9a-f-]{36})$/.exec(path)
   if (m) return { name: 'files', folderId: m[1] }
+  const d = /^\/d\/([0-9a-f-]{36})$/.exec(path)
+  if (d) return { name: 'drive', driveId: d[1] }
   return { name: 'files', folderId: null }
 }
 
 export function folderPath(id: string): string {
   return `/f/${id}`
+}
+
+export function drivePath(id: string): string {
+  return `/d/${id}`
 }

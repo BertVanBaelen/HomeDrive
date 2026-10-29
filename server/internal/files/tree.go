@@ -15,23 +15,68 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
 )
 
-// ProvisionUser gives a new user their personal drive and membership of the
-// family drive, creating that on first use. It runs in the caller's
-// transaction.
-func ProvisionUser(ctx context.Context, tx *sql.Tx, userID string, now time.Time) error {
+// ProvisionUser gives a new user their personal drive, inside the caller's
+// transaction. The very first user (the admin at setup) also creates the
+// first shared drive, named firstDrive, as its manager; it is ticked for
+// new users by default. Everyone after that joins the shared drives in
+// driveIDs as an editor; nil means the drives marked join by default.
+func ProvisionUser(ctx context.Context, tx *sql.Tx, userID string, now time.Time, firstDrive string, driveIDs []string) error {
 	if _, err := createDrive(ctx, tx, "personal", "My Files", userID, now); err != nil {
 		return err
 	}
-	var family string
-	err := tx.QueryRowContext(ctx, `SELECT id FROM drives WHERE kind = 'shared' ORDER BY created_at LIMIT 1`).Scan(&family)
-	if err == sql.ErrNoRows {
-		family, err = createDrive(ctx, tx, "shared", "Family", "", now)
-	}
-	if err != nil {
+	var others bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id != ?)`, userID).Scan(&others); err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO drive_members (drive_id, user_id, role) VALUES (?, ?, 'editor')`, family, userID)
-	return err
+	if !others {
+		id, err := createDrive(ctx, tx, "shared", firstDrive, "", now)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE drives SET join_by_default = 1 WHERE id = ?`, id); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO drive_members (drive_id, user_id, role) VALUES (?, ?, 'manager')`, id, userID)
+		return err
+	}
+	if driveIDs == nil {
+		var err error
+		if driveIDs, err = defaultDrives(ctx, tx); err != nil {
+			return err
+		}
+	}
+	for _, id := range driveIDs {
+		var kind string
+		err := tx.QueryRowContext(ctx, `SELECT kind FROM drives WHERE id = ?`, id).Scan(&kind)
+		if err == sql.ErrNoRows || err == nil && kind != "shared" {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO drive_members (drive_id, user_id, role) VALUES (?, ?, 'editor') ON CONFLICT DO NOTHING`, id, userID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func defaultDrives(ctx context.Context, q querier) ([]string, error) {
+	rows, err := q.QueryContext(ctx, `SELECT id FROM drives WHERE kind = 'shared' AND join_by_default = 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func createDrive(ctx context.Context, tx *sql.Tx, kind, name, ownerID string, now time.Time) (string, error) {

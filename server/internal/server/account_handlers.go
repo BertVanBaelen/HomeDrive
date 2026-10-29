@@ -129,12 +129,17 @@ func (s *Server) handleInviteUser(w http.ResponseWriter, r *http.Request) {
 	if !recentAuth(w, r) {
 		return
 	}
-	var req struct{ Email, Name, Role, Locale string }
+	var req struct {
+		Email, Name, Role, Locale string
+		// DriveIDs are the shared drives the new user joins; without it,
+		// the drives marked join by default.
+		DriveIDs []string `json:"driveIds"`
+	}
 	if !readJSON(w, r, &req) {
 		return
 	}
 	ctx, admin := r.Context(), currentUser(r.Context())
-	u, err := s.accounts.InviteUser(ctx, admin, req.Email, req.Name, req.Role, req.Locale)
+	u, err := s.accounts.InviteUser(ctx, admin, req.Email, req.Name, req.Role, req.Locale, req.DriveIDs)
 	if err != nil && !errors.Is(err, accounts.ErrMailFailed) {
 		s.fail(w, r, err)
 		return

@@ -422,6 +422,315 @@
   gap: 8px;
 }
 
+/* ---------- shared drives ---------- */
+.btn--square {
+  width: 40px;
+  padding: 0;
+}
+.btn__count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--primary-50);
+  color: var(--primary-900);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu .menu__danger {
+  color: var(--danger);
+}
+.menu .menu__danger:hover {
+  background: #fee2e2;
+}
+.modal__foot--split {
+  justify-content: space-between;
+}
+
+/* members dialog, after the mockup's share dialog */
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+.member.is-disabled .member__text {
+  opacity: 0.6;
+}
+.member__avatar,
+.chip__avatar {
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--primary-900);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.member__avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+.member__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.member__text strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+.member__you {
+  font-weight: 400;
+  color: var(--gray-500);
+}
+.member__text > span {
+  font-size: 12px;
+  color: var(--gray-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.member__actions select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+}
+.member__actions select:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.member__actions .icon-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  color: var(--danger);
+}
+.member__spacer {
+  width: 36px;
+}
+.member__role {
+  flex: 0 0 auto;
+  padding-right: 8px;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+.add-people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #f3f4f6;
+}
+.add-people h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.add-people__none,
+.add-people__hint,
+.members__roles {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  height: 36px;
+  max-width: 100%;
+  padding: 0 12px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--gray-800);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s, background 0.15s;
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--primary-700);
+  background: var(--primary-50);
+}
+.chip:disabled {
+  opacity: 0.5;
+}
+.chip__avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+.chip__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip__plus {
+  flex: 0 0 auto;
+  color: var(--primary-700);
+}
+
+/* the shared drives page (phone's Shared tab) */
+.drive-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  animation: fade-in 0.2s ease-out backwards;
+}
+.drive-list li + li {
+  border-top: 1px solid #f3f4f6;
+}
+.drive-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 16px;
+  color: var(--gray-800);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.drive-row:hover {
+  background: #f9fafb;
+}
+.drive-row__icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--primary-50);
+  color: var(--primary-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drive-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drive-row__text strong {
+  font-size: 15px;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-row__text span {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+/* users page: shared drives and the invite form's drive list */
+.admin-drives {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+.admin-drives__head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+.admin-drives__head p,
+.admin-drives__none {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+.admin-drive__icon {
+  border-radius: 10px;
+  background: var(--primary-50);
+  color: var(--primary-900);
+}
+.admin-drive__names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.checks {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.checks legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+.person__text .check {
+  min-height: 36px;
+  margin-top: 4px;
+  font-size: 13px;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--primary-700);
+}
+.check svg {
+  color: var(--primary-900);
+}
+
 /* save page */
 .notice {
   margin: 0;

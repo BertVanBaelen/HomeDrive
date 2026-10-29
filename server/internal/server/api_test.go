@@ -138,10 +138,10 @@ func TestSetupThenLogin(t *testing.T) {
 		t.Fatal("setup offered again after the first admin exists")
 	}
 
-	// The admin has a personal drive and the family drive.
+	// The admin has a personal drive and manages the first shared drive.
 	var drives []struct{ Kind, Name, Role string }
 	c.get("/api/drives").decode(t, &drives)
-	if len(drives) != 2 || drives[0].Kind != "personal" || drives[1].Kind != "shared" || drives[1].Role != "editor" {
+	if len(drives) != 2 || drives[0].Kind != "personal" || drives[1].Kind != "shared" || drives[1].Role != "manager" || drives[1].Name != "Family" {
 		t.Fatalf("drives = %+v", drives)
 	}
 

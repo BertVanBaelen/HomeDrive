@@ -71,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
 	mux.HandleFunc("POST /api/admin/backup", s.admin(s.handleBackupNow))
 	s.fileRoutes(mux)
+	s.driveRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

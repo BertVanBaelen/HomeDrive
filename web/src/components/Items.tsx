@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { Drive, Located, Node, SortKey } from '../api'
 import { displayName, formatSize, formatWhen } from '../format'
 import { plural, useLocale, useT, type Locale, type MessageKey, type Translate } from '../i18n'
-import { folderPath } from '../router'
+import { drivePath, folderPath } from '../router'
 import { fileTypes, Icon, icons } from './Icon'
 import { Link } from './Shell'
 import { Thumb } from './Thumb'
@@ -49,14 +49,20 @@ export function useViewPrefs() {
   return { view, setView, sort, setSort }
 }
 
+// driveLabel is what a drive is called: My Files, or the shared drive's name.
 export function driveLabel(t: Translate, d: Drive): string {
-  return d.kind === 'personal' ? t('nav.myFiles') : t('nav.family')
+  return d.kind === 'personal' ? t('nav.myFiles') : d.name
+}
+
+// driveIcon is the icon for a drive's top folder.
+export function driveIcon(d: Drive): string {
+  return d.kind === 'personal' ? icons.home : icons.family
 }
 
 // hrefFor is a folder's URL: drive tops have short ones.
 export function hrefFor(id: string, drives: Drive[]): string {
   const d = drives.find((x) => x.rootId === id)
-  if (d) return d.kind === 'personal' ? '/' : '/family'
+  if (d) return d.kind === 'personal' ? '/' : drivePath(d.id)
   return folderPath(id)
 }
 
@@ -85,24 +91,27 @@ export interface Crumb {
   id?: string
   href?: string
   name: string
-  home?: boolean
+  // icon marks a drive's top folder (home for My Files).
+  icon?: string
 }
 
 // PageHead is breadcrumb + back, title + count, page actions and the view
-// toggle.
+// toggle. note replaces the item count; the toggle shows when setView is set.
 export function PageHead({
   crumbs,
   title,
-  count,
+  count = 0,
+  note,
   view,
   setView,
   actions,
 }: {
   crumbs: Crumb[]
   title: string
-  count: number
-  view: View
-  setView: (v: View) => void
+  count?: number
+  note?: string
+  view?: View
+  setView?: (v: View) => void
   actions?: ReactNode
 }) {
   const t = useT()
@@ -129,7 +138,7 @@ export function PageHead({
                 const here = i === crumbs.length - 1
                 const inner = (
                   <>
-                    {c.home && <Icon d={icons.home} size={16} />}
+                    {c.icon && <Icon d={c.icon} size={16} />}
                     {c.name}
                   </>
                 )
@@ -149,12 +158,12 @@ export function PageHead({
         )}
         <div className="page-title">
           <h1>{title}</h1>
-          <span>{plural(t, 'count.items', count)}</span>
+          <span>{note ?? plural(t, 'count.items', count)}</span>
         </div>
       </div>
       <div className="page-head__actions">
         {actions}
-        <ViewToggle view={view} setView={setView} />
+        {view && setView && <ViewToggle view={view} setView={setView} />}
       </div>
     </div>
   )
@@ -314,7 +323,7 @@ export function Rail({ crumbs }: { crumbs: Crumb[] }) {
           <Link key={d} href={c.href ?? '/'} className="rail__item" aria-current={last ? 'page' : undefined}
             style={{ paddingLeft: `${10 + d * 16}px` }}>
             {d > 0 && <span aria-hidden="true" className="rail__line" style={{ left: `${d * 16 - 2}px` }} />}
-            {c.home ? <Icon d={icons.home} size={18} /> : <Icon d={icons.folder} size={18} stroke="#a16207" fill="#fef9c3" />}
+            {c.icon ? <Icon d={c.icon} size={18} /> : <Icon d={icons.folder} size={18} stroke="#a16207" fill="#fef9c3" />}
             <span>{c.name}</span>
           </Link>
         )

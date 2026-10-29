@@ -232,6 +232,12 @@
   color: var(--gray-500);
   overflow-wrap: anywhere;
 }
+.menu-anchor {
+  position: relative;
+}
+.popover--menu {
+  width: 240px;
+}
 
 /* ---------- body: sidebar + main ---------- */
 .app-body {
@@ -247,7 +253,13 @@
 .sidebar {
   position: sticky;
   top: 84px;
-  flex: 0 0 220px;
+  /* Room for focus rings inside the scroll box, without moving the layout. */
+  flex: 0 0 228px;
+  margin: -4px;
+  padding: 4px 4px 12px;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -291,6 +303,41 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--gray-500);
+}
+.nav__heading {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+.nav__heading a {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 4px;
+}
+.nav__heading a:hover,
+.nav__heading a[aria-current='page'] {
+  color: var(--primary-900);
+}
+.nav__item .nav__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav__item--new {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-weight: 500;
+  color: var(--gray-500);
+  text-align: left;
+}
+.nav__item--new:hover {
+  color: var(--primary-900);
 }
 .main {
   flex: 1 1 0;
@@ -1102,6 +1149,7 @@
 }
 .picker__drives {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .picker__drives button {
@@ -1653,6 +1701,22 @@
     border-radius: 16px 16px 0 0;
     max-height: 88%;
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    animation: sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  }
+  /* A page menu is a sheet: its button may sit at the left edge. */
+  .menu-anchor .popover-scrim {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .popover--menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
     animation: sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
   }
   .toast {
