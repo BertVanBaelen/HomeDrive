@@ -57,8 +57,20 @@ Every option has the same name in the add-on (`snake_case`) and as an environmen
 | `trusted_proxies` | loopback + private ranges | Only requests from these addresses may set `CF-Connecting-IP` / `X-Forwarded-For`. |
 | `log_level` | `info` | `debug`, `info`, `warn`, `error`. |
 | `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). |
+| `app_name` | empty (= "Homedrive") | v3: the name shown to users instead of "Homedrive" (below). |
 | `listen` (env only) | `:8080` | |
 | `web_dir` (env only) | `/app/web` | Built frontend. |
+
+### App name (v3)
+
+`app_name` gives the installation its own name, for example "Van Baelen Drive". It is called app name and not drive name because "drive" already means My Files and the shared drives.
+
+- At most 40 characters, one line, no control characters; leading and trailing spaces are dropped. Not translated. Empty or missing means "Homedrive", and then nothing below shows twice.
+- **With the logo** (the sidebar and phone header, the login, setup, invite and recovery pages, the Home Assistant login page, link pages for visitors, the email header): the name in the logo's place of the wordmark, with "Homedrive" under it as a small gray line (`--text-muted`, about 11 px). A long name is cut off with "…" in the header and wraps elsewhere.
+- **Instead of "Homedrive"** in text: browser tab titles ("Photos – Van Baelen Drive"), the installed app's name and the Android share sheet (manifest `name` and `short_name`), page texts such as "Sign in to Van Baelen Drive", email subjects and texts ("4829 1735 is your Van Baelen Drive sign-in code"), the email sender's display name ("Van Baelen Drive", "Anna via Van Baelen Drive"), push notification titles, and the name the iPhone Shortcut instructions suggest ("Save to Van Baelen Drive").
+- **"Homedrive" stays** where it names the software: the gray line under the name, email footers ("Van Baelen Drive · runs on Homedrive at drive.example.com"), the invitation's explanation ("… runs on Homedrive, on a server at home"), the add-on in Home Assistant, logs, the CLI, and the `.homedrive` markers.
+- The server fills the name into `index.html` (`<title>`, `application-name` and `apple-mobile-web-app-title`) and serves `manifest.webmanifest` with it, HTML- and JSON-escaped, so the first paint already shows it. The app reads it from the `application-name` meta tag, so no extra request is needed; the emails take it from the config. The service worker's cached app shell picks up a new name with the next update. In email headers it is quoted and encoded like any display name.
+- Changing it takes a restart. Android updates an installed app's name by itself after a while; on an iPhone the home screen keeps the name it was added with until it is added again.
 
 ## 3. Storage model
 
@@ -184,7 +196,7 @@ sign_in_devices (user_id, device_key, first_seen_at, last_seen_at)          v3, 
 - Limits per client address: 20 unknown tokens per 10 minutes; 5 wrong passwords per link per 15 minutes, and 50 per link per hour over all addresses; one `.zip` at a time, and two over all links. Link pages and their API answers carry `X-Robots-Tag: noindex, nofollow` and `Cache-Control: no-store` (file contents keep `private, no-cache`).
 - Request logs show the token as `…`. Audit: `link.create`, `link.change`, `link.remove`. Visits aren't logged.
 
-**Download as `.zip`.** A folder downloads as `<folder name>.zip`: for signed-in users from the folder's menu and info panel (any folder they can open), and on link pages. The zip is streamed with Go's `archive/zip` without compression (*Store*): documents and photos are mostly compressed already, and a Raspberry Pi stays responsive. UTF-8 names, Zip64 when large, modification times kept, empty folders included, items in the trash left out. The size isn't known in advance. At most 2 zips per user at a time.
+**Download as `.zip`.** A folder downloads as `<folder name>.zip`: for signed-in users from its info panel (any folder they can open), and on link pages (*Download all*). The zip is streamed with Go's `archive/zip` without compression (*Store*): documents and photos are mostly compressed already, and a Raspberry Pi stays responsive. UTF-8 names, Zip64 when large, modification times kept, empty folders included, items in the trash left out. The size isn't known in advance. At most 2 zips per user at a time.
 
 ### Descriptions and saved links (v2)
 
@@ -311,14 +323,14 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
 - Mail clients ignore most CSS, so the HTML uses tables and inline styles only. Gmail and Outlook don't show SVG, so the logo, icons and thumbnails are PNGs attached inline (`cid:`). That also works when the mail provider can't reach `public_url` and doesn't ask to "load images". Inter is named first; most clients fall back to the system font.
 - One Go template per email (`html/template` and `text/template`, embedded in the binary), with the English and Dutch strings next to it. With a `localhost` `public_url`, `/dev/emails` shows every email with sample data, for review.
 - Times are written in the server's time zone (the add-on gets Home Assistant's).
-- The sender is `smtp_from`. Emails caused by a person show "<name> via Homedrive" as its display name, the rest "Homedrive".
+- The sender is `smtp_from`. Emails caused by a person show "<person> via <app name>" as its display name, the rest the app name (§2, *App name*). Subjects, texts and the header use the app name; the footer says it runs on Homedrive.
 
 **Emails.**
 
 | Email | To | Content |
 |---|---|---|
 | Sign-in code (login, setup, recovery) | the user | The code in the subject and the first sentence, so phones offer to fill it in; in monospace boxes grouped 4 + 4, selected with one tap where the client supports it. Expiry time, the device, network and time of the request, and "Didn't try to sign in?" with a link to Account Settings. |
-| Invitation | new user | What Homedrive is in plain words, who invited them, *Set up my account*, the expiry date, and the shared drives picked on the invite form. |
+| Invitation | new user | What the app name stands for in plain words (a private drive on a server at home, running on Homedrive), who invited them, *Set up my account*, the expiry date, and the shared drives picked on the invite form. |
 | Password reset | the user | Started by an admin (§5): "<admin> asked for a new password for you", *Choose new password*, valid 24 hours, the old password keeps working until then. |
 | Shared with you | the recipient | Who shared what and with which access, the optional note, the item's thumbnail (v2 thumbnails, folders as 2×2) with its type, count and size, and *Open*, which needs a login. |
 | Added to a shared drive, role changed | the member | Drive name, role, who did it, *Open drive*. |
@@ -378,10 +390,11 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   PATCH  /api/admin/drives/{id}                 {joinByDefault}
   PUT    /api/admin/drives/{id}/members/{user-id}, DELETE …                             admin
   POST   /api/admin/users                       v1, plus driveIds (absent: the join-by-default drives)
-  GET    /api/shared                            shared with me
-  GET    /api/nodes/{id}/shares, PUT …          people and their access                 can share
-  GET    /api/nodes/{id}/link, PUT …, DELETE …  public link settings                    can share
-  GET    /api/nodes/{id}/zip                    folder as .zip
+  GET    /api/shared                            shared with me: each item, who shared it and when
+  GET    /api/nodes/{id}/shares                 drive, people, inherited shares and link  can share
+  PUT    /api/nodes/{id}/shares/{user-id}       {access: view|edit}, DELETE …           can share
+  GET    /api/nodes/{id}/link, PUT …, DELETE …  public link {expiry, password}          can share
+  GET    /api/nodes/{id}/zip                    folder as .zip                          can open
   GET    /api/nodes/{id}/thumb, /snippet, /preview
   GET    /api/nodes/{id}/versions, GET …/versions/{version-id}/content
   POST   /api/nodes/{id}/versions/{version-id}/restore
@@ -392,7 +405,8 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   GET    /api/storage, GET /api/admin/storage, DELETE /api/old-versions
   GET    /api/link-preview?url=…, POST /api/inbox/link                                   saved links
   GET    /api/s/{token}                         link page: the item (folder: its contents)
-  GET    /api/s/{token}/nodes/{id}/children, /content, /thumb, /snippet, /preview, /zip
+  GET    /api/s/{token}/nodes/{id}              an item inside it, with its path from the linked item
+  GET    /api/s/{token}/nodes/{id}/content, /zip (with thumbnails also /thumb, /snippet, /preview)
   POST   /api/s/{token}/unlock                  {password} → grant cookie
   ```
 - **Host check:** requests whose `Host` isn't the `public_url` host are rejected (stops DNS rebinding and direct LAN access with spoofed headers). `/healthz` is exempt.

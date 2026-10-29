@@ -31,6 +31,26 @@ func FuzzValidateName(f *testing.F) {
 	})
 }
 
+// FuzzZipSegment checks that a zip entry name step can never leave the
+// folder the zip is unpacked into.
+func FuzzZipSegment(f *testing.F) {
+	for _, s := range []string{"photo.jpg", "", ".", "..", "a/b", `..\..\x`, "x\x00y", "\xff", "C:", " .. "} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, in string) {
+		out := zipSegment(in)
+		if out == "" || out == "." || out == ".." || !utf8.ValidString(out) ||
+			strings.ContainsAny(out, `/\`) || strings.ContainsFunc(out, unicode.IsControl) {
+			t.Fatalf("zipSegment(%q) = %q", in, out)
+		}
+		if in != out && utf8.ValidString(in) && !strings.ContainsAny(in, `/\`) &&
+			!strings.ContainsFunc(in, unicode.IsControl) && in != "" && in != "." && in != ".." &&
+			!strings.ContainsRune(in, utf8.RuneError) {
+			t.Fatalf("zipSegment(%q) changed a safe name to %q", in, out)
+		}
+	})
+}
+
 // FuzzNaturalCompare checks that sorting by name is a consistent order.
 func FuzzNaturalCompare(f *testing.F) {
 	f.Add("IMG 2", "img 10")

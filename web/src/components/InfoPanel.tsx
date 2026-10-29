@@ -1,4 +1,5 @@
-import { contentUrl, type Node } from '../api'
+import { useContentUrl } from './content'
+import { zipUrl, type Drive, type Node } from '../api'
 import { displayName, formatDateTime, formatSize } from '../format'
 import { plural, useLocale, useT, type MessageKey } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
@@ -10,12 +11,15 @@ export interface InfoActions {
   onMove: () => void
   onTrash: () => void
   onStar: () => void
+  onShare?: () => void
 }
 
 // InfoPanel is the ⓘ side panel (a bottom sheet on phones). Items in the
-// trash only offer Restore.
+// trash only offer Restore. drive is where the item lives: it tells whether
+// the user can share it, and who shared it with them.
 export function InfoPanel({
   node,
+  drive,
   location,
   readOnly,
   onClose,
@@ -24,6 +28,7 @@ export function InfoPanel({
   onDeleteForever,
 }: {
   node: Node
+  drive?: Drive
   location: string
   readOnly: boolean
   onClose: () => void
@@ -33,18 +38,34 @@ export function InfoPanel({
 }) {
   const t = useT()
   const locale = useLocale()
+  const contentUrl = useContentUrl()
   const type = fileTypes[node.type]
   const isFolder = node.kind === 'folder'
   const sizeLabel = isFolder ? plural(t, 'count.items', node.childCount ?? 0) : formatSize(node.size, locale)
   const name = displayName(node)
+  // What was shared with the user can't be renamed, moved or deleted by
+  // them, only what is in it.
+  const isShareRoot = drive?.kind === 'share' && drive.rootId === node.id
+  const locked = readOnly || isShareRoot
+  const canShare = !!actions?.onShare && !!drive?.canShare && !node.trashedAt
 
   const starBtn = actions && (
-    <button type="button" className={'btn' + (isFolder ? ' btn--green-text' : ' btn--small')} aria-pressed={node.starred}
-      onClick={actions.onStar}>
-      <Icon d={icons.star} size={isFolder ? 18 : 16} fill={node.starred ? '#f59e0b' : 'none'}
+    <button type="button" className="btn btn--small" aria-pressed={node.starred} onClick={actions.onStar}>
+      <Icon d={icons.star} size={16} fill={node.starred ? '#f59e0b' : 'none'}
         stroke={node.starred ? '#f59e0b' : 'currentColor'} />
       {node.starred ? t('info.unstar') : t('info.star')}
     </button>
+  )
+  const download = (cls: string, size: number) => (
+    <a
+      className={cls}
+      href={isFolder ? zipUrl(node.id) : contentUrl(node.id, true)}
+      title={isFolder ? t('info.zip') : undefined}
+      download
+    >
+      <Icon d={isFolder ? icons.archive : icons.download} size={size} />
+      {t('info.download')}
+    </a>
   )
 
   return (
@@ -66,7 +87,7 @@ export function InfoPanel({
               {t(`type.${node.type}` as MessageKey)} · {sizeLabel}
             </span>
           </div>
-          {actions && !readOnly && (
+          {actions && !locked && (
             <button type="button" className="icon-btn" aria-label={t('info.renameAria', { name })} onClick={actions.onRename}>
               <Icon d={icons.pencil} size={18} />
             </button>
@@ -93,22 +114,23 @@ export function InfoPanel({
                 <Icon d={isFolder ? icons.folder : icons.eye} size={18} />
                 {t('info.open')}
               </button>
-              {isFolder ? (
-                starBtn
+              {canShare ? (
+                <button type="button" className="btn btn--green-text" onClick={actions.onShare}>
+                  <Icon d={icons.share} size={18} />
+                  {t('info.share')}
+                </button>
               ) : (
-                <a className="btn btn--green-text" href={contentUrl(node.id, true)} download>
-                  <Icon d={icons.download} size={18} />
-                  {t('info.download')}
-                </a>
+                download('btn btn--green-text', 18)
               )}
             </div>
-            <div className={isFolder ? '' : 'three'}>
-              {!isFolder && starBtn}
-              <button type="button" className="btn btn--small" onClick={actions.onMove} disabled={readOnly}>
+            <div className={canShare ? '' : 'three'}>
+              {canShare && download('btn btn--small btn--green-text', 16)}
+              {starBtn}
+              <button type="button" className="btn btn--small" onClick={actions.onMove} disabled={locked}>
                 <Icon d={icons.move} size={16} />
                 {t('info.move')}
               </button>
-              <button type="button" className="btn btn--small btn--danger" onClick={actions.onTrash} disabled={readOnly}>
+              <button type="button" className="btn btn--small btn--danger" onClick={actions.onTrash} disabled={locked}>
                 <Icon d={icons.trash} size={16} />
                 {t('info.delete')}
               </button>
@@ -128,6 +150,12 @@ export function InfoPanel({
           )}
           <dt>{t('info.location')}</dt>
           <dd>{location}</dd>
+          {drive?.kind === 'share' && drive.sharedBy && (
+            <>
+              <dt>{t('info.sharedBy')}</dt>
+              <dd>{drive.sharedBy}</dd>
+            </>
+          )}
         </dl>
       </aside>
     </>

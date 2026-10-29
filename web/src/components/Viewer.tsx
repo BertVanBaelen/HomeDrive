@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { contentUrl, type Node } from '../api'
+import type { Node } from '../api'
 import { displayName, formatDateTime, formatSize } from '../format'
 import { useLocale, useT, type MessageKey } from '../i18n'
+import { useContentUrl } from './content'
 import { fileTypes, Icon, icons } from './Icon'
+import { Logo } from './Logo'
 
 // pdf.js is large; load it the first time a PDF is opened.
 const PdfView = lazy(() => import('./PdfView'))
@@ -25,29 +27,33 @@ export function canPreview(n: Node): boolean {
 const isDoc = (n: Node) => canPreview(n) && (n.type === 'text' || n.type === 'code' || n.type === 'pdf')
 
 // Viewer shows one file full screen on dark, with previous/next through the
-// folder's files. PDFs get their viewer (pdf.js) in a later step.
+// folder's files. Without onClose (a link to one file) the logo takes the
+// place of the close button; showInfo hides the info drawer for visitors.
 export function Viewer({
   files,
   index,
   location,
   onIndex,
   onClose,
+  showInfo = true,
 }: {
   files: Node[]
   index: number
   location: string
   onIndex: (i: number) => void
-  onClose: () => void
+  onClose?: () => void
+  showInfo?: boolean
 }) {
   const t = useT()
   const locale = useLocale()
+  const contentUrl = useContentUrl()
   const [info, setInfo] = useState(false)
   const n = files[index]
   const type = fileTypes[n.type]
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onClose?.()
       else if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1)
       else if (e.key === 'ArrowRight' && index < files.length - 1) onIndex(index + 1)
     }
@@ -59,20 +65,29 @@ export function Viewer({
   return (
     <div role="dialog" aria-modal="true" aria-label={displayName(n)} className="viewer">
       <div className="viewer__bar">
-        <button type="button" aria-label={t('viewer.close')} className="dark-btn dark-btn--plain" onClick={onClose} autoFocus>
-          <Icon d={icons.back} />
-        </button>
+        {onClose ? (
+          <button type="button" aria-label={t('viewer.close')} className="dark-btn dark-btn--plain" onClick={onClose} autoFocus>
+            <Icon d={icons.back} />
+          </button>
+        ) : (
+          <span className="viewer__brand">
+            <Logo size={28} label={t('app.name')} />
+          </span>
+        )}
         <Icon d={type.d} stroke={type.lc} />
         <div className="viewer__title">
           <strong>{displayName(n)}</strong>
           <span>{t(`short.${n.type}` as MessageKey)} · {sizeLabel}</span>
         </div>
-        <a className="dark-btn" aria-label={t('viewer.download')} href={contentUrl(n.id, true)} download>
+        <a className="dark-btn" aria-label={t('viewer.download')} href={contentUrl(n.id, true)} download
+          autoFocus={!onClose}>
           <Icon d={icons.download} size={18} />
         </a>
-        <button type="button" aria-label={t('viewer.info')} aria-pressed={info} className="dark-btn" onClick={() => setInfo(!info)}>
-          <Icon d={icons.info} />
-        </button>
+        {showInfo && (
+          <button type="button" aria-label={t('viewer.info')} aria-pressed={info} className="dark-btn" onClick={() => setInfo(!info)}>
+            <Icon d={icons.info} />
+          </button>
+        )}
       </div>
       <div className="viewer__main">
         <div className="viewer__stage">
@@ -91,7 +106,7 @@ export function Viewer({
             </button>
           )}
         </div>
-        {info && (
+        {showInfo && info && (
           <aside aria-label={t('info.title')} className="viewer__info">
             <strong>{t('info.title')}</strong>
             <dl>
@@ -113,6 +128,7 @@ export function Viewer({
 
 function Preview({ node }: { node: Node }) {
   const t = useT()
+  const contentUrl = useContentUrl()
   if (!canPreview(node)) {
     const type = fileTypes[node.type]
     return (
@@ -147,6 +163,7 @@ function Preview({ node }: { node: Node }) {
 
 function TextPreview({ node }: { node: Node }) {
   const t = useT()
+  const contentUrl = useContentUrl()
   const [text, setText] = useState<string | null>(null)
   useEffect(() => {
     let live = true
@@ -157,6 +174,6 @@ function TextPreview({ node }: { node: Node }) {
     return () => {
       live = false
     }
-  }, [node.id, t])
+  }, [node.id, t, contentUrl])
   return <pre className="viewer__text">{text ?? t('loading')}</pre>
 }

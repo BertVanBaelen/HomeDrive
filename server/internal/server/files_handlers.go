@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"mime"
 	"net/http"
 	"strconv"
@@ -304,6 +305,11 @@ func (s *Server) handleContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
+	serveContent(w, r, f, n)
+}
+
+// serveContent sends an open file, for signed-in users and link visitors.
+func serveContent(w http.ResponseWriter, r *http.Request, f io.ReadSeeker, n files.Node) {
 	ctype, inline := servingType(n.Name)
 	disposition := "inline"
 	if !inline || r.URL.Query().Get("download") == "1" {

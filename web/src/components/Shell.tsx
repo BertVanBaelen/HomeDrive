@@ -6,8 +6,9 @@ import { Icon, icons } from './Icon'
 import { Logo } from './Logo'
 
 // Section is the navigation entry for the current page. Inside a shared
-// drive it is 'shared'; the sidebar then marks the drive itself.
-export type Section = 'files' | 'shared' | 'recent' | 'starred' | 'trash' | null
+// drive it is 'shared'; the sidebar then marks the drive itself. Inside
+// something shared with the user it is 'sharedWithMe'.
+export type Section = 'files' | 'shared' | 'sharedWithMe' | 'recent' | 'starred' | 'trash' | null
 
 // Link navigates inside the app without a page load.
 export function Link({ href, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
@@ -140,9 +141,10 @@ const sections = (t: Translate) =>
     { id: 'trash', href: '/trash', label: t('nav.trash'), icon: icons.trash },
   ] as const
 
+type NavSection = { id: NonNullable<Section>; href: string; label: string; icon: string }
 type Counts = Partial<Record<NonNullable<Section>, number>>
 
-function NavItem({ s, section, counts }: { s: ReturnType<typeof sections>[number]; section: Section; counts: Counts }) {
+function NavItem({ s, section, counts }: { s: NavSection; section: Section; counts: Counts }) {
   return (
     <Link href={s.href} className="nav__item" aria-current={section === s.id ? 'page' : undefined}>
       <Icon d={s.icon} />
@@ -174,6 +176,7 @@ export function Sidebar({
   const t = useT()
   const headingId = useId()
   const [files, ...lists] = sections(t)
+  const sharedWithMe: NavSection = { id: 'sharedWithMe', href: '/shared', label: t('nav.sharedWithMe'), icon: icons.shared }
   return (
     <nav className="sidebar" aria-label={t('nav.sections')}>
       <button type="button" className="btn btn--primary sidebar__new" onClick={onAdd} disabled={!canAdd}>
@@ -184,11 +187,7 @@ export function Sidebar({
         <NavItem s={files} section={section} counts={counts} />
       </div>
       <div className="nav" role="group" aria-labelledby={headingId}>
-        <h2 id={headingId} className="nav__heading">
-          <Link href="/shared" aria-current={section === 'shared' && !driveId ? 'page' : undefined}>
-            {t('nav.sharedDrives')}
-          </Link>
-        </h2>
+        <h2 id={headingId} className="nav__heading">{t('nav.sharedDrives')}</h2>
         {drives.filter((d) => d.kind === 'shared').map((d) => (
           <Link key={d.id} href={drivePath(d.id)} className="nav__item" aria-current={driveId === d.id ? 'page' : undefined}>
             <Icon d={icons.family} />
@@ -201,7 +200,7 @@ export function Sidebar({
         </button>
       </div>
       <div className="nav">
-        {lists.map((s) => (
+        {[sharedWithMe, ...lists].map((s) => (
           <NavItem key={s.id} s={s} section={section} counts={counts} />
         ))}
       </div>
@@ -209,7 +208,8 @@ export function Sidebar({
   )
 }
 
-// TabBar is the phone's navigation. Shared lists the shared drives.
+// TabBar is the phone's navigation. Shared lists the shared drives and
+// what was shared with the user.
 export function TabBar({ section }: { section: Section }) {
   const t = useT()
   const [files, ...lists] = sections(t)
@@ -218,10 +218,11 @@ export function TabBar({ section }: { section: Section }) {
     { id: 'shared', href: '/shared', label: t('nav.sharedTab'), icon: icons.family },
     ...lists,
   ]
+  const current = section === 'sharedWithMe' ? 'shared' : section
   return (
     <nav className="tabbar" aria-label={t('nav.tabs')}>
       {tabs.map((s) => (
-        <Link key={s.id} href={s.href} aria-current={section === s.id ? 'page' : undefined}>
+        <Link key={s.id} href={s.href} aria-current={current === s.id ? 'page' : undefined}>
           <Icon d={s.icon} size={22} />
           {s.label}
         </Link>

@@ -152,7 +152,7 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 // logRequests logs method, path and status. Query strings are left out on
-// purpose: they may carry tokens.
+// purpose: they may carry tokens. Link tokens in paths are hidden.
 func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -162,7 +162,7 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if r.URL.Path == "/healthz" {
 			level = s.log.Debug
 		}
-		level("request", "method", r.Method, "path", r.URL.Path, "status", rec.status,
+		level("request", "method", r.Method, "path", logPath(r.URL.Path), "status", rec.status,
 			"duration", time.Since(start).Round(time.Millisecond), "ip", ClientIP(r.Context()))
 	})
 }
@@ -174,7 +174,7 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 				if v == http.ErrAbortHandler {
 					panic(v)
 				}
-				s.log.Error("panic while serving request", "path", r.URL.Path, "panic", v, "stack", string(debug.Stack()))
+				s.log.Error("panic while serving request", "path", logPath(r.URL.Path), "panic", v, "stack", string(debug.Stack()))
 				writeError(w, http.StatusInternalServerError, "internal")
 			}
 		}()

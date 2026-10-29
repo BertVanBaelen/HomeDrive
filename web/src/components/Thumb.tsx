@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { contentUrl, type Mini, type Node } from '../api'
+import type { Mini, Node } from '../api'
+import { useContentUrl } from './content'
 import { fileTypes, Icon } from './Icon'
 
 // Images that browsers can show; others (HEIC, TIFF, SVG) get the icon.
@@ -10,6 +11,7 @@ const showable = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
 // first four items, and other types a styled placeholder in their colours.
 // data-thumb and data-mini let the folder zoom find where things are.
 export function Thumb({ node }: { node: Node }) {
+  const contentUrl = useContentUrl()
   const [failed, setFailed] = useState(false)
   const t = fileTypes[node.type]
   const ext = node.kind === 'file' ? extension(node.name) : ''
@@ -62,6 +64,7 @@ export function Thumb({ node }: { node: Node }) {
 // MiniTile is one item inside a folder thumbnail: the photo itself, or a
 // small tile in the item's type colours.
 function MiniTile({ m }: { m: Mini }) {
+  const contentUrl = useContentUrl()
   const [failed, setFailed] = useState(false)
   const t = fileTypes[m.type]
   const dark = m.type === 'video' || m.type === 'audio' || m.type === 'code'

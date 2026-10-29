@@ -878,3 +878,230 @@
     margin-bottom: 8px;
   }
 }
+
+/* ---------- sharing ---------- */
+.share-people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-people > h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.member__avatar--drive {
+  border-radius: 10px;
+  background: var(--primary-50);
+  color: var(--primary-900);
+}
+.share-link {
+  margin: 0 -20px;
+  padding: 16px 20px 0;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.share-link__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.share-link__icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--primary-50);
+  color: var(--primary-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.share-link__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.share-link__text strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+.share-link__text span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--gray-500);
+}
+.switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: #d1d5db;
+  transition: background 0.2s;
+}
+.switch[aria-checked='true'] {
+  background: var(--primary-700);
+}
+.switch:disabled {
+  opacity: 0.6;
+}
+.switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.switch[aria-checked='true'] .switch__knob {
+  transform: translateX(20px);
+}
+.share-link__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: fade-in 0.2s ease-out both;
+}
+.share-link__address {
+  display: flex;
+  gap: 8px;
+}
+.share-link__address input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  background: #f9fafb;
+  color: #374151;
+  font-size: 14px;
+}
+.share-link__address .btn {
+  flex: 0 0 auto;
+}
+.share-link__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.share-link__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-500);
+}
+.share-link__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+.share-link__note--error {
+  color: var(--danger);
+}
+.share-link__input {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--gray-800);
+  font-size: 14px;
+}
+.share-link__input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.share-link__input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.share-link__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.share-link__password {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  color: #374151;
+}
+.share-link__password > svg {
+  flex: 0 0 auto;
+  color: var(--primary-900);
+}
+.share-link__password > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.toggle--fill button {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* Shared with me: on a phone, under the shared drives */
+.shared-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+.shared-section__head {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shared-section__head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+.shared-none {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+
+/* a link to one file: the logo instead of the close button */
+.viewer__brand {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* link visitors: no sidebar and no tab bar */
+.visitor .app-header__brand {
+  cursor: default;
+}
+@media (max-width: 699px) {
+  .visitor .app-body {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}

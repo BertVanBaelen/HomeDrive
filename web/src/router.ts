@@ -4,9 +4,10 @@ import { useSyncExternalStore } from 'react'
 //
 //   /             My Files (top of the personal drive)
 //   /d/<id>       the top of a shared drive
-//   /shared       the shared drives (the phone's Shared tab)
+//   /shared       Shared with me (on a phone also the shared drives)
 //   /family       v1's family drive: goes to the first shared drive
 //   /f/<id>       a folder on any drive
+//   /s/<token>    a public link's page, for visitors
 //   /recent, /starred, /trash, /search?q=…
 //   /account, /users and /backup (admins)
 //   /login, /setup, /recover, /welcome, /save
@@ -51,6 +52,7 @@ export type Route =
   | { name: 'recover' }
   | { name: 'welcome' }
   | { name: 'save' }
+  | { name: 'link'; token: string; nodeId: string | null }
 
 export function parseRoute(full: string): Route {
   const url = new URL(full, location.origin)
@@ -78,6 +80,12 @@ export function parseRoute(full: string): Route {
   if (m) return { name: 'files', folderId: m[1] }
   const d = /^\/d\/([0-9a-f-]{36})$/.exec(path)
   if (d) return { name: 'drive', driveId: d[1] }
+  // A folder inside the link is ?n=<id>, so the address stays one link.
+  const s = /^\/s\/([A-Za-z0-9_-]{22})$/.exec(path)
+  if (s) {
+    const n = url.searchParams.get('n')
+    return { name: 'link', token: s[1], nodeId: n && /^[0-9a-f-]{36}$/.test(n) ? n : null }
+  }
   return { name: 'files', folderId: null }
 }
 
@@ -87,4 +95,8 @@ export function folderPath(id: string): string {
 
 export function drivePath(id: string): string {
   return `/d/${id}`
+}
+
+export function linkPath(token: string, nodeId?: string): string {
+  return `/s/${token}${nodeId ? `?n=${nodeId}` : ''}`
 }

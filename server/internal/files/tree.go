@@ -113,6 +113,16 @@ func (s *Service) Children(ctx context.Context, userID, folderID string, sortBy 
 	if !it.IsFolder() {
 		return nil, ErrNotFolder
 	}
+	out, err := s.children(ctx, folderID)
+	if err != nil {
+		return nil, err
+	}
+	SortNodes(out, sortBy, desc)
+	return out, s.decorate(ctx, userID, out)
+}
+
+// children lists a folder's live contents, unchecked and unsorted.
+func (s *Service) children(ctx context.Context, folderID string) ([]Node, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+nodeColumns+`,
 		CASE n.kind WHEN 'folder' THEN (SELECT count(*) FROM nodes c WHERE c.parent_id = n.id AND c.trashed_at IS NULL) END
 		FROM nodes n WHERE n.parent_id = ? AND n.trashed_at IS NULL`, folderID)
@@ -133,14 +143,7 @@ func (s *Service) Children(ctx context.Context, userID, folderID string, sortBy 
 		}
 		out = append(out, n)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	SortNodes(out, sortBy, desc)
-	if err := s.markStars(ctx, userID, out); err != nil {
-		return nil, err
-	}
-	return out, s.addPreviews(ctx, out)
+	return out, rows.Err()
 }
 
 // SortNodes orders folders before files, then by the key. Names compare
@@ -214,23 +217,20 @@ func (s *Service) editableFolder(ctx context.Context, q querier, userID, folderI
 	if !it.IsFolder() {
 		return item{}, ErrNotFolder
 	}
-	if !it.drive.CanEdit() {
+	if !it.canEdit() {
 		return item{}, ErrReadOnly
 	}
 	return it, nil
 }
 
-// editableItem loads a live, non-root node the user may change.
+// editableItem loads a live node the user may rename, move or trash.
 func (s *Service) editableItem(ctx context.Context, q querier, userID, nodeID string) (item, error) {
 	it, err := s.lookup(ctx, q, userID, nodeID, false)
 	if err != nil {
 		return item{}, err
 	}
-	if it.isRoot() {
-		return item{}, ErrRoot
-	}
-	if !it.drive.CanEdit() {
-		return item{}, ErrReadOnly
+	if err := it.changeable(); err != nil {
+		return item{}, err
 	}
 	return it, nil
 }
@@ -290,10 +290,7 @@ func (s *Service) node(ctx context.Context, userID, id string) (Node, error) {
 		n.ChildCount = &c
 	}
 	nodes := []Node{n}
-	if err := s.markStars(ctx, userID, nodes); err != nil {
-		return Node{}, err
-	}
-	err = s.addPreviews(ctx, nodes)
+	err = s.decorate(ctx, userID, nodes)
 	return nodes[0], err
 }
 
@@ -329,7 +326,8 @@ func (s *Service) Rename(ctx context.Context, userID, nodeID, name string) (Node
 }
 
 // Move puts a node into another folder, possibly on another drive the user
-// can edit. A folder can't move into itself or its own subfolders.
+// can edit. A folder can't move into itself or its own subfolders, and what
+// the user may change only through a share stays inside that share.
 func (s *Service) Move(ctx context.Context, userID, nodeID, targetID string) (Node, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -347,8 +345,11 @@ func (s *Service) Move(ctx context.Context, userID, nodeID, targetID string) (No
 	if target.ID == it.ParentID {
 		return it.Node, nil
 	}
-	if target.ID == it.ID || slices.ContainsFunc(target.path, func(c Crumb) bool { return c.ID == it.ID }) {
+	if target.within(it.ID) {
 		return Node{}, ErrInvalidMove
+	}
+	if !it.driveEdit && !target.within(it.editTop) {
+		return Node{}, ErrMoveOut
 	}
 	if target.DriveID != it.DriveID {
 		if _, err := tx.ExecContext(ctx, `
@@ -401,15 +402,17 @@ func (s *Service) Trash(ctx context.Context, userID, nodeID string) error {
 	return tx.Commit()
 }
 
-// TrashList lists what was put in the trash on the drives the user can see,
+// TrashList lists what was put in the trash on the drives the user is in,
+// and what they put in the trash themselves in folders shared with them,
 // most recent first.
 func (s *Service) TrashList(ctx context.Context, userID string) ([]Located, error) {
-	return s.locate(ctx, userID, `n.trashed_at IS NOT NULL`, nil, `n.trashed_at DESC`, 1000, true)
+	return s.locate(ctx, userID, `n.trashed_at IS NOT NULL AND (d.owner_user_id = ?1 OR m.user_id IS NOT NULL OR n.trashed_by = ?1)`,
+		nil, `n.trashed_at DESC`, 1000, true)
 }
 
 // Restore takes a node out of the trash. If its folder is gone (in the
-// trash itself), it goes to the top of its drive; if its name is taken by
-// now, it gets a number added.
+// trash itself), it goes to the top of its drive, or of the folder shared
+// with the user; if its name is taken by now, it gets a number added.
 func (s *Service) Restore(ctx context.Context, userID, nodeID string) (Node, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -423,12 +426,12 @@ func (s *Service) Restore(ctx context.Context, userID, nodeID string) (Node, err
 	if it.TrashedAt == nil {
 		return Node{}, ErrNotFound
 	}
-	if !it.drive.CanEdit() {
-		return Node{}, ErrReadOnly
+	if err := it.changeable(); err != nil {
+		return Node{}, err
 	}
 	parent := it.ParentID
 	if _, err := s.lookup(ctx, tx, userID, parent, false); err != nil {
-		parent = it.drive.RootID
+		parent = it.editTop
 	}
 	name, err := uniqueName(ctx, tx, parent, it.Name)
 	if err != nil {

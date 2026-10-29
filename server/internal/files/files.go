@@ -1,6 +1,8 @@
-// Package files is the drive itself: drives, the folder tree, uploads and
-// file contents. Every operation takes the acting user's ID and checks
-// access through drive membership; a valid ID alone never grants anything.
+// Package files is the drive itself: drives, the folder tree, uploads,
+// file contents, sharing and public links. Every operation takes the
+// acting user's ID and checks access through drive membership and what was
+// shared with them; a valid ID alone never grants anything. Visitors of a
+// public link reach only the linked item and what is in it.
 package files
 
 import (
@@ -8,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +35,11 @@ var (
 	ErrBadOffset    = errors.New("upload offset mismatch")
 	ErrIncomplete   = errors.New("upload incomplete")
 	ErrUploadFailed = errors.New("upload failed")
+	// ErrSharedItem is for changing the item that was shared with you
+	// itself: only people in its drive may rename, move or trash it.
+	ErrSharedItem = errors.New("only the drive's people can change a shared item itself")
+	// ErrMoveOut is for moving something out of a folder shared with you.
+	ErrMoveOut = errors.New("items in a shared folder can only move within it")
 )
 
 type Service struct {
@@ -55,12 +63,21 @@ type querier interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
+// Drive is a drive with the user's role in it. For someone who reaches an
+// item only through a share, it is the shared item instead: kind "share",
+// named after it, with that item as its top, so nothing above it shows.
 type Drive struct {
 	ID     string `json:"id"`
-	Kind   string `json:"kind"` // personal | shared
+	Kind   string `json:"kind"` // personal | shared | share
 	Name   string `json:"name"`
 	RootID string `json:"rootId"`
 	Role   string `json:"role"` // viewer | editor | manager
+	// SharedBy is who shared the item, for kind "share".
+	SharedBy string `json:"sharedBy,omitempty"`
+	// CanShare is set on an item's drive when the user may share the item
+	// and delete it forever: they can edit it on its drive, not only
+	// through a share.
+	CanShare bool `json:"canShare,omitempty"`
 }
 
 func (d Drive) CanEdit() bool { return d.Role == "editor" || d.Role == "manager" }
@@ -80,6 +97,9 @@ type Node struct {
 	ChildCount *int       `json:"childCount,omitempty"`
 	// Starred is per user: whether the user asking starred it.
 	Starred bool `json:"starred"`
+	// Shared is set for drive members when the item is shared with people
+	// or has a link.
+	Shared bool `json:"shared,omitempty"`
 	// Preview is a folder's first few items, for its thumbnail.
 	Preview []Mini `json:"preview,omitempty"`
 
@@ -173,15 +193,54 @@ func (s *Service) drive(ctx context.Context, q querier, userID, driveID string) 
 type item struct {
 	Node
 	drive Drive
-	path  []Crumb // from the drive's top folder down to the parent
+	path  []Crumb // from the top (drive or shared item) down to the parent
 	// live is false when the node or one of its ancestors is in the trash.
 	live bool
+	// member is set when the user is in the node's drive, and driveEdit
+	// when they may change it as an editor or manager there.
+	member, driveEdit bool
+	// editTop is where the user's right to change things starts: the
+	// drive's top folder for its editors, else the highest item shared
+	// with them to edit, else empty.
+	editTop string
+	// above holds the IDs of all the node's folders, the drive's top first.
+	above []string
 }
 
-func (it item) isRoot() bool { return it.ParentID == "" }
+// isRoot reports whether the node is the top of what the user sees: a
+// drive's top folder, or the item shared with them.
+func (it item) isRoot() bool { return it.ID == it.drive.RootID }
+
+// canEdit reports whether the user may change the node's contents: add to
+// a folder, or save a file.
+func (it item) canEdit() bool { return it.editTop != "" }
+
+// within reports whether the node is id or inside it.
+func (it item) within(id string) bool { return it.ID == id || slices.Contains(it.above, id) }
+
+// changeable checks that the user may rename, move or trash the node
+// itself, which takes the right to change the folder it is in.
+func (it item) changeable() error {
+	switch {
+	case it.member && it.isRoot():
+		return ErrRoot
+	case it.editTop == "":
+		return ErrReadOnly
+	case it.editTop == it.ID:
+		return ErrSharedItem
+	}
+	return nil
+}
+
+var roleRank = map[string]int{"": 0, "viewer": 1, "editor": 2, "manager": 3}
 
 // lookup loads a node with access checks. Unless trashedOK, items that are
 // in the trash (themselves or through a folder) are reported as missing.
+//
+// Access is the user's role in the drive, raised by what was shared with
+// them: the node itself or a folder it is in. A share counts only while
+// the shared item and its folders are out of the trash, and only for
+// enabled users.
 func (s *Service) lookup(ctx context.Context, q querier, userID, nodeID string, trashedOK bool) (item, error) {
 	if !db.ValidID(nodeID) {
 		return item{}, ErrNotFound
@@ -194,35 +253,98 @@ func (s *Service) lookup(ctx context.Context, q querier, userID, nodeID string, 
 		return item{}, err
 	}
 	d, err := s.drive(ctx, q, userID, n.DriveID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return item{}, err
 	}
-	it := item{Node: n, drive: d, live: n.TrashedAt == nil}
+	type step struct {
+		Crumb
+		trashed bool
+		access  string
+		by      string
+	}
 	rows, err := q.QueryContext(ctx, `
 		WITH RECURSIVE up(id, parent_id, name, trashed, depth) AS (
-			SELECT id, parent_id, name, trashed_at IS NOT NULL, 0 FROM nodes WHERE id = ?
+			SELECT id, parent_id, name, trashed_at IS NOT NULL, 0 FROM nodes WHERE id = ?1
 			UNION ALL
 			SELECT n.id, n.parent_id, n.name, n.trashed_at IS NOT NULL, up.depth + 1
 			FROM nodes n JOIN up ON n.id = up.parent_id
 		)
-		SELECT id, name, trashed FROM up WHERE depth > 0 ORDER BY depth DESC`, n.ID)
+		SELECT up.id, up.name, up.trashed, coalesce(ps.access, ''), coalesce(u.name, '')
+		FROM up
+		LEFT JOIN people_shares ps ON ps.node_id = up.id AND ps.user_id = ?2
+			AND EXISTS (SELECT 1 FROM users WHERE id = ?2 AND disabled_at IS NULL)
+		LEFT JOIN users u ON u.id = ps.created_by
+		ORDER BY up.depth DESC`, n.ID, userID)
 	if err != nil {
 		return item{}, err
 	}
 	defer rows.Close()
+	var chain []step
 	for rows.Next() {
-		var c Crumb
-		var trashed bool
-		if err := rows.Scan(&c.ID, &c.Name, &trashed); err != nil {
+		var st step
+		if err := rows.Scan(&st.ID, &st.Name, &st.trashed, &st.access, &st.by); err != nil {
 			return item{}, err
 		}
-		it.path = append(it.path, c)
-		if trashed {
-			it.live = false
-		}
+		chain = append(chain, st)
 	}
 	if err := rows.Err(); err != nil {
 		return item{}, err
+	}
+	if len(chain) == 0 {
+		return item{}, ErrNotFound
+	}
+
+	// The highest live shares, for viewing and for editing.
+	viewTop, editTop := -1, -1
+	live := true
+	for i, st := range chain {
+		if st.trashed {
+			live = false
+		}
+		if !live || st.access == "" {
+			continue
+		}
+		if viewTop < 0 {
+			viewTop = i
+		}
+		if editTop < 0 && st.access == "edit" {
+			editTop = i
+		}
+	}
+	member := d.Role != ""
+	if !member && viewTop < 0 {
+		return item{}, ErrNotFound
+	}
+	role := d.Role
+	if editTop >= 0 && roleRank[role] < roleRank["editor"] {
+		role = "editor"
+	} else if viewTop >= 0 && role == "" {
+		role = "viewer"
+	}
+
+	it := item{Node: n, live: live, member: member}
+	for _, st := range chain[:len(chain)-1] {
+		it.above = append(it.above, st.ID)
+	}
+	top := 0
+	if member {
+		it.drive = d
+	} else {
+		top = viewTop
+		sh := chain[viewTop]
+		it.drive = Drive{ID: n.DriveID, Kind: "share", Name: sh.Name, RootID: sh.ID, SharedBy: sh.by}
+	}
+	it.drive.Role = role
+	for _, st := range chain[top : len(chain)-1] {
+		it.path = append(it.path, st.Crumb)
+	}
+	switch {
+	case member && d.CanEdit():
+		it.editTop = chain[0].ID
+		it.driveEdit = true
+		it.drive.CanShare = true
+	case editTop >= 0:
+		it.editTop = chain[editTop].ID
 	}
 	if !it.live && !trashedOK {
 		return item{}, ErrNotFound
@@ -251,10 +373,7 @@ func (s *Service) Get(ctx context.Context, userID, nodeID string) (Details, erro
 		it.ChildCount = &n
 	}
 	nodes := []Node{it.Node}
-	if err := s.markStars(ctx, userID, nodes); err != nil {
-		return Details{}, err
-	}
-	if err := s.addPreviews(ctx, nodes); err != nil {
+	if err := s.decorate(ctx, userID, nodes); err != nil {
 		return Details{}, err
 	}
 	return Details{Node: nodes[0], Drive: it.drive, Path: nonNil(it.path)}, nil

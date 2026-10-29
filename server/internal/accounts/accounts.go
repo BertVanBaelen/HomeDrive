@@ -84,6 +84,10 @@ func New(conn *sql.DB, sender hdmail.Sender, log *slog.Logger, origin string) *S
 	return &Service{db: conn, hasher: auth.NewHasher(), mail: sender, log: log, origin: origin, now: time.Now}
 }
 
+// Hasher is the password hasher, shared with link passwords so that all
+// Argon2 work together stays within its memory budget.
+func (s *Service) Hasher() *auth.Hasher { return s.hasher }
+
 // NormalizeEmail trims and lower-cases an address and checks its form.
 func NormalizeEmail(s string) (string, error) {
 	s = strings.ToLower(strings.TrimSpace(s))

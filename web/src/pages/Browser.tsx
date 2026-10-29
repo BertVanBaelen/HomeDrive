@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { api, type Details, type Drive, type Located, type Node, type User } from '../api'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
+import { api, type Details, type Drive, type Located, type Node, type SharedItem, type User } from '../api'
 import { AddDialog, ConfirmDialog, errorText } from '../components/Dialogs'
 import { DriveActions, NewDriveDialog, roleLabel } from '../components/Drives'
 import { Icon, icons } from '../components/Icon'
-import { InfoPanel } from '../components/InfoPanel'
+import { InfoPanel, type InfoActions } from '../components/InfoPanel'
 import { useItemActions } from '../components/ItemActions'
 import {
   driveIcon,
@@ -16,6 +26,7 @@ import {
   QuickAccess,
   Rail,
   useViewPrefs,
+  ViewToggle,
   whereIs,
   type Crumb,
 } from '../components/Items'
@@ -23,9 +34,9 @@ import { Fab, Header, Link, Sidebar, TabBar, type Section } from '../components/
 import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
 import { notifyChanged, onChanged } from '../events'
-import { displayName } from '../format'
-import { plural, useT } from '../i18n'
-import { drivePath, navigate, type ListName, type Route } from '../router'
+import { displayName, formatWhen } from '../format'
+import { plural, useLocale, useT } from '../i18n'
+import { drivePath, folderPath, navigate, type ListName, type Route } from '../router'
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
 
@@ -75,7 +86,7 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
   let missing = false
   if (route.name === 'trash') section = 'trash'
   else if (route.name === 'list' && route.list !== 'search') section = route.list
-  else if (route.name === 'shared') section = 'shared'
+  else if (route.name === 'shared') section = 'sharedWithMe'
   else if (drives && route.name === 'drive') {
     section = 'shared'
     driveId = route.driveId
@@ -85,6 +96,7 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
   } else if (drives && route.name === 'files') {
     folderId = route.folderId ?? drives.find((d) => d.kind === 'personal')?.rootId ?? null
     if (!route.folderId || folderDrive?.kind === 'personal') section = 'files'
+    else if (folderDrive?.kind === 'share') section = 'sharedWithMe'
     else if (folderDrive) {
       section = 'shared'
       driveId = folderDrive.id
@@ -109,9 +121,11 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
               <Link href="/shared" className="btn btn--primary">{t('drive.toShared')}</Link>
             </Empty>
           )}
-          {drives && route.name === 'shared' && <SharedView drives={drives} onNewDrive={() => setNewDrive(true)} />}
+          {drives && route.name === 'shared' && (
+            <SharedView drives={drives} user={user} onNewDrive={() => setNewDrive(true)} />
+          )}
           {drives && route.name === 'list' && (
-            <LocatedView key={route.list} list={route.list} q={route.q} drives={drives} />
+            <LocatedView key={route.list} list={route.list} q={route.q} drives={drives} user={user} />
           )}
           {drives && route.name === 'trash' && <TrashView />}
         </main>
@@ -130,9 +144,106 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
   )
 }
 
-// SharedView lists the shared drives the user is in: the phone's Shared tab.
-function SharedView({ drives, onNewDrive }: { drives: Drive[]; onNewDrive: () => void }) {
+const phoneQuery = '(max-width: 699px)'
+function onPhoneChange(fn: () => void) {
+  const m = matchMedia(phoneQuery)
+  m.addEventListener('change', fn)
+  return () => m.removeEventListener('change', fn)
+}
+
+// usePhone follows the phone layout's breakpoint (styles/app.css).
+function usePhone(): boolean {
+  return useSyncExternalStore(onPhoneChange, () => matchMedia(phoneQuery).matches)
+}
+
+type ItemActions = ReturnType<typeof useItemActions>
+
+// infoActions wires the info panel's buttons for an item.
+function infoActions(actions: ItemActions, n: Node, onOpen: () => void, unselect: () => void): InfoActions {
+  return {
+    onOpen,
+    onRename: () => actions.rename(n),
+    onMove: () => actions.move(n),
+    onTrash: () => {
+      unselect()
+      actions.trash(n)
+    },
+    onStar: () => actions.star(n),
+    onShare: () => actions.share(n),
+  }
+}
+
+// SharedView is Shared with me: what people shared with the user, with who
+// shared it and when. On a phone it is the Shared tab, which first lists
+// the shared drives.
+function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User; onNewDrive: () => void }) {
   const t = useT()
+  const locale = useLocale()
+  const phone = usePhone()
+  const headingId = useId()
+  const { view, setView } = useViewPrefs()
+  const [items, setItems] = useState<SharedItem[] | null>(null)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    api.sharedWithMe().then(
+      (l) => {
+        setItems(l)
+        setError('')
+      },
+      (err) => setError(errorText(t, err)),
+    )
+  }, [t])
+  useEffect(load, [load])
+  useEffect(() => onChanged((id) => id === 'starred' && load()), [load])
+
+  const actions = useItemActions({ drives, me: user, reload: load })
+  const where = useMemo(() => (n: Node) => whereIs(t, n as Located), [t])
+
+  const title = t('nav.sharedWithMe')
+  const sel = items?.find((n) => n.id === selected) ?? null
+  const open = (n: Node) => actions.open(n, items ?? [], where)
+  const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
+
+  let content: ReactNode = null
+  if (error) content = <p className="form-error" role="alert">{error}</p>
+  else if (items?.length === 0) {
+    content = phone ? (
+      <p className="shared-none">{t('empty.sharedWithMe.body')}</p>
+    ) : (
+      <Empty icon={icons.shared} title={t('empty.sharedWithMe.title')} body={t('empty.sharedWithMe.body')} />
+    )
+  } else if (items) {
+    content = view === 'grid' ? (
+      <Grid items={items} selected={selected} onOpen={open} onInfo={info}
+        meta={(n) => `${t('shared.by', { name: n.sharedBy })} · ${formatWhen(n.sharedAt, t, locale)}`} />
+    ) : (
+      <List items={items} selected={selected} onOpen={open} onInfo={info} location={(n) => n.sharedBy}
+        locationLabel={t('col.sharedBy')} date={{ label: t('col.sharedAt'), at: (n) => n.sharedAt }} />
+    )
+  }
+  const files = (
+    <div className="files-row">
+      <section aria-label={phone ? undefined : title} className="files">{content}</section>
+      {sel && (
+        <InfoPanel node={sel} drive={sel.drive} location={where(sel)} readOnly={sel.drive.role === 'viewer'}
+          onClose={() => setSelected(null)} actions={infoActions(actions, sel, () => open(sel), () => setSelected(null))} />
+      )}
+    </div>
+  )
+
+  if (!phone) {
+    if (!items && !error) return null
+    return (
+      <>
+        <PageHead crumbs={[]} title={title} count={items?.length ?? 0} view={view} setView={setView} />
+        {files}
+        {actions.elements}
+      </>
+    )
+  }
+
   const shared = drives.filter((d) => d.kind === 'shared')
   const newButton = (cls: string) => (
     <button type="button" className={cls} onClick={onNewDrive}>
@@ -166,6 +277,14 @@ function SharedView({ drives, onNewDrive }: { drives: Drive[]; onNewDrive: () =>
           ))}
         </ul>
       )}
+      <section className="shared-section" aria-labelledby={headingId}>
+        <div className="shared-section__head">
+          <h2 id={headingId}>{title}</h2>
+          {!!items?.length && <ViewToggle view={view} setView={setView} />}
+        </div>
+        {(items || error) && files}
+      </section>
+      {actions.elements}
     </>
   )
 }
@@ -238,15 +357,21 @@ function FolderView({
     return onChanged((id) => id === 'starred' && loadQuick())
   }, [isMyFiles])
 
-  const actions = useItemActions({ drives, reload: load })
+  const actions = useItemActions({ drives, me: user, reload: load })
   const sel = items?.find((n) => n.id === selected) ?? null
 
+  // Inside something shared with the user, the path starts at the shared
+  // item: the folders above it aren't theirs to see.
+  const inShare = details?.drive.kind === 'share'
   const crumbs: Crumb[] = details
     ? [
-        { id: details.drive.rootId, name: driveLabel(t, details.drive), icon: driveIcon(details.drive) },
-        ...details.path.slice(1),
-        ...(isRoot ? [] : [{ id: details.node.id, name: details.node.name }]),
-      ].map((c) => ({ ...c, href: hrefFor(c.id, drives) }))
+        ...(inShare ? [{ name: t('nav.sharedWithMe'), href: '/shared', icon: icons.shared }] : []),
+        ...[
+          { id: details.drive.rootId, name: driveLabel(t, details.drive), icon: driveIcon(details.drive) },
+          ...details.path.slice(1),
+          ...(isRoot ? [] : [{ id: details.node.id, name: details.node.name }]),
+        ].map((c) => ({ ...c, href: inShare ? folderPath(c.id) : hrefFor(c.id, drives) })),
+      ]
     : []
   const location = crumbs.map((c) => c.name).join(' / ')
 
@@ -332,19 +457,11 @@ function FolderView({
         {sel && (
           <InfoPanel
             node={sel}
+            drive={details.drive}
             location={location}
             readOnly={readOnly}
             onClose={() => setSelected(null)}
-            actions={{
-              onOpen: () => open(sel),
-              onRename: () => actions.rename(sel),
-              onMove: () => actions.move(sel),
-              onTrash: () => {
-                setSelected(null)
-                actions.trash(sel)
-              },
-              onStar: () => actions.star(sel),
-            }}
+            actions={infoActions(actions, sel, () => open(sel), () => setSelected(null))}
           />
         )}
       </div>
@@ -393,7 +510,7 @@ function FolderView({
 
 // LocatedView lists items from across the drives: Recent, Starred or
 // search results.
-function LocatedView({ list, q, drives }: { list: ListName; q: string; drives: Drive[] }) {
+function LocatedView({ list, q, drives, user }: { list: ListName; q: string; drives: Drive[]; user: User }) {
   const t = useT()
   const { view, setView } = useViewPrefs()
   const [items, setItems] = useState<Located[] | null>(null)
@@ -407,7 +524,7 @@ function LocatedView({ list, q, drives }: { list: ListName; q: string; drives: D
   useEffect(load, [load])
   useEffect(() => onChanged((id) => (id === 'starred' || id === 'trash') && load()), [load])
 
-  const actions = useItemActions({ drives, reload: load })
+  const actions = useItemActions({ drives, me: user, reload: load })
   const where = useMemo(() => (n: Node) => whereIs(t, n as Located), [t])
 
   if (error) return <p className="form-error" role="alert">{error}</p>
@@ -443,19 +560,11 @@ function LocatedView({ list, q, drives }: { list: ListName; q: string; drives: D
         {sel && (
           <InfoPanel
             node={sel}
+            drive={sel.drive}
             location={where(sel)}
             readOnly={sel.drive.role === 'viewer'}
             onClose={() => setSelected(null)}
-            actions={{
-              onOpen: () => open(sel),
-              onRename: () => actions.rename(sel),
-              onMove: () => actions.move(sel),
-              onTrash: () => {
-                setSelected(null)
-                actions.trash(sel)
-              },
-              onStar: () => actions.star(sel),
-            }}
+            actions={infoActions(actions, sel, () => open(sel), () => setSelected(null))}
           />
         )}
       </div>
@@ -496,10 +605,13 @@ function TrashView() {
   if (error) return <p className="form-error" role="alert">{error}</p>
   if (!items) return null
   const info = (n: Node) => setSelected(selected === n.id ? null : n.id)
+  // What the user trashed inside something shared with them waits for the
+  // drive's editors to delete it for good.
+  const deletable = (n: Located) => n.drive.kind !== 'share'
   return (
     <>
       <PageHead crumbs={[]} title={t('nav.trash')} count={items.length} view={view} setView={setView}
-        actions={items.length > 0 && (
+        actions={items.some(deletable) && (
           <button type="button" className="btn btn--small btn--danger" onClick={() => setConfirm('empty')}>
             <Icon d={icons.trash} size={16} />
             {t('trash.empty')}
@@ -516,8 +628,9 @@ function TrashView() {
           )}
         </section>
         {sel && (
-          <InfoPanel node={sel} location={where(sel)} readOnly={sel.drive.role === 'viewer'}
-            onClose={() => setSelected(null)} onRestore={() => restore(sel)} onDeleteForever={() => setConfirm(sel)} />
+          <InfoPanel node={sel} drive={sel.drive} location={where(sel)} readOnly={sel.drive.role === 'viewer'}
+            onClose={() => setSelected(null)} onRestore={() => restore(sel)}
+            onDeleteForever={deletable(sel) ? () => setConfirm(sel) : undefined} />
         )}
       </div>
       {confirm === 'empty' && (
