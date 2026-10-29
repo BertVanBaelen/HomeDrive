@@ -56,6 +56,7 @@ Every option has the same name in the add-on (`snake_case`) and as an environmen
 | `smtp_host`, `smtp_port`, `smtp_security` (`starttls`/`tls`), `smtp_username`, `smtp_password`, `smtp_from` | port `587`, `starttls` | Required: email is the second login factor. Plain-text SMTP is not supported. `HOMEDRIVE_SMTP_PASSWORD_FILE` reads the password from a Docker secret. |
 | `trusted_proxies` | loopback + private ranges | Only requests from these addresses may set `CF-Connecting-IP` / `X-Forwarded-For`. |
 | `log_level` | `info` | `debug`, `info`, `warn`, `error`. |
+| `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). |
 | `listen` (env only) | `:8080` | |
 | `web_dir` (env only) | `/app/web` | Built frontend. |
 
@@ -93,7 +94,8 @@ Restoring without the app stays possible: `homedrive export <backup> <target>` r
 
 ```
 meta            (key, value)                      instance_id, schema info
-users           (id, email UNIQUE, name, password_hash, role admin|member, locale, created_at, disabled_at)
+users           (id, email UNIQUE, name, password_hash, role admin|member, locale, created_at, disabled_at,
+                 ha_username UNIQUE NULL)                                   ha_username: v2
 sessions        (id_hash, user_id, created_at, last_seen_at, expires_at, recent_auth_at, user_agent, ip)
 email_codes     (id, user_id, purpose, code_hash, expires_at, attempts, used_at)
 device_tokens   (id, user_id, name, token_hash, scope, created_at, last_used_at, revoked_at)   iOS Shortcut uploads
@@ -147,6 +149,14 @@ audit_log       (id, at, user_id, ip, event, detail)
 - **Password reset:** by the admin only (email is already the second factor, so an email reset link would collapse login to one factor). Admin lockout: set the add-on option / env `admin_recovery=true` and restart to get a new one-time link in the log.
 - **Rate limits:** per client IP and per account, progressive delays, plus a cap on codes sent per account per hour (no email bombing). Login responses don't reveal whether an account exists.
 - **iPhone uploads:** an Apple Shortcut authenticates with a per-device token (scope: upload to own inbox only), created by the user after re-authentication and revocable in the device list.
+- **Home Assistant login (v2, add-on only):**
+  - Off by default. The add-on option `homeassistant_login: true` turns it on, and `config.yaml` sets `auth_api: true` so the add-on may ask the Supervisor to check credentials. Standalone Docker has no Supervisor and never shows it.
+  - The login page then shows a "Log in with Home Assistant" button under the email form. It opens `/login/homeassistant`: the Home Assistant logo and the Homedrive logo joined by a chain link at the top, then username and password, in the mockup's visual style. Using the Home Assistant logo has to stay within the Open Home Foundation's brand guidelines.
+  - The server sends the credentials to `POST http://supervisor/auth` with the add-on's `SUPERVISOR_TOKEN`. Homedrive never stores the Home Assistant password, and never gets a Home Assistant access token.
+  - The username is matched against `users.ha_username` (lower case, unique, nullable). Admins set it in user management. Users link their own account in Account Settings after re-authentication. There is no automatic account creation.
+  - After a correct password, the email code follows exactly as for a normal login. The Supervisor check skips Home Assistant's own MFA, and Homedrive is public.
+  - The same rate limits as the normal login apply (per IP and per account). An unknown, unlinked or disabled user gets the same "wrong username or password" answer as a wrong password. Events go to the audit log as `login.homeassistant`.
+  - Email and Homedrive password keep working for linked users, for example while Home Assistant restarts.
 
 ## 6. HTTP surface
 

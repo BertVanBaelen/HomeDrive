@@ -45,10 +45,18 @@ Release gate
 - Storage page: usage by type, largest files, free-up-space actions, backup status.
 - Descriptions on files and folders: plain text, edited in the info panel, found by search. Text shared together with a file fills it in.
 - Saving links from the share sheet (Android share target and the iPhone Shortcut) as `.url` files, shown as link cards: thumbnail, title, site and author for YouTube and TikTok through their oEmbed endpoints, the shared title for other sites. Tapping a card opens the original app or site. Design in [`architecture.md`](architecture.md#descriptions-and-saved-links-v2).
+- Log in with a Home Assistant username and password (add-on only, opt-in): a "Log in with Home Assistant" button under the email form opens its own login page, headed by the Home Assistant logo and the Homedrive logo joined by a chain link. The password is checked through the Supervisor, and the email code still follows. Design in [`architecture.md`](architecture.md#5-authentication).
 
 ## v3
 
 - `homedrive restore <backup folder> [snapshot]`: rebuild a working installation from a backup, offline, after the data disk or the state dir is lost. It writes the database snapshot (newest by default) to the state dir and copies the referenced objects into an empty `data_path`. The instance ID stays the same, so the data folder and backup folder markers keep matching. It refuses a non-empty target and lists files whose contents are missing from the backup. Documented in `DOCS.md` together with moving the data folder to another drive (copy the folder with its `.homedrive` marker, change `data_path`), which already works without a restore.
+- Email notifications through the SMTP server Homedrive already requires:
+  - something is shared with you (a file, a folder or a link), with who shared it and a link that opens it;
+  - you are added to a shared drive, or your role there changes;
+  - security: a login from a new device, a new device key for the iPhone Shortcut, a changed password or email address;
+  - admins: a failed backup, or the data disk running low on free space.
+
+  Per user, each kind can be turned off in Account Settings (security emails cannot), and sharing emails can be bundled into one daily summary. Emails never contain file contents or previews, only names and links that require a login. Sent in the user's language.
 
 ## Later
 
