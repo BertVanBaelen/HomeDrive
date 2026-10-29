@@ -85,6 +85,32 @@ func (s *Service) ListUsers(ctx context.Context) ([]UserInfo, error) {
 	return out, rows.Err()
 }
 
+// Person is someone drives and items can be shared with.
+type Person struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// People lists every account that isn't disabled, including people who
+// haven't accepted their invitation yet.
+func (s *Service) People(ctx context.Context) ([]Person, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, email FROM users WHERE disabled_at IS NULL ORDER BY lower(name), email`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Person{}
+	for rows.Next() {
+		var p Person
+		if err := rows.Scan(&p.ID, &p.Name, &p.Email); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // rowQuerier is satisfied by *sql.DB and *sql.Tx.
 type rowQuerier interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
@@ -102,9 +128,10 @@ func (s *Service) userInfo(ctx context.Context, q rowQuerier, id string) (UserIn
 }
 
 // InviteUser adds an account and emails its owner a link to choose a
-// password. If the email fails the account still exists; the admin can
-// send the link again.
-func (s *Service) InviteUser(ctx context.Context, admin User, email, name, role, locale string) (UserInfo, error) {
+// password. The new user joins the shared drives in driveIDs as an editor;
+// nil means the drives marked join by default. If the email fails the
+// account still exists; the admin can send the link again.
+func (s *Service) InviteUser(ctx context.Context, admin User, email, name, role, locale string, driveIDs []string) (UserInfo, error) {
 	email, err := NormalizeEmail(email)
 	if err != nil {
 		return UserInfo{}, err
@@ -120,7 +147,7 @@ func (s *Service) InviteUser(ctx context.Context, admin User, email, name, role,
 		return UserInfo{}, err
 	}
 	defer tx.Rollback()
-	u, err := s.createUser(ctx, tx, email, name, "", role, locale)
+	u, err := s.createUser(ctx, tx, email, name, "", role, locale, driveIDs)
 	if err != nil {
 		return UserInfo{}, err
 	}

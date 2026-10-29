@@ -22,6 +22,9 @@
 .btn:hover:not(:disabled) {
   background: #f3f4f6;
 }
+.btn > svg {
+  flex-shrink: 0;
+}
 .btn:disabled {
   cursor: default;
   opacity: 0.5;
@@ -120,6 +123,157 @@
 .field__hint {
   font-size: 12px;
   color: var(--gray-500);
+}
+
+/* ---------- select ----------
+   A button with the choice and an up/down chevron; the list floats under
+   it like a menu. On phones the list is a sheet (see the mobile block). */
+.select {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 44px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--gray-800);
+  font-size: 15px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.select__trigger:hover {
+  border-color: #d1d5db;
+}
+.select__trigger:focus {
+  outline: none;
+}
+.select__trigger:focus-visible,
+.select__trigger[aria-expanded='true'] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.select__trigger[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.5;
+}
+.select__value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.select__value > span {
+  grid-area: 1 / 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select__sizer {
+  visibility: hidden;
+}
+.select__chevron {
+  flex: 0 0 auto;
+  color: #9ca3af;
+}
+.select--small {
+  display: inline-flex;
+}
+.select--small .select__trigger {
+  height: 36px;
+  gap: 4px;
+  padding: 0 8px 0 10px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+}
+.select--small .select__trigger:hover {
+  background: var(--gray-50);
+}
+.select__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+.select__pop {
+  position: fixed;
+  z-index: 71;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-card);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  transform-origin: top center;
+  animation: select-in 0.14s ease-out backwards;
+}
+.select__pop[data-side='top'] {
+  transform-origin: bottom center;
+}
+.select__title {
+  display: none;
+}
+.select__list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.select__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  color: var(--gray-800);
+  font-size: 14px;
+  cursor: pointer;
+}
+.select__option.is-active {
+  background: #f3f4f6;
+}
+.select__option[aria-selected='true'] {
+  color: var(--primary-900);
+}
+.select__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.select__label {
+  font-weight: 500;
+}
+.select__option[aria-selected='true'] .select__label {
+  font-weight: 600;
+}
+.select__hint {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--gray-500);
+}
+.select__check {
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+.select__option[aria-selected='true'] .select__check {
+  visibility: visible;
 }
 .form-error {
   display: flex;
@@ -232,6 +386,12 @@
   color: var(--gray-500);
   overflow-wrap: anywhere;
 }
+.menu-anchor {
+  position: relative;
+}
+.popover--menu {
+  width: 240px;
+}
 
 /* ---------- body: sidebar + main ---------- */
 .app-body {
@@ -247,7 +407,13 @@
 .sidebar {
   position: sticky;
   top: 84px;
-  flex: 0 0 220px;
+  /* Room for focus rings inside the scroll box, without moving the layout. */
+  flex: 0 0 228px;
+  margin: -4px;
+  padding: 4px 4px 12px;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -290,6 +456,84 @@
   flex: 0 0 auto !important;
   font-size: 12px;
   font-weight: 500;
+  color: var(--gray-500);
+}
+.nav__heading {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+.nav__item .nav__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav__item--new {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-weight: 500;
+  color: var(--gray-500);
+  text-align: left;
+}
+.nav__item--new:hover {
+  color: var(--primary-900);
+}
+/* The storage meter closes the sidebar and opens the Storage page. */
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  color: #374151;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.meter:hover {
+  background: var(--gray-200);
+  color: #374151;
+}
+.meter[aria-current='page'] {
+  background: var(--primary-100);
+  border-color: var(--primary-100);
+  color: var(--primary-900);
+}
+.meter__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.meter__bar {
+  display: block;
+  height: 8px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.meter__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-700);
+}
+.meter__bar--full span {
+  background: #b45309;
+}
+.meter__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
   color: var(--gray-500);
 }
 .main {
@@ -971,7 +1215,7 @@
 .info dl {
   margin: 0;
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
+  grid-template-columns: minmax(80px, max-content) minmax(0, 1fr);
   gap: 8px 12px;
   font-size: 13px;
   padding-top: 16px;
@@ -1102,6 +1346,7 @@
 }
 .picker__drives {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .picker__drives button {
@@ -1361,7 +1606,7 @@
 .viewer__info dl {
   margin: 0;
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
+  grid-template-columns: minmax(80px, max-content) minmax(0, 1fr);
   gap: 10px 12px;
   font-size: 13px;
 }
@@ -1499,6 +1744,16 @@
   from {
     opacity: 0;
     transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -1654,6 +1909,71 @@
     max-height: 88%;
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
     animation: sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  }
+  /* A page menu is a sheet: its button may sit at the left edge. */
+  .menu-anchor .popover-scrim {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .popover--menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    animation: sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  }
+  /* A select opens as a sheet; these win over the desktop placement. */
+  .select__scrim {
+    background: rgba(0, 0, 0, 0.4);
+    animation: fade-in 0.2s ease-out both;
+  }
+  .select__pop {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0;
+    width: auto;
+    min-width: 0 !important;
+    max-width: none;
+    max-height: 75% !important;
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+    animation: sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  }
+  .select__pop::before {
+    content: '';
+    flex: 0 0 auto;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    margin-bottom: 8px;
+    border-radius: var(--radius-full);
+    background: var(--gray-200);
+  }
+  .select__title {
+    display: block;
+    margin: 0;
+    padding: 4px 12px 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gray-900);
+  }
+  .select__list {
+    padding: 0;
+  }
+  .select__option {
+    min-height: 52px;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+  .select__hint {
+    font-size: 13px;
   }
   .toast {
     bottom: calc(160px + env(safe-area-inset-bottom));

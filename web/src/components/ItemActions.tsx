@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { api, type Drive, type Node } from '../api'
+import { api, type Drive, type Node, type User } from '../api'
 import { notifyChanged } from '../events'
 import { useT } from '../i18n'
 import { openFolder } from '../motion'
 import { errorText, MoveDialog, NameDialog } from './Dialogs'
 import { hrefFor, storedSort } from './Items'
+import { ShareDialog } from './Share'
 import { showToast } from './Toast'
 import { Viewer } from './Viewer'
 
-type Dialog = { kind: 'rename' | 'move'; node: Node } | null
+type Dialog = { kind: 'rename' | 'move' | 'share'; node: Node } | null
 
 interface ViewerState {
   files: Node[]
@@ -19,7 +20,7 @@ interface ViewerState {
 // useItemActions is what can be done to an item wherever it is listed:
 // in its folder, in Recent, Starred or search results. elements holds the
 // dialogs and viewer to render.
-export function useItemActions({ drives, reload }: { drives: Drive[]; reload: () => void }) {
+export function useItemActions({ drives, me, reload }: { drives: Drive[]; me: User; reload: () => void }) {
   const t = useT()
   const [dialog, setDialog] = useState<Dialog>(null)
   const [viewer, setViewer] = useState<ViewerState | null>(null)
@@ -98,6 +99,13 @@ export function useItemActions({ drives, reload }: { drives: Drive[]; reload: ()
           }}
         />
       )}
+      {dialog?.kind === 'share' && (
+        <ShareDialog node={dialog.node} me={me}
+          onClose={() => {
+            setDialog(null)
+            reload()
+          }} />
+      )}
       {viewer && viewer.files[viewer.index] && (
         <Viewer
           files={viewer.files}
@@ -116,6 +124,7 @@ export function useItemActions({ drives, reload }: { drives: Drive[]; reload: ()
     trash,
     rename: (n: Node) => setDialog({ kind: 'rename', node: n }),
     move: (n: Node) => setDialog({ kind: 'move', node: n }),
+    share: (n: Node) => setDialog({ kind: 'share', node: n }),
     elements,
   }
 }

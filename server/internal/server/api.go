@@ -140,6 +140,16 @@ var apiErrors = []struct {
 	{files.ErrUploadFailed, http.StatusBadRequest, "upload_failed"},
 	{files.ErrNotTrashed, http.StatusConflict, "not_trashed"},
 	{files.ErrDiskFull, http.StatusInsufficientStorage, "disk_full"},
+	{files.ErrPersonalDrive, http.StatusBadRequest, "personal_drive"},
+	{files.ErrLastManager, http.StatusConflict, "last_manager"},
+	{files.ErrDriveNotEmpty, http.StatusConflict, "drive_not_empty"},
+	{files.ErrInvalidRole, http.StatusBadRequest, "invalid_role"},
+	{files.ErrSharedItem, http.StatusForbidden, "shared_item"},
+	{files.ErrMoveOut, http.StatusBadRequest, "move_out"},
+	{files.ErrInvalidAccess, http.StatusBadRequest, "bad_request"},
+	{files.ErrHasAccess, http.StatusConflict, "has_access"},
+	{files.ErrInvalidExpiry, http.StatusBadRequest, "bad_request"},
+	{files.ErrLinkPassword, http.StatusBadRequest, "link_password"},
 	{accounts.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{accounts.ErrInvalidCode, http.StatusUnauthorized, "invalid_code"},
 	{accounts.ErrTooManyCodes, http.StatusTooManyRequests, "too_many_codes"},
@@ -174,7 +184,7 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, context.Canceled) {
 		return
 	}
-	s.log.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
+	s.log.Error("request failed", "method", r.Method, "path", logPath(r.URL.Path), "error", err)
 	writeError(w, http.StatusInternalServerError, "internal")
 }
 

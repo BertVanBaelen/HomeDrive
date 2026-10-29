@@ -84,6 +84,10 @@ func New(conn *sql.DB, sender hdmail.Sender, log *slog.Logger, origin string) *S
 	return &Service{db: conn, hasher: auth.NewHasher(), mail: sender, log: log, origin: origin, now: time.Now}
 }
 
+// Hasher is the password hasher, shared with link passwords so that all
+// Argon2 work together stays within its memory budget.
+func (s *Service) Hasher() *auth.Hasher { return s.hasher }
+
 // NormalizeEmail trims and lower-cases an address and checks its form.
 func NormalizeEmail(s string) (string, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
@@ -134,8 +138,18 @@ func (s *Service) User(ctx context.Context, id string) (User, error) {
 		`SELECT `+userColumns+` FROM users WHERE id = ? AND disabled_at IS NULL`, id))
 }
 
-// createUser inserts a user and gives them their drives, inside tx.
-func (s *Service) createUser(ctx context.Context, tx *sql.Tx, email, name, passwordHash, role, locale string) (User, error) {
+// FirstDriveName is the first shared drive's name, in the admin's language.
+// It matches what v1 showed for its family drive.
+func FirstDriveName(locale string) string {
+	if locale == "nl" {
+		return "Familie"
+	}
+	return "Family"
+}
+
+// createUser inserts a user and gives them their drives, inside tx: see
+// files.ProvisionUser for driveIDs.
+func (s *Service) createUser(ctx context.Context, tx *sql.Tx, email, name, passwordHash, role, locale string, driveIDs []string) (User, error) {
 	now := s.now()
 	u := User{ID: db.NewID(), Email: email, Name: name, Role: role, Locale: normalizeLocale(locale), CreatedAt: now}
 	_, err := tx.ExecContext(ctx,
@@ -147,13 +161,17 @@ func (s *Service) createUser(ctx context.Context, tx *sql.Tx, email, name, passw
 	if err != nil {
 		return User{}, err
 	}
-	if err := files.ProvisionUser(ctx, tx, u.ID, now); err != nil {
+	if err := files.ProvisionUser(ctx, tx, u.ID, now, FirstDriveName(u.Locale), driveIDs); err != nil {
+		if errors.Is(err, files.ErrNotFound) {
+			return User{}, err
+		}
 		return User{}, fmt.Errorf("creating drives: %w", err)
 	}
 	return u, nil
 }
 
-// CreateUser adds an account with its drives. role is "admin" or "member".
+// CreateUser adds an account with its drives: the shared drives new users
+// join by default. role is "admin" or "member".
 func (s *Service) CreateUser(ctx context.Context, email, name, password, role, locale string) (User, error) {
 	email, err := NormalizeEmail(email)
 	if err != nil {
@@ -177,7 +195,7 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password, role, l
 		return User{}, err
 	}
 	defer tx.Rollback()
-	u, err := s.createUser(ctx, tx, email, name, hash, role, locale)
+	u, err := s.createUser(ctx, tx, email, name, hash, role, locale, nil)
 	if err != nil {
 		return User{}, err
 	}

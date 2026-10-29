@@ -25,7 +25,9 @@ func (s *Service) DeleteForever(ctx context.Context, userID, nodeID string) erro
 	if it.TrashedAt == nil {
 		return ErrNotTrashed
 	}
-	if !it.drive.CanEdit() {
+	// Deleting for good takes being an editor of the drive: what was
+	// shared with someone can't be lost by them.
+	if !it.driveEdit {
 		return ErrReadOnly
 	}
 	objects, err := s.purge(ctx, tx, []string{it.ID})

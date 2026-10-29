@@ -40,7 +40,7 @@ func newService(t testing.TB) (*Service, string, string, string) {
 		uid, db.FormatTime(time.Now())); err != nil {
 		t.Fatal(err)
 	}
-	if err := ProvisionUser(ctx, tx, uid, time.Now()); err != nil {
+	if err := ProvisionUser(ctx, tx, uid, time.Now(), "Family", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

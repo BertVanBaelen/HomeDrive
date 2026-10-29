@@ -12,20 +12,28 @@ import (
 // MaxQuery limits search terms.
 const MaxQuery = 100
 
-// locate lists nodes across every drive the user can see. where and order
-// are SQL over the nodes table aliased n; where may use ?2, ?3… for args
-// (?1 is the user). Items in the trash, directly or through a folder, are
-// skipped unless trashedOK.
+// locate lists nodes across every drive the user can see, and inside what
+// was shared with them. where and order are SQL over the nodes table
+// aliased n, its drive d and the user's membership m (NULL when they
+// aren't in the drive); where may use ?2, ?3… for args (?1 is the user).
+// Items in the trash, directly or through a folder, are skipped unless
+// trashedOK.
 func (s *Service) locate(ctx context.Context, userID, where string, args []any, order string, limit int, trashedOK bool) ([]Located, error) {
 	// Candidates may turn out to be inside a trashed folder; fetch extra.
 	fetch := limit
 	if !trashedOK {
 		fetch = limit * 3
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT n.id FROM nodes n
+	rows, err := s.db.QueryContext(ctx, `
+		WITH RECURSIVE shared(id) AS (
+			SELECT node_id FROM people_shares WHERE user_id = ?1
+			UNION
+			SELECT c.id FROM nodes c JOIN shared ON c.parent_id = shared.id
+		)
+		SELECT n.id FROM nodes n
 		JOIN drives d ON d.id = n.drive_id
 		LEFT JOIN drive_members m ON m.drive_id = d.id AND m.user_id = ?1
-		WHERE (d.owner_user_id = ?1 OR m.user_id IS NOT NULL) AND `+where+`
+		WHERE (d.owner_user_id = ?1 OR m.user_id IS NOT NULL OR n.id IN (SELECT id FROM shared)) AND `+where+`
 		ORDER BY `+order+` LIMIT `+strconv.Itoa(fetch), append([]any{userID}, args...)...)
 	if err != nil {
 		return nil, err
@@ -43,7 +51,13 @@ func (s *Service) locate(ctx context.Context, userID, where string, args []any, 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	return s.located(ctx, userID, ids, limit, trashedOK)
+}
 
+// located loads up to limit of ids as the user sees them, in order,
+// skipping those they can't see (or that are in the trash, unless
+// trashedOK).
+func (s *Service) located(ctx context.Context, userID string, ids []string, limit int, trashedOK bool) ([]Located, error) {
 	out := []Located{}
 	for _, id := range ids {
 		if len(out) == limit {
@@ -65,22 +79,72 @@ func (s *Service) locate(ctx context.Context, userID, where string, args []any, 
 		}
 		out = append(out, Located{Node: it.Node, Drive: it.drive, Path: nonNil(it.path)})
 	}
-	stars, err := s.starSet(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
 	nodes := make([]Node, len(out))
 	for i := range out {
-		out[i].Starred = stars[out[i].ID]
 		nodes[i] = out[i].Node
 	}
-	if err := s.addPreviews(ctx, nodes); err != nil {
+	if err := s.decorate(ctx, userID, nodes); err != nil {
 		return nil, err
 	}
 	for i := range out {
-		out[i].Preview = nodes[i].Preview
+		out[i].Node = nodes[i]
 	}
 	return out, nil
+}
+
+// decorate adds what depends on who is asking, and folder previews.
+func (s *Service) decorate(ctx context.Context, userID string, nodes []Node) error {
+	if err := s.markStars(ctx, userID, nodes); err != nil {
+		return err
+	}
+	if err := s.markShared(ctx, userID, nodes); err != nil {
+		return err
+	}
+	return s.addPreviews(ctx, nodes)
+}
+
+// markShared sets Shared on the nodes that are shared with people or have
+// a link, for the people who may manage that: the drive's editors and
+// managers. Others don't see who else was given access.
+func (s *Service) markShared(ctx context.Context, userID string, nodes []Node) error {
+	if len(nodes) == 0 {
+		return nil
+	}
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.ID
+	}
+	list, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT n.id FROM nodes n
+		JOIN drives d ON d.id = n.drive_id
+		LEFT JOIN drive_members m ON m.drive_id = d.id AND m.user_id = ?1
+		WHERE n.id IN (SELECT value FROM json_each(?2))
+			AND (d.owner_user_id = ?1 OR m.role IN ('editor', 'manager'))
+			AND (EXISTS (SELECT 1 FROM people_shares WHERE node_id = n.id)
+				OR EXISTS (SELECT 1 FROM links WHERE node_id = n.id))`, userID, string(list))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	set := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		set[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range nodes {
+		nodes[i].Shared = set[nodes[i].ID]
+	}
+	return nil
 }
 
 func (s *Service) starSet(ctx context.Context, userID string) (map[string]bool, error) {
@@ -170,7 +234,7 @@ func (s *Service) SetStar(ctx context.Context, userID, nodeID string, on bool) (
 	if err != nil {
 		return Node{}, err
 	}
-	if it.isRoot() {
+	if it.ParentID == "" {
 		return Node{}, ErrRoot
 	}
 	if on {

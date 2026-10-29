@@ -12,8 +12,9 @@ import (
 var ErrDiskFull = errors.New("not enough free space")
 
 // diskReserve stays free on the data disk: the database, the backup's
-// temporary files and the system need room too.
-const diskReserve = 512 << 20
+// temporary files and the system need room too. 512 MB, counted like the
+// web app counts sizes.
+const diskReserve = 512_000_000
 
 // leftoverAge protects files that are being written right now: a chunk or
 // object younger than this is never treated as a leftover.

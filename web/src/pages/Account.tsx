@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, type SessionInfo, type User } from '../api'
 import { errorText } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
+import { SelectField } from '../components/Select'
 import { showToast } from '../components/Toast'
 import { formatWhen } from '../format'
 import { detectLocale, translator, useLocale, useT, type Translate } from '../i18n'
@@ -75,14 +76,12 @@ function Profile({ user, onUser }: { user: User; onUser: (u: User) => void }) {
       <form className="form" onSubmit={save}>
         <Field label={t('account.name')} value={name} required maxLength={80} autoComplete="name"
           onChange={(e) => setName(e.target.value)} />
-        <div className="field">
-          <label htmlFor="locale">{t('account.language')}</label>
-          <select id="locale" value={locale} onChange={(e) => setLocale(e.target.value)}>
-            <option value="">{t('account.langAuto')}</option>
-            <option value="en">English</option>
-            <option value="nl">Nederlands</option>
-          </select>
-        </div>
+        <SelectField label={t('account.language')} value={locale} onChange={setLocale}
+          options={[
+            { value: '', label: t('account.langAuto') },
+            { value: 'en', label: 'English' },
+            { value: 'nl', label: 'Nederlands' },
+          ]} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="form__foot">
           <button type="submit" className="btn btn--primary" disabled={busy || (name === user.name && locale === user.locale)}>

@@ -23,6 +23,28 @@ func HashToken(token string) []byte {
 	return h[:]
 }
 
+// LinkTokenLength is the length of a public link's token: 128 random bits
+// in base64url.
+const LinkTokenLength = 22
+
+// NewLinkToken returns a token for a public link and its SHA-256.
+func NewLinkToken() (token string, hash []byte) {
+	b := make([]byte, 16)
+	rand.Read(b)
+	token = base64.RawURLEncoding.EncodeToString(b)
+	return token, HashToken(token)
+}
+
+// ValidLinkToken reports whether s could be a link token, so that anything
+// else is turned away before the database is asked.
+func ValidLinkToken(s string) bool {
+	if len(s) != LinkTokenLength {
+		return false
+	}
+	b, err := base64.RawURLEncoding.Strict().DecodeString(s)
+	return err == nil && len(b) == 16
+}
+
 // CodeDigits is the length of email codes.
 const CodeDigits = 8
 

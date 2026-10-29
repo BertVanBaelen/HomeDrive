@@ -11,12 +11,44 @@ export interface User {
   locale: string
 }
 
+// Drive is where an item lives. Kind 'share' is an item someone shared with
+// the user: its name and rootId are the shared item's.
 export interface Drive {
   id: string
-  kind: 'personal' | 'shared'
+  kind: 'personal' | 'shared' | 'share'
   name: string
   rootId: string
   role: 'viewer' | 'editor' | 'manager'
+  sharedBy?: string
+  // The user may share items here with people and by link.
+  canShare?: boolean
+}
+
+export type DriveRole = Drive['role']
+
+// Member is someone in a shared drive.
+export interface Member {
+  userId: string
+  name: string
+  email: string
+  role: DriveRole
+  disabled: boolean
+}
+
+// Person is an account that can be added to a shared drive.
+export interface Person {
+  id: string
+  name: string
+  email: string
+}
+
+// AdminDrive is a shared drive in the admin's list: no file names.
+export interface AdminDrive {
+  id: string
+  name: string
+  size: number
+  joinByDefault: boolean
+  members: Member[]
 }
 
 export interface Node {
@@ -33,6 +65,8 @@ export interface Node {
   trashedAt?: string
   childCount?: number
   starred: boolean
+  // Shared with people or by link; only told to those who can share.
+  shared?: boolean
   // A folder's first items, for its thumbnail.
   preview?: Mini[]
 }
@@ -59,6 +93,68 @@ export interface Details {
 export interface Located extends Node {
   drive: Drive
   path: Crumb[]
+}
+
+export type ShareAccess = 'view' | 'edit'
+
+// Share is a person an item is shared with. From is set when the share is
+// on a folder above the item.
+export interface Share {
+  userId: string
+  name: string
+  email: string
+  access: ShareAccess
+  disabled?: boolean
+  from?: Crumb
+}
+
+export type LinkExpiry = 'never' | '7d' | '1d'
+
+export interface Link {
+  id: string
+  token: string
+  expiry: LinkExpiry
+  expiresAt?: string
+  expired?: boolean
+  password: boolean
+  createdAt: string
+}
+
+// Sharing is what the share dialog shows for an item.
+export interface Sharing {
+  drive: Drive
+  members: number
+  // Drive editors and managers: they have access already.
+  editors: string[]
+  people: Share[]
+  inherited: Share[]
+  link: Link | null
+}
+
+export interface SharedItem extends Located {
+  sharedBy: string
+  sharedAt: string
+  access: ShareAccess
+}
+
+// PublicNode is an item as a link visitor sees it.
+export interface PublicNode {
+  id: string
+  kind: 'folder' | 'file'
+  type: FileType
+  name: string
+  size: number
+  mime?: string
+  modifiedAt: string
+  childCount?: number
+  preview?: Mini[]
+}
+
+export interface LinkPage {
+  node: PublicNode
+  // From the linked item down to the node's parent.
+  path: Crumb[]
+  children?: PublicNode[]
 }
 
 export interface UserInfo extends User {
@@ -91,6 +187,47 @@ export interface BackupStatus {
   snapshots: number
   objects: number
   bytes: number
+}
+
+// Sizes in bytes. Trash counts what is inside trashed folders; old versions
+// are contents that newer ones replaced.
+export interface StorageUsage {
+  files: number
+  trash: number
+  oldVersions: number
+}
+
+export type StorageCategory = 'documents' | 'spreadsheets' | 'pdfs' | 'images' | 'video' | 'audio' | 'archives' | 'other'
+
+export interface StoragePage {
+  myFiles: StorageUsage & { types: Record<StorageCategory, number> }
+  largest: Located[]
+  // On every drive the user can edit: what emptying the trash and deleting
+  // old versions would free.
+  trash: number
+  oldVersions: number
+  retentionDays: number
+}
+
+// Disk is the data disk. homedrive is what all versions of all files take;
+// reserve is kept free.
+export interface Disk {
+  total: number
+  free: number
+  used: number
+  homedrive: number
+  reserve: number
+}
+
+export interface StorageMeter {
+  used: number
+  disk?: Disk | null
+}
+
+export interface HouseholdStorage {
+  disk: Disk | null
+  people: (StorageUsage & { id: string; name: string; disabled?: boolean })[]
+  drives: (StorageUsage & { id: string; name: string; members: number })[]
 }
 
 // DeviceToken is an upload key for the iPhone Shortcut.
@@ -195,6 +332,15 @@ export const api = {
   recoverFinish: (token: string, code: string) => request<User>('POST', '/api/recover/finish', { token, code }),
 
   drives: () => request<Drive[]>('GET', '/api/drives'),
+  createDrive: (name: string) => request<Drive>('POST', '/api/drives', { name }),
+  renameDrive: (id: string, name: string) => request<Drive>('PATCH', `/api/drives/${encodeURIComponent(id)}`, { name }),
+  deleteDrive: (id: string) => request<void>('DELETE', `/api/drives/${encodeURIComponent(id)}`),
+  members: (id: string) => request<Member[]>('GET', `/api/drives/${encodeURIComponent(id)}/members`),
+  setMember: (id: string, userId: string, role: DriveRole) =>
+    request<void>('PUT', `/api/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { role }),
+  removeMember: (id: string, userId: string) =>
+    request<void>('DELETE', `/api/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
+  people: () => request<Person[]>('GET', '/api/people'),
   node: (id: string) => request<Details>('GET', `/api/nodes/${encodeURIComponent(id)}`),
   children: (id: string, sort: SortKey, desc: boolean) =>
     request<Node[]>('GET', `/api/nodes/${encodeURIComponent(id)}/children?sort=${sort}&order=${desc ? 'desc' : 'asc'}`),
@@ -210,6 +356,25 @@ export const api = {
   starred: () => request<Located[]>('GET', '/api/starred'),
   recent: () => request<Located[]>('GET', '/api/recent'),
   search: (q: string) => request<Located[]>('GET', `/api/search?q=${encodeURIComponent(q)}`),
+  storage: () => request<StoragePage>('GET', '/api/storage'),
+  storageMeter: () => request<StorageMeter>('GET', '/api/storage/meter'),
+  deleteOldVersions: () => request<{ deleted: number; freed: number }>('DELETE', '/api/old-versions'),
+
+  sharedWithMe: () => request<SharedItem[]>('GET', '/api/shared'),
+  sharing: (id: string) => request<Sharing>('GET', `/api/nodes/${encodeURIComponent(id)}/shares`),
+  setShare: (id: string, userId: string, access: ShareAccess) =>
+    request<void>('PUT', `/api/nodes/${encodeURIComponent(id)}/shares/${encodeURIComponent(userId)}`, { access }),
+  removeShare: (id: string, userId: string) =>
+    request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}/shares/${encodeURIComponent(userId)}`),
+  // An empty password removes it; leaving it out keeps it.
+  setLink: (id: string, p: { expiry?: LinkExpiry; password?: string }) =>
+    request<Link>('PUT', `/api/nodes/${encodeURIComponent(id)}/link`, p),
+  removeLink: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}/link`),
+
+  linkPage: (token: string, id?: string) =>
+    request<LinkPage>('GET', `/api/s/${encodeURIComponent(token)}${id ? `/nodes/${encodeURIComponent(id)}` : ''}`),
+  unlockLink: (token: string, password: string) =>
+    request<void>('POST', `/api/s/${encodeURIComponent(token)}/unlock`, { password }),
 
   reauth: (password: string) => request<void>('POST', '/api/auth/reauth', { password }),
   updateMe: (p: { name?: string; locale?: string }) => request<User>('PATCH', '/api/me', p),
@@ -222,13 +387,21 @@ export const api = {
   revokeDeviceToken: (id: string) => request<void>('DELETE', `/api/me/devices/${encodeURIComponent(id)}`),
 
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
-  inviteUser: (p: { email: string; name: string; role: string; locale: string }) =>
+  inviteUser: (p: { email: string; name: string; role: string; locale: string; driveIds?: string[] }) =>
     request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
   updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
+  adminDrives: () => request<AdminDrive[]>('GET', '/api/admin/drives'),
+  setJoinByDefault: (id: string, joinByDefault: boolean) =>
+    request<void>('PATCH', `/api/admin/drives/${encodeURIComponent(id)}`, { joinByDefault }),
+  adminSetMember: (id: string, userId: string, role: DriveRole) =>
+    request<void>('PUT', `/api/admin/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { role }),
+  adminRemoveMember: (id: string, userId: string) =>
+    request<void>('DELETE', `/api/admin/drives/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
   backupStatus: () => request<BackupStatus>('GET', '/api/admin/backup'),
   backupNow: () => request<void>('POST', '/api/admin/backup'),
+  householdStorage: () => request<HouseholdStorage>('GET', '/api/admin/storage'),
 
   welcomeCheck: (token: string) => request<PasswordLink>('POST', '/api/welcome/check', { token }),
   welcomeFinish: (token: string, password: string) =>
@@ -241,6 +414,26 @@ export const api = {
   cancelUpload: (id: string) => request<void>('DELETE', `/api/uploads/${encodeURIComponent(id)}`),
 }
 
-export function contentUrl(id: string, download = false): string {
-  return `/api/nodes/${encodeURIComponent(id)}/content${download ? '?download=1' : ''}`
+// ContentUrl gives the address of a file's content (download: as an
+// attachment). Link visitors use linkContent instead of the default.
+export type ContentUrl = (id: string, download?: boolean) => string
+
+export const contentUrl: ContentUrl = (id, download = false) =>
+  `/api/nodes/${encodeURIComponent(id)}/content${download ? '?download=1' : ''}`
+
+export function zipUrl(id: string): string {
+  return `/api/nodes/${encodeURIComponent(id)}/zip`
+}
+
+export function linkContent(token: string): ContentUrl {
+  const base = `/api/s/${encodeURIComponent(token)}/nodes/`
+  return (id, download = false) => `${base}${encodeURIComponent(id)}/content${download ? '?download=1' : ''}`
+}
+
+export function linkZipUrl(token: string, id: string): string {
+  return `/api/s/${encodeURIComponent(token)}/nodes/${encodeURIComponent(id)}/zip`
+}
+
+export function linkAddress(token: string): string {
+  return `${location.origin}/s/${token}`
 }

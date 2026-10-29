@@ -3,6 +3,7 @@ import { api, ApiError, type Drive, type Node } from '../api'
 import { displayName } from '../format'
 import { useT, type MessageKey, type Translate } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
+import { driveLabel } from './Items'
 
 // errorText turns an API error into a sentence for the user.
 export function errorText(t: Translate, err: unknown): string {
@@ -169,7 +170,7 @@ export function AddDialog({
   )
 }
 
-// NameDialog asks for one name: new folder or rename.
+// NameDialog asks for one name: new folder, rename, new shared drive.
 export function NameDialog({
   title,
   subtitle,
@@ -178,6 +179,7 @@ export function NameDialog({
   placeholder,
   submit,
   selectStem,
+  maxLength = 255,
   onBack,
   onClose,
   onSubmit,
@@ -189,6 +191,7 @@ export function NameDialog({
   placeholder?: string
   submit: string
   selectStem?: boolean
+  maxLength?: number
   onBack?: () => void
   onClose: () => void
   onSubmit: (name: string) => Promise<void>
@@ -225,7 +228,7 @@ export function NameDialog({
     <Modal title={title} subtitle={subtitle} onClose={onClose}>
       <form className="field" onSubmit={save}>
         <label htmlFor={inputId}>{label}</label>
-        <input id={inputId} ref={input} value={name} placeholder={placeholder} maxLength={255}
+        <input id={inputId} ref={input} value={name} placeholder={placeholder} maxLength={maxLength}
           onChange={(e) => setName(e.target.value)} autoComplete="off" />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="modal__foot">
@@ -270,9 +273,9 @@ export function MoveDialog({
   )
 }
 
-// FolderPicker browses the folders on the user's drives. excludeId (the
-// folder being moved) can't be entered; currentId (where it already is)
-// can't be picked.
+// FolderPicker browses the folders on the drives the user can add to.
+// excludeId (the folder being moved) can't be entered; currentId (where it
+// already is) can't be picked.
 export function FolderPicker({
   title,
   submit,
@@ -316,10 +319,12 @@ export function FolderPicker({
     }
   }, [folder, t])
 
-  const driveLabel = (d: Drive) => (d.kind === 'personal' ? t('nav.myFiles') : t('nav.family'))
-  const here = trail.length ? trail[trail.length - 1].name : drive ? driveLabel(drive) : ''
+  const label = (d: Drive) => driveLabel(t, d)
+  const here = trail.length ? trail[trail.length - 1].name : drive ? label(drive) : ''
   const parentOfHere = trail.length > 1 ? trail[trail.length - 2].id : drive?.rootId
-  const path = drive ? [driveLabel(drive), ...trail.map((c) => c.name)].join(' / ') : ''
+  const path = drive ? [label(drive), ...trail.map((c) => c.name)].join(' / ') : ''
+  const writable = drives.filter((d) => d.role !== 'viewer')
+  const canPick = !!drive && drive.role !== 'viewer' && folder !== currentId && folder !== excludeId
 
   async function pick() {
     setBusy(true)
@@ -336,9 +341,9 @@ export function FolderPicker({
     <Modal title={title} onClose={onClose}>
       <div className="picker">
         <div className="picker__drives" role="group">
-          {drives.map((d) => (
+          {writable.map((d) => (
             <button key={d.id} type="button" aria-pressed={drive?.id === d.id} onClick={() => setFolder(d.rootId)}>
-              {driveLabel(d)}
+              {label(d)}
             </button>
           ))}
         </div>
@@ -364,7 +369,7 @@ export function FolderPicker({
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="modal__foot">
           <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" className="btn btn--primary" disabled={busy || !drive || folder === currentId || folder === excludeId}
+          <button type="button" className="btn btn--primary" disabled={busy || !canPick}
             onClick={pick}>
             {submit}
           </button>

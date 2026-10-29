@@ -212,14 +212,7 @@ func (s *Service) Open(ctx context.Context, userID, nodeID string) (*os.File, No
 	if err != nil {
 		return nil, Node{}, err
 	}
-	if it.IsFolder() || it.versionID == "" {
-		return nil, Node{}, ErrNotFound
-	}
-	var objectID string
-	if err := s.db.QueryRowContext(ctx, `SELECT object_id FROM versions WHERE id = ?`, it.versionID).Scan(&objectID); err != nil {
-		return nil, Node{}, err
-	}
-	f, err := s.store.OpenObject(objectID)
+	f, err := s.openVersion(ctx, it.Node)
 	if err != nil {
 		return nil, Node{}, err
 	}

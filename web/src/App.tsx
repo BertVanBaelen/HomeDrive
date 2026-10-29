@@ -6,8 +6,8 @@ import { Page } from './components/Shell'
 import { Toast } from './components/Toast'
 import { detectLocale, LocaleContext, type Locale } from './i18n'
 import { Account } from './pages/Account'
-import { Backup } from './pages/Backup'
 import { Browser } from './pages/Browser'
+import { LinkPage } from './pages/LinkPage'
 import { Login } from './pages/Login'
 import { Save } from './pages/Save'
 import { Setup } from './pages/Setup'
@@ -45,7 +45,8 @@ export function App() {
   }
 
   let page
-  if (route.name === 'setup') page = <Setup onSignedIn={signedIn} />
+  if (route.name === 'link') page = <LinkPage key={route.token} token={route.token} nodeId={route.nodeId} />
+  else if (route.name === 'setup') page = <Setup onSignedIn={signedIn} />
   else if (route.name === 'recover') page = <Setup mode="recover" onSignedIn={signedIn} />
   else if (route.name === 'welcome') page = <Welcome onSignedIn={signedIn} />
   else if (user === undefined) {
@@ -72,12 +73,6 @@ export function App() {
     page = (
       <Page user={user} onSignOut={signOut}>
         <Users me={user} />
-      </Page>
-    )
-  } else if (route.name === 'backup' && user.role === 'admin') {
-    page = (
-      <Page user={user} onSignOut={signOut}>
-        <Backup />
       </Page>
     )
   } else page = <Browser user={user} route={route} onSignOut={signOut} />

@@ -7,6 +7,7 @@ This package is the **design handoff**: the interactive mockup source plus every
 ```
 homedrive-mockup/
 ├── README.md              ← this file
+├── emails.html            ← the v3 email mockups (self-contained, opens in a browser)
 └── design/
     ├── Main.dc.html       ← the full app mockup (desktop + responsive mobile layout, all logic)
     ├── Mobile.dc.html     ← phone frame (390×844) that mounts Main with mobile=true
@@ -34,6 +35,8 @@ homedrive-mockup/
 | **Trash** | Soft delete, restore, empty trash. |
 
 All data in the mockup (files, people, sizes, disks) is **sample data**.
+
+> **In the app (v2, 2026-10-29):** public links are view-only (no *Can edit*), with an optional password, and folders can be downloaded as `.zip`. The phone tab bar is Files, Shared, Recent, Starred, Trash; the desktop sidebar adds a *Shared drives* group and *Shared with me*. The Storage page has no disk health/RAID, *old backups* or *large videos* actions; it opens from a storage meter in the sidebar instead of the server pill. Details in [`docs/architecture.md`](../docs/architecture.md).
 
 ---
 

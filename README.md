@@ -22,6 +22,8 @@ A self-hosted online drive for your household's documents. Runs as a Home Assist
 2. Install **Homedrive**, fill in the options, start it.
 3. Point your Cloudflared add-on at it. See the [add-on documentation](homedrive/DOCS.md).
 
+New versions show up as add-on updates, with their notes from the [changelog](homedrive/CHANGELOG.md).
+
 ### Docker
 
 See [`docker-compose.example.yml`](docker-compose.example.yml).
@@ -51,6 +53,16 @@ go run ./cmd/homedrive export <backup folder> <empty target folder>
 ```
 
 rebuilds a normal folder tree from a backup, without a running server. Fuzz targets (`go test -fuzz`) cover name validation, sorting, chunked upload offsets, export names and config parsing.
+
+### Releasing
+
+Versions are `X.Y.Z`. From v2 on, X is the roadmap version, Y goes up with each feature and Z with each set of fixes.
+
+1. On the branch, raise `version` in [`homedrive/config.yaml`](homedrive/config.yaml) and add a `## X.Y.Z` section to [`homedrive/CHANGELOG.md`](homedrive/CHANGELOG.md), written for the people who use Homedrive. CI fails when the version has no notes.
+2. Merge into `main`. Once CI passes, the [Release workflow](.github/workflows/release.yml) builds and pushes `ghcr.io/bertvanbaelen/homedrive:X.Y.Z` (and `X.Y`, `latest`), then tags `vX.Y.Z` and creates the GitHub release with those notes.
+3. Home Assistant reads the version from `main`, so it can offer the update a few minutes before the image is ready. Wait for the workflow to finish before updating.
+
+Merges that don't change the version publish nothing. Don't push version tags by hand: the workflow makes them. To retry a failed release, run the workflow by hand on `main`.
 
 ## Security
 

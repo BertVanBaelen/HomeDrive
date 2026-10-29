@@ -31,6 +31,16 @@ type Server struct {
 	// counts failed passwords per account.
 	ipLimit      *ratelimit.Limiter
 	accountLimit *ratelimit.Limiter
+
+	// grantKey signs the cookies that remember link passwords. linkLimit
+	// counts links that don't work per client address; linkPassLimit
+	// wrong link passwords per link and address, linkPassTotal per link.
+	grantKey      []byte
+	linkLimit     *ratelimit.Limiter
+	linkPassLimit *ratelimit.Limiter
+	linkPassTotal *ratelimit.Limiter
+	// zips counts zip downloads in progress.
+	zips *gate
 }
 
 // Deps are the services the HTTP layer serves.
@@ -45,17 +55,27 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	grantKey, err := deps.Files.LinkGrantKey(context.Background())
+	if err != nil {
+		web.Close()
+		return nil, err
+	}
 	return &Server{
-		cfg:          cfg,
-		log:          log,
-		proxies:      clientIPResolver{trusted: cfg.TrustedProxies},
-		headers:      securityHeaders(cfg),
-		web:          web,
-		accounts:     deps.Accounts,
-		files:        deps.Files,
-		backup:       deps.Backup,
-		ipLimit:      ratelimit.New(30, 15*time.Minute),
-		accountLimit: ratelimit.New(10, time.Hour),
+		cfg:           cfg,
+		log:           log,
+		proxies:       clientIPResolver{trusted: cfg.TrustedProxies},
+		headers:       securityHeaders(cfg),
+		web:           web,
+		accounts:      deps.Accounts,
+		files:         deps.Files,
+		backup:        deps.Backup,
+		ipLimit:       ratelimit.New(30, 15*time.Minute),
+		accountLimit:  ratelimit.New(10, time.Hour),
+		grantKey:      grantKey,
+		linkLimit:     ratelimit.New(20, 10*time.Minute),
+		linkPassLimit: ratelimit.New(5, 15*time.Minute),
+		linkPassTotal: ratelimit.New(50, time.Hour),
+		zips:          newGate(),
 	}, nil
 }
 
@@ -70,7 +90,11 @@ func (s *Server) Handler() http.Handler {
 	s.deviceRoutes(mux)
 	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
 	mux.HandleFunc("POST /api/admin/backup", s.admin(s.handleBackupNow))
+	s.storageRoutes(mux)
 	s.fileRoutes(mux)
+	s.driveRoutes(mux)
+	s.shareRoutes(mux)
+	s.linkRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})
@@ -84,7 +108,7 @@ func (s *Server) Handler() http.Handler {
 
 	csrf := http.NewCrossOriginProtection()
 	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.log.Warn("cross-origin request rejected", "method", r.Method, "path", r.URL.Path,
+		s.log.Warn("cross-origin request rejected", "method", r.Method, "path", logPath(r.URL.Path),
 			"origin", r.Header.Get("Origin"), "ip", ClientIP(r.Context()))
 		writeError(w, http.StatusForbidden, "cross_origin")
 	}))

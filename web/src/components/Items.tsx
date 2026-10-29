@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { Drive, Located, Node, SortKey } from '../api'
 import { displayName, formatSize, formatWhen } from '../format'
 import { plural, useLocale, useT, type Locale, type MessageKey, type Translate } from '../i18n'
-import { folderPath } from '../router'
+import { drivePath, folderPath } from '../router'
 import { fileTypes, Icon, icons } from './Icon'
 import { Link } from './Shell'
 import { Thumb } from './Thumb'
@@ -49,19 +49,29 @@ export function useViewPrefs() {
   return { view, setView, sort, setSort }
 }
 
+// driveLabel is what a drive is called: My Files, the shared drive's name,
+// or the shared item's name.
 export function driveLabel(t: Translate, d: Drive): string {
-  return d.kind === 'personal' ? t('nav.myFiles') : t('nav.family')
+  return d.kind === 'personal' ? t('nav.myFiles') : d.name
+}
+
+// driveIcon is the icon for a drive's top folder; a shared item has none.
+export function driveIcon(d: Drive): string | undefined {
+  if (d.kind === 'share') return undefined
+  return d.kind === 'personal' ? icons.home : icons.family
 }
 
 // hrefFor is a folder's URL: drive tops have short ones.
 export function hrefFor(id: string, drives: Drive[]): string {
   const d = drives.find((x) => x.rootId === id)
-  if (d) return d.kind === 'personal' ? '/' : '/family'
+  if (d) return d.kind === 'personal' ? '/' : drivePath(d.id)
   return folderPath(id)
 }
 
-// whereIs is "My Files / Documents" for an item listed outside its folder.
+// whereIs is "My Files / Documents" for an item listed outside its folder,
+// "Shared with me / Holiday" inside something shared with the user.
 export function whereIs(t: Translate, n: Located): string {
+  if (n.drive.kind === 'share') return [t('nav.sharedWithMe'), ...n.path.map((c) => c.name)].join(' / ')
   return [driveLabel(t, n.drive), ...n.path.slice(1).map((c) => c.name)].join(' / ')
 }
 
@@ -85,24 +95,27 @@ export interface Crumb {
   id?: string
   href?: string
   name: string
-  home?: boolean
+  // icon marks a drive's top folder (home for My Files).
+  icon?: string
 }
 
 // PageHead is breadcrumb + back, title + count, page actions and the view
-// toggle.
+// toggle. note replaces the item count; the toggle shows when setView is set.
 export function PageHead({
   crumbs,
   title,
-  count,
+  count = 0,
+  note,
   view,
   setView,
   actions,
 }: {
   crumbs: Crumb[]
   title: string
-  count: number
-  view: View
-  setView: (v: View) => void
+  count?: number
+  note?: string
+  view?: View
+  setView?: (v: View) => void
   actions?: ReactNode
 }) {
   const t = useT()
@@ -129,7 +142,7 @@ export function PageHead({
                 const here = i === crumbs.length - 1
                 const inner = (
                   <>
-                    {c.home && <Icon d={icons.home} size={16} />}
+                    {c.icon && <Icon d={c.icon} size={16} />}
                     {c.name}
                   </>
                 )
@@ -149,12 +162,12 @@ export function PageHead({
         )}
         <div className="page-title">
           <h1>{title}</h1>
-          <span>{plural(t, 'count.items', count)}</span>
+          <span>{note ?? plural(t, 'count.items', count)}</span>
         </div>
       </div>
       <div className="page-head__actions">
         {actions}
-        <ViewToggle view={view} setView={setView} />
+        {view && setView && <ViewToggle view={view} setView={setView} />}
       </div>
     </div>
   )
@@ -188,14 +201,34 @@ function StarMark() {
   )
 }
 
+// SharedMark tells those who can share that an item is shared.
+function SharedMark() {
+  const t = useT()
+  return (
+    <svg role="img" aria-label={t('item.shared')} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#166534"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="star-mark">
+      <path d={icons.shared} />
+    </svg>
+  )
+}
+
 interface ItemsProps<T extends Node> {
   items: T[]
   selected: string | null
   onOpen: (n: T) => void
-  onInfo: (n: T) => void
+  // Without onInfo there is no ⓘ button (link visitors).
+  onInfo?: (n: T) => void
 }
 
-export function Grid<T extends Node>({ items, selected, onOpen, onInfo, zoomed }: ItemsProps<T> & { zoomed?: boolean }) {
+// Grid shows items as cards. meta replaces the line under the name.
+export function Grid<T extends Node>({
+  items,
+  selected,
+  onOpen,
+  onInfo,
+  zoomed,
+  meta: metaFor,
+}: ItemsProps<T> & { zoomed?: boolean; meta?: (n: T) => string }) {
   const t = useT()
   const locale = useLocale()
   return (
@@ -203,9 +236,13 @@ export function Grid<T extends Node>({ items, selected, onOpen, onInfo, zoomed }
       {items.map((n, i) => {
         const type = fileTypes[n.type]
         const name = displayName(n)
-        const size = sizeLabel(n, t, locale)
-        const when = formatWhen(n.modifiedAt, t, locale)
-        const meta = n.kind === 'folder' ? `${size} · ${when}` : `${t(`short.${n.type}` as MessageKey)} · ${size} · ${when}`
+        let meta: string
+        if (metaFor) meta = metaFor(n)
+        else {
+          const size = sizeLabel(n, t, locale)
+          const when = formatWhen(n.modifiedAt, t, locale)
+          meta = n.kind === 'folder' ? `${size} · ${when}` : `${t(`short.${n.type}` as MessageKey)} · ${size} · ${when}`
+        }
         return (
           <div key={n.id} data-node={n.id} className={'card' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
             <button type="button" className="card__open" onClick={() => onOpen(n)}
@@ -217,13 +254,16 @@ export function Grid<T extends Node>({ items, selected, onOpen, onInfo, zoomed }
               </span>
               <span className="card__meta">
                 {n.starred && <StarMark />}
+                {n.shared && <SharedMark />}
                 <span>{meta}</span>
               </span>
             </button>
-            <button type="button" className="round-btn" aria-label={t('item.info', { name })} aria-pressed={selected === n.id}
-              onClick={() => onInfo(n)}>
-              <Icon d={icons.info} />
-            </button>
+            {onInfo && (
+              <button type="button" className="round-btn" aria-label={t('item.info', { name })} aria-pressed={selected === n.id}
+                onClick={() => onInfo(n)}>
+                <Icon d={icons.info} />
+              </button>
+            )}
           </div>
         )
       })}
@@ -231,6 +271,8 @@ export function Grid<T extends Node>({ items, selected, onOpen, onInfo, zoomed }
   )
 }
 
+// List shows items as table rows. location adds a column (titled
+// locationLabel); date replaces the Modified column.
 export function List<T extends Node>({
   items,
   selected,
@@ -240,11 +282,15 @@ export function List<T extends Node>({
   onInfo,
   trashed,
   location,
+  locationLabel,
+  date,
 }: ItemsProps<T> & {
   sort?: Sort
   setSort?: (s: Sort) => void
   trashed?: boolean
   location?: (n: T) => string
+  locationLabel?: string
+  date?: { label: string; at: (n: T) => string }
 }) {
   const t = useT()
   const locale = useLocale()
@@ -260,15 +306,17 @@ export function List<T extends Node>({
     )
   }
   const variant = trashed ? ' table--trash' : location ? ' table--located' : ''
+  const dateLabel = date ? date.label : trashed ? t('info.deleted') : null
+  const dateOf = (n: T) => (date ? date.at(n) : trashed ? n.trashedAt! : n.modifiedAt)
   return (
     <div className={'table' + variant}>
       <div className="table__inner">
         <div className="table__head">
           <div className="table__cols">
             {col('name', t('col.name'))}
-            {trashed ? <span>{t('info.deleted')}</span> : col('modified', t('col.modified'))}
+            {dateLabel ? <span>{dateLabel}</span> : col('modified', t('col.modified'))}
             {!trashed && col('size', t('col.size'))}
-            {location && <span>{t('col.location')}</span>}
+            {location && <span>{locationLabel ?? t('col.location')}</span>}
           </div>
           <span />
         </div>
@@ -283,16 +331,19 @@ export function List<T extends Node>({
                   <Icon d={type.d} stroke={type.c} fill={n.kind === 'folder' ? '#fef9c3' : 'none'} />
                   <span>{name}</span>
                   {n.starred && <StarMark />}
+                  {n.shared && <SharedMark />}
                 </span>
-                <span className="row__cell">{formatWhen(trashed ? n.trashedAt! : n.modifiedAt, t, locale)}</span>
+                <span className="row__cell">{formatWhen(dateOf(n), t, locale)}</span>
                 {!trashed && <span className="row__cell">{sizeLabel(n, t, locale)}</span>}
                 {location && <span className="row__cell">{location(n)}</span>}
               </button>
               <div className="row__actions">
-                <button type="button" className="round-btn" aria-label={t('item.info', { name })}
-                  aria-pressed={selected === n.id} onClick={() => onInfo(n)}>
-                  <Icon d={icons.info} size={18} />
-                </button>
+                {onInfo && (
+                  <button type="button" className="round-btn" aria-label={t('item.info', { name })}
+                    aria-pressed={selected === n.id} onClick={() => onInfo(n)}>
+                    <Icon d={icons.info} size={18} />
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -314,7 +365,7 @@ export function Rail({ crumbs }: { crumbs: Crumb[] }) {
           <Link key={d} href={c.href ?? '/'} className="rail__item" aria-current={last ? 'page' : undefined}
             style={{ paddingLeft: `${10 + d * 16}px` }}>
             {d > 0 && <span aria-hidden="true" className="rail__line" style={{ left: `${d * 16 - 2}px` }} />}
-            {c.home ? <Icon d={icons.home} size={18} /> : <Icon d={icons.folder} size={18} stroke="#a16207" fill="#fef9c3" />}
+            {c.icon ? <Icon d={c.icon} size={18} /> : <Icon d={icons.folder} size={18} stroke="#a16207" fill="#fef9c3" />}
             <span>{c.name}</span>
           </Link>
         )

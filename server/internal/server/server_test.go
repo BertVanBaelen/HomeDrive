@@ -1,9 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -33,12 +33,33 @@ func newTestServer(t *testing.T) http.Handler {
 	return newTestEnv(t).h
 }
 
-// testEnv is a complete server on temporary folders. Emails land in mail.
+// testEnv is a complete server on temporary folders. Emails land in mail,
+// log lines in logs.
 type testEnv struct {
 	h        http.Handler
 	mail     *fakeMail
+	logs     *logBuffer
 	accounts *accounts.Service
 	conn     *sql.DB
+	data     string // data_path
+}
+
+// logBuffer keeps what the server logs.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *logBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *logBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 type fakeMail struct {
@@ -105,7 +126,8 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logs := &logBuffer{}
+	log := slog.New(slog.NewTextHandler(logs, nil))
 	conn, err := db.Open(ctx, filepath.Join(dir, "state.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +152,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	return &testEnv{h: srv.Handler(), mail: fm, accounts: acc, conn: conn}
+	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath}
 }
 
 func do(h http.Handler, method, target string, header map[string]string) *httptest.ResponseRecorder {

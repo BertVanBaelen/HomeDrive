@@ -92,10 +92,14 @@ func (h *staticHandler) serveFile(w http.ResponseWriter, r *http.Request, name s
 		ctype = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", ctype)
-	if strings.HasPrefix(name, "assets/") {
+	switch {
+	case strings.HasPrefix(name, "assets/"):
 		// Vite puts a content hash in every asset name.
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	} else {
+	case strings.HasPrefix(r.URL.Path, "/s/"):
+		// A link page's address holds its token.
+		w.Header().Set("Cache-Control", "no-store")
+	default:
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 	http.ServeContent(w, r, "", fi.ModTime(), content)

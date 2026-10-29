@@ -15,6 +15,11 @@ export function formatSize(bytes: number, locale: Locale): string {
   return `${v.toLocaleString(locale, { maximumFractionDigits: digits, minimumFractionDigits: digits })} ${units[i]}`
 }
 
+// formatAmount is formatSize for totals, where nothing is "0 B".
+export function formatAmount(bytes: number, locale: Locale): string {
+  return bytes > 0 ? formatSize(bytes, locale) : `${(0).toLocaleString(locale)} B`
+}
+
 // "Just now", "5 min ago", "3 h ago", "Yesterday", then a date.
 export function formatWhen(iso: string, t: Translate, locale: Locale, now = Date.now()): string {
   const then = Date.parse(iso)

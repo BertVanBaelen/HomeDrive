@@ -4,16 +4,15 @@ package storage
 
 import "golang.org/x/sys/windows"
 
-// FreeSpace is how many bytes can still be written to the folder's disk
-// by this process. Windows is only used for development.
-func (s *Store) FreeSpace() (uint64, error) {
+// DiskUsage is the size of the folder's disk and how many bytes this
+// process can still write to it. Windows is only used for development.
+func (s *Store) DiskUsage() (total, free uint64, err error) {
 	p, err := windows.UTF16PtrFromString(s.path)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	var free uint64
-	if err := windows.GetDiskFreeSpaceEx(p, &free, nil, nil); err != nil {
-		return 0, err
+	if err := windows.GetDiskFreeSpaceEx(p, &free, &total, nil); err != nil {
+		return 0, 0, err
 	}
-	return free, nil
+	return total, free, nil
 }

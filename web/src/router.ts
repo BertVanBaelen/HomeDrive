@@ -3,10 +3,14 @@ import { useSyncExternalStore } from 'react'
 // A tiny history router: the app only has a handful of routes.
 //
 //   /             My Files (top of the personal drive)
-//   /family       the family drive
+//   /d/<id>       the top of a shared drive
+//   /shared       Shared with me (on a phone also the shared drives)
+//   /family       v1's family drive: goes to the first shared drive
 //   /f/<id>       a folder on any drive
+//   /s/<token>    a public link's page, for visitors
 //   /recent, /starred, /trash, /search?q=…
-//   /account, /users and /backup (admins)
+//   /storage (/backup, the admins' page in v1, goes there)
+//   /account and /users (admins)
 //   /login, /setup, /recover, /welcome, /save
 
 const listeners = new Set<() => void>()
@@ -36,9 +40,12 @@ export type ListName = 'recent' | 'starred' | 'search'
 
 export type Route =
   | { name: 'files'; folderId: string | null }
+  | { name: 'drive'; driveId: string }
+  | { name: 'shared' }
   | { name: 'family' }
   | { name: 'list'; list: ListName; q: string }
   | { name: 'trash' }
+  | { name: 'storage' }
   | { name: 'account' }
   | { name: 'users' }
   | { name: 'backup' }
@@ -47,6 +54,7 @@ export type Route =
   | { name: 'recover' }
   | { name: 'welcome' }
   | { name: 'save' }
+  | { name: 'link'; token: string; nodeId: string | null }
 
 export function parseRoute(full: string): Route {
   const url = new URL(full, location.origin)
@@ -58,6 +66,8 @@ export function parseRoute(full: string): Route {
     case '/welcome':
     case '/save':
     case '/trash':
+    case '/storage':
+    case '/shared':
     case '/family':
     case '/account':
     case '/users':
@@ -71,9 +81,25 @@ export function parseRoute(full: string): Route {
   }
   const m = /^\/f\/([0-9a-f-]{36})$/.exec(path)
   if (m) return { name: 'files', folderId: m[1] }
+  const d = /^\/d\/([0-9a-f-]{36})$/.exec(path)
+  if (d) return { name: 'drive', driveId: d[1] }
+  // A folder inside the link is ?n=<id>, so the address stays one link.
+  const s = /^\/s\/([A-Za-z0-9_-]{22})$/.exec(path)
+  if (s) {
+    const n = url.searchParams.get('n')
+    return { name: 'link', token: s[1], nodeId: n && /^[0-9a-f-]{36}$/.test(n) ? n : null }
+  }
   return { name: 'files', folderId: null }
 }
 
 export function folderPath(id: string): string {
   return `/f/${id}`
+}
+
+export function drivePath(id: string): string {
+  return `/d/${id}`
+}
+
+export function linkPath(token: string, nodeId?: string): string {
+  return `/s/${token}${nodeId ? `?n=${nodeId}` : ''}`
 }
