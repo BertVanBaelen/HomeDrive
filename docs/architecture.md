@@ -42,6 +42,12 @@ Homedrive :8080 — one Go process: JSON API + static PWA + background jobs
 
 The add-on sets `HOMEDRIVE_STATE_DIR=/data` and `HOMEDRIVE_OPTIONS_FILE=/data/options.json` through `environment:` in its `config.yaml`. There is no auto-detection.
 
+### Versions and releases
+
+- One version, in `homedrive/config.yaml`: `X.Y.Z`, where from v2 on X is the roadmap version, Y counts its features and Z its fixes (0.1.0 was the v1 pre-release). The binary gets it at build time (`homedrive version`, the startup log) and the image as its tag and labels.
+- Home Assistant reads the version from `main` and pulls the image with that tag. Merging a raised version into `main` releases it: after CI passes, `.github/workflows/release.yml` pushes the image first and then tags `vX.Y.Z` with a GitHub release. Its notes come from that version's section of `homedrive/CHANGELOG.md`, which Home Assistant also shows in the update dialog; CI fails if the section is missing.
+- Updates are forward only: migrations upgrade the database at startup, and an older binary refuses a newer database. Going back means restoring the Home Assistant backup made before the update.
+
 ### Configuration
 
 Every option has the same name in the add-on (`snake_case`) and as an environment variable (`HOMEDRIVE_` + upper case). Environment variables override the options file.
@@ -449,10 +455,11 @@ server/                Go module (API, storage, jobs)
   internal/db/         SQLite open + embedded migrations
   internal/storage/    data path guards, object store
 web/                   React + TypeScript + Vite PWA
-homedrive/             Home Assistant add-on (config.yaml, docs, translations, icons)
+homedrive/             Home Assistant add-on (config.yaml with the version, changelog, docs, translations, icons)
 repository.yaml        Home Assistant add-on repository descriptor
 Dockerfile             one multi-arch image for both run modes
 docker-compose.example.yml
+.github/               CI, the release workflow and its release-notes script
 docs/                  architecture, security, roadmap
 ```
 

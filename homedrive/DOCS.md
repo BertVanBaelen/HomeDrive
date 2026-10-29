@@ -55,7 +55,7 @@ Always use the public URL, also at home. Homedrive refuses requests addressed to
 2. Open the link, fill in your name, email address and a password. You get a code by email; entering it creates the administrator account. That also proves the mail settings work.
 3. Invite the rest of the household: avatar menu → *Manage Users* → *Invite Someone*. They get an email with a link to choose their password. There is no sign-up page.
 
-Everyone has their own **My Files**, which only they see, and everyone shares **Family**.
+Everyone has their own **My Files**, which only they see. Shared drives, such as **Family**, hold what the household shares: anyone can create one and choose who joins it.
 
 ## Phones
 
@@ -72,7 +72,7 @@ Everyone has their own **My Files**, which only they see, and everyone shares **
 
 ### The nightly backup
 
-With a backup folder set, Homedrive copies itself there every night: a snapshot of the database (the last 14 days, plus one per month for a year) and the files, of which only new ones are copied. Deleted and changed files stay in the backup for the retention period. Administrators see the status, and can start a backup, under avatar menu → *Backup*.
+With a backup folder set, Homedrive copies itself there every night: a snapshot of the database (the last 14 days, plus one per month for a year) and the files, of which only new ones are copied. Deleted and changed files stay in the backup for the retention period. Administrators see the status, and can start a backup, on the *Storage* page (avatar menu → *Storage*).
 
 The backup folder gets the same `.homedrive` marker as the data folder. A backup folder that belongs to another installation, or a disk that isn't mounted, stops the backup with an error on that page instead of mixing things up.
 
@@ -85,6 +85,14 @@ homedrive export /media/usb/homedrive-backup /media/usb/restored
 ```
 
 The target folder must be empty or not exist. It gets one folder per drive (`My Files - Anna`, `Family`, …) with the folders and files as they were at the newest snapshot; add a snapshot file name from `db/` as third argument for an older one. In the add-on, run it from the add-on's terminal, or with Docker: `docker run --rm -v …:/backup -v …:/restore ghcr.io/bertvanbaelen/homedrive export /backup /restore`.
+
+## Updating
+
+Home Assistant offers an update when a new version is released; the add-on's *Changelog* tab lists what changed.
+
+- Keep the backup before updating turned on in the update dialog. The new version upgrades the database when it starts, and an older version can't use an upgraded database: to go back, restore that backup. It holds the database and the settings; the data folder isn't touched.
+- An update that fails right after a release usually means the new version is still being built. Try again a few minutes later.
+- Phones and browsers get the new version the next time Homedrive is opened.
 
 ## Locked out
 

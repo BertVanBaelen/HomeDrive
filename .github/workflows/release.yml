@@ -1,61 +1,105 @@
 name: Release
 
-# Push a tag like v0.2.0 after setting the same version in
-# homedrive/config.yaml. Home Assistant pulls the image tag that matches the
-# add-on version.
+# Publishes the version in homedrive/config.yaml once CI has passed on main.
+# Home Assistant reads that version from main and pulls
+# ghcr.io/<owner>/homedrive:<version>, so the image is pushed first; then
+# v<version> is tagged and released on GitHub with its notes from
+# homedrive/CHANGELOG.md. A version that is already tagged is skipped, and
+# one lower than the latest release fails.
+#
+# To release: raise the version in homedrive/config.yaml, add its notes to
+# homedrive/CHANGELOG.md and merge into main. To retry a failed release,
+# run this workflow by hand on main.
 on:
-  push:
-    tags: ["v*.*.*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  image:
+  release:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Check add-on version matches the tag
+      - name: Read the version
+        id: version
         run: |
-          want="${GITHUB_REF_NAME#v}"
-          have="$(sed -nE 's/^version: *"?([^"]+)"?$/\1/p' homedrive/config.yaml)"
-          if [ "$want" != "$have" ]; then
-            echo "homedrive/config.yaml has version $have, tag is $want"
+          version="$(bash .github/scripts/release-notes.sh "$RUNNER_TEMP/notes.md")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/homedrive" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released, nothing to do."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest="$(git tag --list 'v[0-9]*' | sed 's/^v//' | sort -V | tail -n 1)"
+          if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "$latest" "$version" | sort -V | tail -n 1)" != "$version" ]; then
+            echo "::error::Version $version is lower than the latest release, $latest."
             exit 1
           fi
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/homedrive" >> "$GITHUB_ENV"
-          echo "VERSION=$want" >> "$GITHUB_ENV"
+          echo "new=true" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: steps.version.outputs.new == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - if: steps.version.outputs.new == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
+        if: steps.version.outputs.new == 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.IMAGE }}
+          context: git
+          images: ${{ steps.version.outputs.image }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
             type=raw,value=latest
 
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      - if: steps.version.outputs.new == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ env.VERSION }}
+          build-args: VERSION=${{ steps.version.outputs.version }}
           provenance: mode=max
           sbom: true
+
+      - name: Tag and publish the release notes
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$SHA"
+          --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md"

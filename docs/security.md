@@ -71,7 +71,7 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 - Docker: non-root, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`.
 - HA add-on: no host network, no privileged mode, no Docker/HA API access, Ingress off. Custom AppArmor profile once tested on a real installation.
 - CI: `go vet`, tests, `govulncheck`, `npm audit`; GitHub Actions pinned to commit SHAs; Dependabot for Go, npm, Docker and Actions.
-- Images built in GitHub Actions with provenance and SBOM.
+- Images built in GitHub Actions with provenance and SBOM. Only the release workflow can push images and tags, and it runs only on `main` after CI passed (or by hand on `main`); pull requests never get write access.
 
 ### Cloudflare (operator configuration, documented in the add-on docs)
 - WAF rate-limiting rule on `/api/auth/*`.
