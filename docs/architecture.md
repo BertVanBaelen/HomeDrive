@@ -120,6 +120,9 @@ people_shares   (node_id, user_id, access view|edit, created_by, created_at)    
 links           (node_id UNIQUE, token, token_hash UNIQUE, expires_at, password_hash,
                  created_by, created_at, updated_at)                        v2, view-only
 audit_log       (id, at, user_id, ip, event, detail)
+notification_prefs (user_id, kind, email on|off, push on|off)               v3, only rows that differ from the default
+push_subscriptions (id, user_id, session_hash, endpoint, p256dh, auth, user_agent, created_at, last_ok_at)   v3
+sign_in_devices (user_id, device_key, first_seen_at, last_seen_at)          v3, for new sign-in alerts
 ```
 
 - **Drives from day one.** Every user has a personal drive ("My Files"). v1 ships one shared drive, "Family", with every user as editor. From v2 anyone can create shared drives with members and roles (below).
@@ -297,6 +300,47 @@ Editors open for people who can edit the file: the owner of My Files, editors an
 - `POST /api/uploads` takes `conflict: "ask" | "replace" | "keep"`. With `ask`, a taken name answers `name_taken` with the existing item before any bytes are sent. *Replace* records `uploads.replace_node_id` and is checked again on completion.
 - The Save page (Android share target) asks the same. iPhone Shortcut uploads always keep both.
 
+### Email and push notifications (v3)
+
+The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.html) (open it in a browser). Their content is an example: they don't add features beyond what is described here.
+
+**Building the emails.**
+
+- Every email is HTML with a plain-text part, in the recipient's language: `multipart/alternative` with the text first, then `multipart/related` with the HTML and its images.
+- Shared parts, as in the mockups: the logo header, a white card with a heading and text, one main button, the link written out below it for when the button doesn't work, a grid of details (device, network, time), an amber notice box, and a footer with the `public_url` host and a link to the notification settings.
+- Mail clients ignore most CSS, so the HTML uses tables and inline styles only. Gmail and Outlook don't show SVG, so the logo, icons and thumbnails are PNGs attached inline (`cid:`). That also works when the mail provider can't reach `public_url` and doesn't ask to "load images". Inter is named first; most clients fall back to the system font.
+- One Go template per email (`html/template` and `text/template`, embedded in the binary), with the English and Dutch strings next to it. With a `localhost` `public_url`, `/dev/emails` shows every email with sample data, for review.
+- Times are written in the server's time zone (the add-on gets Home Assistant's).
+- The sender is `smtp_from`. Emails caused by a person show "<name> via Homedrive" as its display name, the rest "Homedrive".
+
+**Emails.**
+
+| Email | To | Content |
+|---|---|---|
+| Sign-in code (login, setup, recovery) | the user | The code in the subject and the first sentence, so phones offer to fill it in; in monospace boxes grouped 4 + 4, selected with one tap where the client supports it. Expiry time, the device, network and time of the request, and "Didn't try to sign in?" with a link to Account Settings. |
+| Invitation | new user | What Homedrive is in plain words, who invited them, *Set up my account*, the expiry date, and the shared drives picked on the invite form. |
+| Password reset | the user | Started by an admin (§5): "<admin> asked for a new password for you", *Choose new password*, valid 24 hours, the old password keeps working until then. |
+| Shared with you | the recipient | Who shared what and with which access, the optional note, the item's thumbnail (v2 thumbnails, folders as 2×2) with its type, count and size, and *Open*, which needs a login. |
+| Added to a shared drive, role changed | the member | Drive name, role, who did it, *Open drive*. |
+| New sign-in | the user | See below. |
+| New device key, password changed, email changed | the user (email change: the old and the new address) | What changed, when, from which device, and what to do if it wasn't them. |
+| Storage almost full | admins | The data disk at 85% and at 95%: used of total, usage by type in the Storage page's colours, and the Storage page's *Empty trash* and *Delete old versions* with what they free. Buttons open `/storage`; nothing is done from the email. At most once a week per level, again after it went below. |
+| Backup failed | admins | A failed nightly backup, or a missing `backup_path` or marker mismatch: what failed and when, the last good backup, *Open storage*. Once a day while it keeps failing. |
+
+- **Share note.** The Share dialog gets an optional note (at most 500 characters) when adding people. It goes into the email and the push notification and isn't stored. It is shown as a quote, apart from Homedrive's own text.
+- **New sign-in.** Sent when a sign-in comes from a device the account hasn't used in the last 90 days: browser and operating system from the user agent (`sign_in_devices.device_key`). The email says "if this was you, you don't need to do anything", and flags *Outside your home network* when the client address (§6) isn't private (RFC 1918, ULA, loopback). No location: that would need a GeoIP database or an outside service. *Secure my account* opens a page with a confirm button (mail scanners open links by themselves); confirming signs that session out and asks the user to sign in and choose a new password. Its link is single use and valid 7 days.
+
+**Push.**
+
+- Web Push with VAPID (RFC 8030, 8291, 8292). The key pair is made at first start and kept in `meta`.
+- Turned on per device in Account Settings → Notifications (*Notify me on this device*), which asks the browser for permission. A subscription belongs to the session that made it and ends with it, so a signed-out or revoked phone gets nothing. It is also dropped when the push service answers 404 or 410.
+- iPhone: only when Homedrive is on the home screen (iOS 16.4 and later); the settings page says so.
+- The payload is encrypted for the device: a title, a short text and the URL to open. The service worker shows it and opens the URL on tap. Sign-in codes are never sent by push.
+
+**Settings.** Account Settings → *Notifications*: one row per kind with an *Email* and a *Push* switch. There is no daily summary: every email goes out when it happens. The security emails (sign-in code, new sign-in, new device key, password and email changed) can't be turned off; their push can. Admin kinds show only for admins. Footer links in the emails open this page after login.
+
+**Sending.** A failed send is retried 3 times over an hour and then logged. Sign-in codes are not retried: the user asks for a new one.
+
 ## 5. Authentication
 
 - **No self-registration.** The admin creates accounts; users receive an email invitation.
@@ -304,7 +348,8 @@ Editors open for people who can edit the file: the owner of My Files, editors an
 - **Login:** email + password, then a code sent by email (second factor). Codes are 8 digits, valid 10 minutes, single use, stored hashed, 5 attempts.
 - **Passwords:** Argon2id (64 MiB, t=3, p=1), minimum 12 characters, a blocklist of common passwords, at most 2 hashes computed concurrently so login can't exhaust memory.
 - **Sessions:** 256-bit random token in a `__Host-hd_session` cookie (Secure, HttpOnly, SameSite=Lax, Path=/), only its SHA-256 stored. Sliding 30-day expiry, absolute 90 days. Device list with revoke. Sensitive actions (password, email, user admin, permanent delete, device tokens) require the password again within 15 minutes.
-- **Password reset:** by the admin only (email is already the second factor, so an email reset link would collapse login to one factor). Admin lockout: set the add-on option / env `admin_recovery=true` and restart to get a new one-time link in the log.
+- **Password reset:** by the admin only (email is already the second factor, so an email reset link would collapse login to one factor). Admin lockout: set the add-on option / env `admin_recovery=true` and restart to get a new one-time link in the log. A self-service *Forgot password?* is planned for VX; it needs a design that keeps two factors, for example an admin approving the request.
+- **Approve link (VX):** the email with a code also gets an *Approve sign-in* button, for login, first setup and admin recovery. The link (`/approve#<token>`, in the fragment like the setup link) opens a page with the device, network and time of the waiting sign-in and an *Approve* button; opening the link alone does nothing, because mail scanners open links by themselves. Approving fills in the code for the page that is waiting: it checks every 2 seconds and continues by itself. The device that taps the link is not signed in by it, so a forwarded email or someone else reading the mailbox gets no session; if it is the same browser, the waiting tab continues as usual. The token is part of the code's row in `email_codes`: single use, the same 10 minutes, and spent together with the code. The typed code keeps working.
 - **Rate limits:** per client IP and per account, progressive delays, plus a cap on codes sent per account per hour (no email bombing). Login responses don't reveal whether an account exists.
 - **iPhone uploads:** an Apple Shortcut authenticates with a per-device token (scope: upload to own inbox only), created by the user after re-authentication and revocable in the device list.
 - **Home Assistant login (v2, add-on only):**
@@ -357,13 +402,14 @@ Editors open for people who can edit the file: the owner of My Files, editors an
 - **Downloads:** `Range` support; files are served `Content-Disposition: attachment` unless the type is on an inline allowlist (images except SVG, PDF, audio, video, plain text), always with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`. Thumbnails, snippets and previews (v2) follow the same rules.
 - **Logs:** request logs leave out query strings, and from v2 show public link tokens as `…`.
 - **Timeouts:** header 10 s, idle 120 s, per-route read/write deadlines for uploads and downloads.
-- **Outbound requests:** only to the SMTP server and, from v2, to the fixed oEmbed providers for saved links (§4). Nothing else is fetched on a user's behalf.
+- **Outbound requests:** only to the SMTP server, from v2 to the fixed oEmbed providers for saved links (§4), and from v3 to Web Push services (§4). A push subscription's endpoint must be HTTPS on a known push service (`fcm.googleapis.com`, `*.push.apple.com`, `updates.push.services.mozilla.com`, `*.notify.windows.com`), so a subscription can't make the server call other addresses. Nothing else is fetched on a user's behalf.
 
 ## 7. PWA
 
 - Manifest + service worker, `display: standalone`, scope `/`.
 - The service worker caches only the **app shell** (hashed static assets, index for offline start). It never caches `/api/*` or file contents, so a lost phone holds no documents.
 - **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page. From v2, a shared link without files becomes a saved link, text shared with files becomes their description (§4), and a name that is already taken asks *Replace* or *Keep both*.
+- **Push (v3):** the service worker receives Web Push messages and shows them as notifications (§4).
 - **iPhone:** iOS has no Web Share Target support, so the PWA can't be in the share sheet. Homedrive provides an Apple Shortcut ("Save to Homedrive") that uploads to the user's inbox with a device token.
 - **Desktop:** normal website, drag-and-drop upload. The app never shows an install prompt on desktop (browsers may still offer install themselves).
 - **HTTPS only:** secure cookies and service workers require it, so Homedrive is always used through its public URL, also at home.

@@ -7,6 +7,7 @@ This package is the **design handoff**: the interactive mockup source plus every
 ```
 homedrive-mockup/
 ├── README.md              ← this file
+├── emails.html            ← the v3 email mockups (self-contained, opens in a browser)
 └── design/
     ├── Main.dc.html       ← the full app mockup (desktop + responsive mobile layout, all logic)
     ├── Mobile.dc.html     ← phone frame (390×844) that mounts Main with mobile=true

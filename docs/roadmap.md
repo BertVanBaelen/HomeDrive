@@ -53,17 +53,22 @@ Not in v2: storage quotas, disk health and RAID status, public links that allow 
 ## v3
 
 - `homedrive restore <backup folder> [snapshot]`: rebuild a working installation from a backup, offline, after the data disk or the state dir is lost. It writes the database snapshot (newest by default) to the state dir and copies the referenced objects into an empty `data_path`. The instance ID stays the same, so the data folder and backup folder markers keep matching. It refuses a non-empty target and lists files whose contents are missing from the backup. Documented in `DOCS.md` together with moving the data folder to another drive (copy the folder with its `.homedrive` marker, change `data_path`), which already works without a restore.
-- Email notifications through the SMTP server Homedrive already requires:
-  - something is shared with you (a file, a folder or a link), with who shared it and a link that opens it;
+- **Nicer emails** ([design](architecture.md#email-and-push-notifications-v3), mockups in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.html)): every email becomes an HTML email in the mockups' style, with a plain-text part, in the user's language. The existing ones are redone: sign-in code (also for setup and recovery), invitation and the admin's password reset. A self-service *Forgot password* is not in v3 (see VX).
+- **Notifications** by email through the SMTP server Homedrive already requires, and by push on phones and computers:
+  - something is shared with you, with who shared it, an optional note from them, a thumbnail and a link that opens it;
   - you are added to a shared drive, or your role there changes;
-  - security: a login from a new device, a new device key for the iPhone Shortcut, a changed password or email address;
-  - admins: a failed backup, or the data disk running low on free space.
+  - security: a sign-in from a new device, a new device key for the iPhone Shortcut, a changed password or email address;
+  - admins: a failed backup, or the data disk 85% or 95% full.
 
-  Per user, each kind can be turned off in Account Settings (security emails cannot), and sharing emails can be bundled into one daily summary. Emails never contain file contents or previews, only names and links that require a login. Sent in the user's language.
+  Per user, each kind can be turned off for email and for push in Account Settings (security emails cannot). There is no daily summary: each email is sent when it happens. Push uses Web Push to the installed app; on iPhone only when Homedrive is on the home screen. Mockups without a design of their own are derived from the same parts.
+
+Not in v3 (left out of the mockups): disk health (SMART) and RAID, the approximate location of a sign-in, a "weeks left" estimate, and clean-up suggestions the Storage page doesn't have.
 
 ## VX — version not decided
 
 - Real-time co-editing: several people typing in the same document or spreadsheet at once, seeing each other's cursors. Needs a live connection (WebSockets) and merging of edits (for example CRDTs). Until then, v2's edit lock lets one person edit at a time.
+- Approve link ([design](architecture.md#5-authentication)): the email with a sign-in code also gets an *Approve sign-in* button, for logins, first setup and admin recovery. It fills in the code for the page that is waiting, so the browser that typed the password continues by itself, also when the link is tapped on a phone. The code stays in the email as a fallback.
+- *Forgot password?* on the login page. It can't simply email a reset link, because email is already the second factor; for example the request goes to an admin, who approves it before the user gets the reset email.
 
 ## Later
 
