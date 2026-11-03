@@ -62,7 +62,8 @@ Every option has the same name in the add-on (`snake_case`) and as an environmen
 | `smtp_host`, `smtp_port`, `smtp_security` (`starttls`/`tls`), `smtp_username`, `smtp_password`, `smtp_from` | port `587`, `starttls` | Required: email is the second login factor. Plain-text SMTP is not supported. `HOMEDRIVE_SMTP_PASSWORD_FILE` reads the password from a Docker secret. |
 | `trusted_proxies` | loopback + private ranges | Only requests from these addresses may set `CF-Connecting-IP` / `X-Forwarded-For`. |
 | `log_level` | `info` | `debug`, `info`, `warn`, `error`. |
-| `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). |
+| `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). Ignored, with a warning, without the Supervisor's `SUPERVISOR_TOKEN`. |
+| `supervisor_url` (env only) | `http://supervisor` | v2, for tests: where the Supervisor is. |
 | `app_name` | empty (= "Homedrive") | v3: the name shown to users instead of "Homedrive" (below). |
 | `listen` (env only) | `:8080` | |
 | `web_dir` (env only) | `/app/web` | Built frontend. |
@@ -378,6 +379,13 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   - After a correct password, the email code follows exactly as for a normal login. The Supervisor check skips Home Assistant's own MFA, and Homedrive is public.
   - The same rate limits as the normal login apply (per IP and per account). An unknown, unlinked or disabled user gets the same "wrong username or password" answer as a wrong password. Events go to the audit log as `login.homeassistant`.
   - Email and Homedrive password keep working for linked users, for example while Home Assistant restarts.
+  - **As built:**
+    - Requests go to `POST <supervisor_url>/auth` with `X-Supervisor-Token` and a JSON body `{username, password}`, content type exactly `application/json`. 200 means right, 401 wrong. Anything else, or no answer within 15 s, is `homeassistant_unavailable` (503), the same for every username.
+    - `POST /api/auth/homeassistant {username, password}` asks the Supervisor first and only then looks up the link. It answers `{challenge, email}`, with the address shortened to `a…@example.com`, and the browser continues with `POST /api/auth/verify`. Every failure answers `ha_invalid_credentials` (401). Accounts that haven't accepted their invitation (no Homedrive password) count as unlinked, because they couldn't confirm sensitive actions.
+    - Rate limits: the client address's sign-in limit, and the per-account limit keyed by the lower-case Home Assistant username. A correct password resets that username's count.
+    - `GET /api/auth/options` → `{homeAssistant}` tells the login page whether to show the button. `GET`, `PUT` and `DELETE /api/me/homeassistant` read, link and unlink the user's own link. `PUT` needs the Homedrive password from the last 15 minutes and the Home Assistant password as well, so a user can't claim someone else's Home Assistant username. Admins use `PATCH /api/admin/users/{id} {haUsername}` (`""` unlinks). A username linked elsewhere is `ha_username_taken`. With the option off, `/api/auth/options` answers `false` and the others 404 (the admin field 400).
+    - Audit: `login.homeassistant` with the username as detail, `failed <username>` without a user ID for failures. Linking adds `homeassistant_linked`, `homeassistant_unlinked` and `homeassistant_link_failed`; admins changing it show in `user_updated` as `ha_username=…`.
+    - The logomark is the one Home Assistant's own frontend uses, in its colour (`#18BCF2`), never in a container, outlined or with a shadow, with clear space of at least a quarter of its height ([guidelines](https://contributors.home-assistant.io/brand/name-and-logo/)). The trademark is the Open Home Foundation's; Homedrive is free and not for sale, so this is not the commercial use that needs their written permission. The login button itself has no logo.
 
 ## 6. HTTP surface
 
