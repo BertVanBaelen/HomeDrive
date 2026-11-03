@@ -3,10 +3,12 @@ package server
 import (
 	"mime"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 )
 
@@ -65,30 +67,48 @@ var extensions = map[string]string{
 	"audio/mp4": ".m4a", "text/plain": ".txt", "application/zip": ".zip",
 }
 
-// handleInboxUpload takes one file per request:
-//
-//	POST /api/inbox?name=<file name>
-//	Authorization: Bearer hd_…
-//	<the file's bytes>
-func (s *Server) handleInboxUpload(w http.ResponseWriter, r *http.Request) {
+// deviceUser authenticates a device request by its bearer token. Only
+// wrong tokens count against the address, so a phone uploading a stack of
+// photos isn't slowed down.
+func (s *Server) deviceUser(w http.ResponseWriter, r *http.Request) (accounts.User, string, bool) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "invalid_token")
-		return
+		return accounts.User{}, "", false
 	}
-	// Only wrong tokens count against the address, so a phone uploading a
-	// stack of photos isn't slowed down.
-	ctx := r.Context()
-	ip := ClientIP(ctx).String()
+	ip := ClientIP(r.Context()).String()
 	if blocked, wait := s.ipLimit.Blocked(ip); blocked {
 		tooManyRequests(w, wait)
-		return
+		return accounts.User{}, "", false
 	}
-	u, deviceID, err := s.accounts.DeviceUser(ctx, strings.TrimSpace(token))
+	u, deviceID, err := s.accounts.DeviceUser(r.Context(), strings.TrimSpace(token))
 	if err != nil {
 		s.ipLimit.Add(ip)
 		s.log.Warn("upload with an invalid device token", "ip", ip)
 		writeError(w, http.StatusUnauthorized, "invalid_token")
+		return accounts.User{}, "", false
+	}
+	return u, deviceID, true
+}
+
+// handleInboxUpload takes one file per request:
+//
+//	POST /api/inbox?name=<file name>
+//	Authorization: Bearer hd_…
+//	X-Homedrive-Description: <percent-encoded text, optional>
+//	<the file's bytes>
+//
+// The description travels in a header so it stays out of addresses and
+// logs.
+func (s *Server) handleInboxUpload(w http.ResponseWriter, r *http.Request) {
+	u, deviceID, ok := s.deviceUser(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	description, err := url.PathUnescape(r.Header.Get("X-Homedrive-Description"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_description")
 		return
 	}
 
@@ -107,11 +127,12 @@ func (s *Server) handleInboxUpload(w http.ResponseWriter, r *http.Request) {
 
 	rc := http.NewResponseController(w)
 	rc.SetReadDeadline(time.Now().Add(15 * time.Minute))
-	n, err := s.files.UploadToInbox(ctx, u.ID, name, http.MaxBytesReader(w, r.Body, files.MaxInboxUpload))
+	n, err := s.files.UploadToInbox(ctx, u.ID, name, description, http.MaxBytesReader(w, r.Body, files.MaxInboxUpload))
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	s.describeLink(ctx, u.ID, &n)
 	s.accounts.Audit(ctx, u.ID, ClientIP(ctx).String(), "device_upload", deviceID+" "+n.ID)
 	writeJSON(w, http.StatusCreated, n)
 }

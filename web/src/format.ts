@@ -38,6 +38,15 @@ export function formatDateTime(iso: string, locale: Locale): string {
   return new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// formatDuration is a video's or audio file's length: 0:42, 4:12, 1:05:09.
+export function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = String(s % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
 // File extensions are hidden in titles; Info shows the full name.
 export function displayName(n: Pick<Node, 'name' | 'kind'>): string {
   if (n.kind === 'folder') return n.name

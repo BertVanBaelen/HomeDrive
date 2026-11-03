@@ -4,6 +4,7 @@ import { displayName, formatSize, formatWhen } from '../format'
 import { plural, useLocale, useT, type Locale, type MessageKey, type Translate } from '../i18n'
 import { drivePath, folderPath } from '../router'
 import { fileTypes, Icon, icons } from './Icon'
+import { linkByline } from './LinkCard'
 import { Link } from './Shell'
 import { Thumb } from './Thumb'
 
@@ -238,6 +239,7 @@ export function Grid<T extends Node>({
         const name = displayName(n)
         let meta: string
         if (metaFor) meta = metaFor(n)
+        else if (n.link) meta = `${linkByline(n.link)} · ${formatWhen(n.modifiedAt, t, locale)}`
         else {
           const size = sizeLabel(n, t, locale)
           const when = formatWhen(n.modifiedAt, t, locale)

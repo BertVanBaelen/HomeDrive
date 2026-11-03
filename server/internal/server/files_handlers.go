@@ -85,12 +85,13 @@ func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, n)
 }
 
-// handlePatchNode renames, moves and/or stars a node.
+// handlePatchNode renames, moves, stars and/or describes a node.
 func (s *Server) handlePatchNode(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name     *string `json:"name"`
-		ParentID *string `json:"parentId"`
-		Starred  *bool   `json:"starred"`
+		Name        *string `json:"name"`
+		ParentID    *string `json:"parentId"`
+		Starred     *bool   `json:"starred"`
+		Description *string `json:"description"`
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -116,7 +117,13 @@ func (s *Server) handlePatchNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.Name == nil && req.ParentID == nil && req.Starred == nil {
+	if req.Description != nil {
+		if n, err = s.files.SetDescription(ctx, uid, id, *req.Description); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	if req.Name == nil && req.ParentID == nil && req.Starred == nil && req.Description == nil {
 		writeError(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -192,14 +199,15 @@ func (s *Server) handleList(list func(r *http.Request, userID string) ([]files.L
 
 func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ParentID string `json:"parentId"`
-		Name     string `json:"name"`
-		Size     int64  `json:"size"`
+		ParentID    string `json:"parentId"`
+		Name        string `json:"name"`
+		Size        int64  `json:"size"`
+		Description string `json:"description"`
 	}
 	if !readJSON(w, r, &req) {
 		return
 	}
-	u, err := s.files.CreateUpload(r.Context(), currentUser(r.Context()).ID, req.ParentID, req.Name, req.Size)
+	u, err := s.files.CreateUpload(r.Context(), currentUser(r.Context()).ID, req.ParentID, req.Name, req.Size, req.Description)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -260,6 +268,7 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.describeLink(r.Context(), currentUser(r.Context()).ID, &n)
 	writeJSON(w, http.StatusCreated, n)
 }
 

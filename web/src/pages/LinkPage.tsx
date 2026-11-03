@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { api, ApiError, linkContent, linkZipUrl, type LinkPage as Page, type Node, type PublicNode } from '../api'
-import { ContentUrlContext } from '../components/content'
+import { api, ApiError, linkContent, linkThumb, linkZipUrl, type LinkPage as Page, type Node, type PublicNode } from '../api'
+import { ContentUrlContext, ThumbUrlContext } from '../components/content'
 import { errorText } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
 import { Empty, Grid, PageHead, type Crumb } from '../components/Items'
@@ -26,6 +26,7 @@ const toNode = (p: PublicNode): Node => ({ ...p, driveId: '', starred: false, cr
 export function LinkPage({ token, nodeId }: { token: string; nodeId: string | null }) {
   const t = useT()
   const content = useMemo(() => linkContent(token), [token])
+  const thumbs = useMemo(() => linkThumb(token), [token])
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [viewing, setViewing] = useState<number | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -98,7 +99,9 @@ export function LinkPage({ token, nodeId }: { token: string; nodeId: string | nu
   if (node.kind === 'file') {
     return (
       <ContentUrlContext value={content}>
-        <Viewer files={[node]} index={0} location="" onIndex={() => {}} showInfo={false} />
+        <ThumbUrlContext value={thumbs}>
+          <Viewer files={[node]} index={0} location="" onIndex={() => {}} showInfo={false} />
+        </ThumbUrlContext>
       </ContentUrlContext>
     )
   }
@@ -114,44 +117,46 @@ export function LinkPage({ token, nodeId }: { token: string; nodeId: string | nu
 
   return (
     <ContentUrlContext value={content}>
-      <div className="app visitor">
-        <header className="app-header">
-          <div className="app-header__inner">
-            <span className="app-header__brand">
-              <Logo label={t('app.name')} />
-              <span>{t('app.name')}</span>
-            </span>
-          </div>
-        </header>
-        <div className="app-body">
-          <main className="main">
-            <PageHead crumbs={crumbs} title={node.name} count={items.length}
-              actions={items.length > 0 && (
-                <a className="btn btn--small btn--primary" href={linkZipUrl(token, node.id)} download>
-                  <Icon d={icons.download} size={16} />
-                  {t('link.downloadAll')}
-                </a>
-              )} />
-            <div className="files-row">
-              <section aria-label={node.name} className="files">
-                {items.length === 0 ? (
-                  <Empty icon={icons.folder} title={t('empty.folder.title')} body={t('link.emptyBody')} />
-                ) : (
-                  <Grid items={items} selected={null}
-                    onOpen={(n) => {
-                      if (n.kind === 'folder') navigate(linkPath(token, n.id))
-                      else setViewing(files.findIndex((f) => f.id === n.id))
-                    }} />
-                )}
-              </section>
+      <ThumbUrlContext value={thumbs}>
+        <div className="app visitor">
+          <header className="app-header">
+            <div className="app-header__inner">
+              <span className="app-header__brand">
+                <Logo label={t('app.name')} />
+                <span>{t('app.name')}</span>
+              </span>
             </div>
-          </main>
+          </header>
+          <div className="app-body">
+            <main className="main">
+              <PageHead crumbs={crumbs} title={node.name} count={items.length}
+                actions={items.length > 0 && (
+                  <a className="btn btn--small btn--primary" href={linkZipUrl(token, node.id)} download>
+                    <Icon d={icons.download} size={16} />
+                    {t('link.downloadAll')}
+                  </a>
+                )} />
+              <div className="files-row">
+                <section aria-label={node.name} className="files">
+                  {items.length === 0 ? (
+                    <Empty icon={icons.folder} title={t('empty.folder.title')} body={t('link.emptyBody')} />
+                  ) : (
+                    <Grid items={items} selected={null}
+                      onOpen={(n) => {
+                        if (n.kind === 'folder') navigate(linkPath(token, n.id))
+                        else setViewing(files.findIndex((f) => f.id === n.id))
+                      }} />
+                  )}
+                </section>
+              </div>
+            </main>
+          </div>
+          {viewing !== null && files[viewing] && (
+            <Viewer files={files} index={viewing} location="" onIndex={setViewing} onClose={() => setViewing(null)}
+              showInfo={false} />
+          )}
         </div>
-        {viewing !== null && files[viewing] && (
-          <Viewer files={files} index={viewing} location="" onIndex={setViewing} onClose={() => setViewing(null)}
-            showInfo={false} />
-        )}
-      </div>
+      </ThumbUrlContext>
     </ContentUrlContext>
   )
 }

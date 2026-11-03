@@ -25,6 +25,7 @@ You need:
 | Backup time, retention | When the nightly backup runs (`03:00`), and how many days deleted or changed files stay in the backup (`30`). |
 | SMTP settings | Your mail provider's SMTP server. Only encrypted connections (STARTTLS or TLS) are supported. |
 | Admin recovery | Leave off. See [Locked out](#locked-out). |
+| Log in with Home Assistant | Off by default. See [Logging in with Home Assistant](#logging-in-with-home-assistant). |
 
 ### Connecting the Cloudflared add-on
 
@@ -47,7 +48,7 @@ Always use the public URL, also at home. Homedrive refuses requests addressed to
 
 - A WAF rate-limiting rule on `/api/auth/` (for example 20 requests per minute per IP).
 - Optionally restrict access to the countries you live in.
-- Optionally put Cloudflare Access in front, with a *Bypass* policy for `/s/*` (share links, from v2) and `/api/inbox` (the iPhone Shortcut).
+- Optionally put Cloudflare Access in front, with a *Bypass* policy for `/s/*` (share links, from v2) and `/api/inbox` and `/api/inbox/link` (the iPhone Shortcut).
 
 ## First start
 
@@ -57,10 +58,21 @@ Always use the public URL, also at home. Homedrive refuses requests addressed to
 
 Everyone has their own **My Files**, which only they see. Shared drives, such as **Family**, hold what the household shares: anyone can create one and choose who joins it.
 
+## Logging in with Home Assistant
+
+With *Log in with Home Assistant* turned on, the sign-in page has a *Log In with Home Assistant* button under the email form. People whose account is linked to a Home Assistant user can then log in with that user's username and password. The code by email still follows, because Homedrive is on the internet and this check skips Home Assistant's own two-factor authentication. Email address and Homedrive password keep working, for example while Home Assistant restarts.
+
+- **Linking.** An administrator sets the Home Assistant username on *Manage Users* (*Home Assistant* next to the person). People can also link themselves in *Account Settings*, with their Home Assistant username and password. Nobody gets an account just by having a Home Assistant user.
+- **What Homedrive keeps.** Only the username. The password is checked by the Supervisor each time (that is what the add-on's `auth_api` permission is for); Homedrive never stores it and never gets access to Home Assistant itself.
+- Only Home Assistant's own users (username and password) work. Someone who hasn't accepted their invitation yet, or whose account is disabled, can't log in this way.
+- Wrong passwords count against the same limits as the normal sign-in, and every attempt is in the audit log as `login.homeassistant`.
+
+Home Assistant and its logo are trademarks of the Open Home Foundation. Homedrive is not made or endorsed by the Open Home Foundation; the logo is only there to show which username and password the page asks for.
+
 ## Phones
 
-- **Android:** open the public URL in Chrome and choose *Install app*. Homedrive then appears in the share menu of other apps: shared files go to a *Save to Homedrive* screen where you pick the folder.
-- **iPhone and iPad:** open the public URL in Safari, *Share → Add to Home Screen*. iOS doesn't let web apps appear in the share menu, so use an Apple Shortcut instead: *Account Settings → iPhone and iPad → Set Up a Shortcut* creates a key for that device and shows how to build the Shortcut. Shared files land in the *Inbox* folder of your My Files. A key can only add files to your Inbox, and you can remove it there at any time.
+- **Android:** open the public URL in Chrome and choose *Install app*. Homedrive then appears in the share menu of other apps: shared files go to a *Save to Homedrive* screen where you pick the folder. Text shared with files becomes their description, and a shared link becomes a saved link, shown as a card (with the picture, title and channel for YouTube and TikTok) that opens the video in its app.
+- **iPhone and iPad:** open the public URL in Safari, *Share → Add to Home Screen*. iOS doesn't let web apps appear in the share menu, so use an Apple Shortcut instead: *Account Settings → iPhone and iPad → Set Up a Shortcut* creates a key for that device and shows how to build the Shortcut. Shared files and links land in the *Inbox* folder of your My Files. A key can only add to your Inbox, and you can remove it there at any time.
 
 ## Your files and backups
 

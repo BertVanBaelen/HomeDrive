@@ -14,7 +14,10 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/homeassistant"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 type Server struct {
@@ -41,6 +44,15 @@ type Server struct {
 	linkPassTotal *ratelimit.Limiter
 	// zips counts zip downloads in progress.
 	zips *gate
+
+	// previews asks oEmbed providers about saved links.
+	previews *savedlink.Client
+	// thumbs makes and caches thumbnails and previews.
+	thumbs *thumbs.Service
+
+	// ha checks Home Assistant passwords; nil when Home Assistant login
+	// is off.
+	ha *homeassistant.Client
 }
 
 // Deps are the services the HTTP layer serves.
@@ -48,6 +60,11 @@ type Deps struct {
 	Accounts *accounts.Service
 	Files    *files.Service
 	Backup   *backup.Service
+	// Previews is nil except in tests, which keep requests local.
+	Previews *savedlink.Client
+	// Thumbs is the thumbnail pipeline, connected to Files. Without it
+	// only snippets are made.
+	Thumbs *thumbs.Service
 }
 
 func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
@@ -59,6 +76,19 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if err != nil {
 		web.Close()
 		return nil, err
+	}
+	previews := deps.Previews
+	if previews == nil {
+		previews = savedlink.NewClient(nil)
+	}
+	th := deps.Thumbs
+	if th == nil {
+		th = thumbs.NewWithoutTools(cfg.StateDir, deps.Files, log)
+		deps.Files.SetThumbnails(th)
+	}
+	var ha *homeassistant.Client
+	if sv := cfg.HomeAssistant; sv != nil {
+		ha = homeassistant.New(sv.URL, sv.Token)
 	}
 	return &Server{
 		cfg:           cfg,
@@ -76,6 +106,9 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		linkPassLimit: ratelimit.New(5, 15*time.Minute),
 		linkPassTotal: ratelimit.New(50, time.Hour),
 		zips:          newGate(),
+		previews:      previews,
+		thumbs:        th,
+		ha:            ha,
 	}, nil
 }
 
@@ -86,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	s.authRoutes(mux)
+	s.homeAssistantRoutes(mux)
 	s.accountRoutes(mux)
 	s.deviceRoutes(mux)
 	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))
@@ -95,6 +129,8 @@ func (s *Server) Handler() http.Handler {
 	s.driveRoutes(mux)
 	s.shareRoutes(mux)
 	s.linkRoutes(mux)
+	s.savedLinkRoutes(mux)
+	s.thumbRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

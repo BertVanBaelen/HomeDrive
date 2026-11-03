@@ -20,7 +20,9 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	hdmail "github.com/BertVanBaelen/HomeDrive/server/internal/mail"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 const (
@@ -42,6 +44,9 @@ type testEnv struct {
 	accounts *accounts.Service
 	conn     *sql.DB
 	data     string // data_path
+	state    string // state_dir
+	// web stands in for the oEmbed providers.
+	web *fakeProviders
 }
 
 // logBuffer keeps what the server logs.
@@ -91,7 +96,8 @@ func (f *fakeMail) lastCode(t *testing.T, addr string) string {
 	return ""
 }
 
-func newTestEnv(t *testing.T) *testEnv {
+// newTestEnv takes extra settings as environment variables, NAME=value.
+func newTestEnv(t *testing.T, environ ...string) *testEnv {
 	t.Helper()
 	dir := t.TempDir()
 	web := filepath.Join(dir, "web")
@@ -114,14 +120,14 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 
-	cfg, err := config.Load([]string{
+	cfg, err := config.Load(append([]string{
 		"HOMEDRIVE_PUBLIC_URL=https://" + publicHost,
 		"HOMEDRIVE_STATE_DIR=" + filepath.Join(dir, "state"),
 		"HOMEDRIVE_DATA_PATH=" + filepath.Join(dir, "files"),
 		"HOMEDRIVE_WEB_DIR=" + web,
 		"HOMEDRIVE_SMTP_HOST=smtp.example.com",
 		"HOMEDRIVE_SMTP_FROM=drive@example.com",
-	})
+	}, environ...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,12 +153,19 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Cleanup(func() { store.Close() })
 	fm := &fakeMail{}
 	acc := accounts.New(conn, fm, log, cfg.Origin())
-	srv, err := New(cfg, log, Deps{Accounts: acc, Files: files.New(conn, store, log)})
+	providers := &fakeProviders{}
+	fs := files.New(conn, store, log)
+	// The tools are faked: tests run anywhere, and real tools have tests
+	// of their own (internal/thumbs).
+	th := thumbs.NewWithFakes(cfg.StateDir, fs, log, thumbs.Fakes)
+	fs.SetThumbnails(th)
+	srv, err := New(cfg, log, Deps{Accounts: acc, Files: fs, Previews: savedlink.NewClient(providers), Thumbs: th})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath}
+	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath,
+		state: cfg.StateDir, web: providers}
 }
 
 func do(h http.Handler, method, target string, header map[string]string) *httptest.ResponseRecorder {

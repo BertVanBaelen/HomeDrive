@@ -47,6 +47,8 @@ type Service struct {
 	store *storage.Store
 	log   *slog.Logger
 	now   func() time.Time
+	// thumbs is the thumbnail pipeline, or nil.
+	thumbs Thumbnails
 
 	uploadMu    sync.Mutex
 	uploadLocks map[string]*sync.Mutex
@@ -102,16 +104,29 @@ type Node struct {
 	Shared bool `json:"shared,omitempty"`
 	// Preview is a folder's first few items, for its thumbnail.
 	Preview []Mini `json:"preview,omitempty"`
+	// Description is plain text the item's editors wrote about it.
+	Description string `json:"description,omitempty"`
+	// Version is the file's current version, so thumbnail addresses
+	// change with it.
+	Version string `json:"version,omitempty"`
+	// Link is where a saved link (a .url file) goes.
+	Link *LinkInfo `json:"link,omitempty"`
+	// Thumb is the thumbnail the file has: "image", "snippet" or none.
+	Thumb string `json:"thumb,omitempty"`
+	// DurationMs is the length of a video or audio file, once known.
+	DurationMs int64 `json:"durationMs,omitempty"`
 
 	versionID string
 }
 
 // Mini is an item shown inside a folder's thumbnail.
 type Mini struct {
-	ID   string `json:"id"`
-	Kind string `json:"kind"`
-	Type string `json:"type"`
-	Name string `json:"name"`
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+	Thumb   string `json:"thumb,omitempty"`
 }
 
 // Located is a node listed outside its folder (trash, starred, recent,
@@ -131,17 +146,18 @@ type Crumb struct {
 }
 
 const nodeColumns = `n.id, n.drive_id, coalesce(n.parent_id, ''), n.kind, n.name, n.size, n.mime,
-	n.created_at, n.modified_at, n.trashed_at, coalesce(n.current_version_id, '')`
+	n.created_at, n.modified_at, n.trashed_at, coalesce(n.current_version_id, ''), n.description`
 
 func scanNode(row interface{ Scan(...any) error }, extra ...any) (Node, error) {
 	var n Node
 	var created, modified string
 	var trashed sql.NullString
 	dest := append([]any{&n.ID, &n.DriveID, &n.ParentID, &n.Kind, &n.Name, &n.Size, &n.Mime,
-		&created, &modified, &trashed, &n.versionID}, extra...)
+		&created, &modified, &trashed, &n.versionID, &n.Description}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return Node{}, err
 	}
+	n.Version = n.versionID
 	n.CreatedAt, _ = db.ParseTime(created)
 	n.ModifiedAt, _ = db.ParseTime(modified)
 	if trashed.Valid {

@@ -12,6 +12,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/accounts"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/auth"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 )
 
 const sessionCookie = "__Host-hd_session"
@@ -150,6 +151,8 @@ var apiErrors = []struct {
 	{files.ErrHasAccess, http.StatusConflict, "has_access"},
 	{files.ErrInvalidExpiry, http.StatusBadRequest, "bad_request"},
 	{files.ErrLinkPassword, http.StatusBadRequest, "link_password"},
+	{files.ErrInvalidDescription, http.StatusBadRequest, "invalid_description"},
+	{savedlink.ErrInvalidURL, http.StatusBadRequest, "invalid_url"},
 	{accounts.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{accounts.ErrInvalidCode, http.StatusUnauthorized, "invalid_code"},
 	{accounts.ErrTooManyCodes, http.StatusTooManyRequests, "too_many_codes"},
@@ -167,6 +170,8 @@ var apiErrors = []struct {
 	{accounts.ErrInvalidRole, http.StatusBadRequest, "invalid_role"},
 	{accounts.ErrWrongPassword, http.StatusForbidden, "wrong_password"},
 	{accounts.ErrTooManyDevices, http.StatusConflict, "too_many_devices"},
+	{accounts.ErrInvalidHAUsername, http.StatusBadRequest, "invalid_ha_username"},
+	{accounts.ErrHAUsernameTaken, http.StatusConflict, "ha_username_taken"},
 	{auth.ErrPasswordTooShort, http.StatusBadRequest, "password_too_short"},
 	{auth.ErrPasswordTooLong, http.StatusBadRequest, "password_too_long"},
 	{auth.ErrPasswordCommon, http.StatusBadRequest, "password_common"},

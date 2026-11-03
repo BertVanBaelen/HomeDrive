@@ -50,6 +50,19 @@ export function useItemActions({ drives, me, reload }: { drives: Drive[]; me: Us
     }
   }
 
+  // describe saves an item's description. It throws when that fails, so
+  // the info panel keeps the text.
+  async function describe(n: Node, text: string) {
+    try {
+      await api.describe(n.id, text)
+      reload()
+      showToast(t('toast.described'))
+    } catch (err) {
+      fail(err)
+      throw err
+    }
+  }
+
   async function trash(n: Node) {
     const changed = () => {
       reload()
@@ -121,6 +134,7 @@ export function useItemActions({ drives, me, reload }: { drives: Drive[]; me: Us
   return {
     open,
     star,
+    describe,
     trash,
     rename: (n: Node) => setDialog({ kind: 'rename', node: n }),
     move: (n: Node) => setDialog({ kind: 'move', node: n }),

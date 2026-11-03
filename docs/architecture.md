@@ -62,7 +62,8 @@ Every option has the same name in the add-on (`snake_case`) and as an environmen
 | `smtp_host`, `smtp_port`, `smtp_security` (`starttls`/`tls`), `smtp_username`, `smtp_password`, `smtp_from` | port `587`, `starttls` | Required: email is the second login factor. Plain-text SMTP is not supported. `HOMEDRIVE_SMTP_PASSWORD_FILE` reads the password from a Docker secret. |
 | `trusted_proxies` | loopback + private ranges | Only requests from these addresses may set `CF-Connecting-IP` / `X-Forwarded-For`. |
 | `log_level` | `info` | `debug`, `info`, `warn`, `error`. |
-| `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). |
+| `homeassistant_login` | `false` | v2, add-on only: allow logging in with a Home Assistant username and password (§5). Ignored, with a warning, without the Supervisor's `SUPERVISOR_TOKEN`. |
+| `supervisor_url` (env only) | `http://supervisor` | v2, for tests: where the Supervisor is. |
 | `app_name` | empty (= "Homedrive") | v3: the name shown to users instead of "Homedrive" (below). |
 | `listen` (env only) | `:8080` | |
 | `web_dir` (env only) | `/app/web` | Built frontend. |
@@ -210,18 +211,18 @@ sign_in_devices (user_id, device_key, first_seen_at, last_seen_at)          v3, 
 
 - Stored in `nodes.description` (`TEXT NOT NULL DEFAULT ''`). It belongs to the item, not to a version: it stays when a new version is uploaded and follows the item through rename, move, trash and restore.
 - Plain text, at most 5,000 characters, trimmed, line breaks kept. The web app renders it as text only, never as HTML or Markdown.
-- Edited in the info panel by anyone who may edit the item. Changing it does not change `modified_at`, which tracks the content.
+- Edited in the info panel by anyone who may edit the item. Changing it does not change `modified_at`, which tracks the content. The API is `PATCH /api/nodes/{id}` with `{description}`; `POST /api/uploads` takes one as `description`, which the file gets once complete. Link visitors never see descriptions.
 - Search matches names and descriptions. `description_key` is the lower-cased copy, like `name_key`, because SQLite's `lower()` and `LIKE` only fold ASCII. If `LIKE` gets slow, switch to FTS5.
 - Backups include it through the database snapshot. `homedrive export` writes a non-empty description next to its file as `<name>.description.txt`, so it survives a restore without the app.
 - Sharing: when a share holds files *and* text, the Save page prefills each file's description with the text (title and text) instead of dropping it. The iPhone Shortcut can send a description with `POST /api/inbox` in the `X-Homedrive-Description` header (percent-encoded), so it stays out of URLs and logs.
 
-**Saved links.** A share that holds a URL and no files becomes a saved link instead of a `.txt`.
+**Saved links.** A share that holds a URL and no files becomes a saved link instead of a `.txt`. Most Android apps put the link inside the shared text rather than the `url` field, so the first `http(s)` address in the text counts too, and the rest of the text becomes the description.
 
 - A link is a normal file `<title>.url` in the Windows internet-shortcut format (`[InternetShortcut]` / `URL=https://…`). Move, trash, search, backup and export work unchanged, and an exported link still opens on a PC. The title is the shared title, else the oEmbed title, else the host, and can be edited on the Save page. The shared text or caption becomes the description.
 - Only `http` and `https` URLs, at most 2,048 characters, without user info. `.url` files get the type `link` and are never served inline. The viewer shows a link card instead of the file's text. The card opens the URL with `rel="noopener noreferrer"`, so on a phone YouTube and TikTok links open in their apps.
 - `link_previews` keeps the parsed URL, site and author for listing. It is written whenever a `.url` version is saved, including one uploaded from a PC. The node name is the title.
 - **oEmbed lookups** run on the server, only against a fixed list of providers: `https://www.youtube.com/oembed` for `youtube.com` and `youtu.be` (including `/shorts/`), and `https://www.tiktok.com/oembed` for `tiktok.com` and `vm.tiktok.com`. The user's URL only ever travels as a query parameter: Homedrive never connects to a host taken from user input. Limits: 5 s timeout, 64 KB response, no redirects, 30 lookups per user per minute. The Save page calls `GET /api/link-preview?url=…` to prefill the title and caption. Saving never depends on the lookup: if it fails, the card shows the site's icon.
-- **Thumbnails:** the `thumbnail_url` from the oEmbed answer is fetched only when its host is on that provider's list (`i.ytimg.com`; `*.tiktokcdn.com`, `*.tiktokcdn-us.com`). It must be an image of at most 2 MB, goes through the normal thumbnail pipeline and lands in the thumbnail cache. On a cache miss the server repeats the oEmbed lookup, because TikTok's thumbnail URLs expire. The browser never loads anything from the providers, so they don't learn when a card is viewed and the Content-Security-Policy stays as it is.
+- **Thumbnails:** the `thumbnail_url` from the oEmbed answer is fetched only when its host is on that provider's list (`i.ytimg.com`; `*.tiktokcdn.com`, `*.tiktokcdn-us.com`). It must be an image of at most 2 MB, goes through the normal thumbnail pipeline and lands in the thumbnail cache. On a cache miss the server repeats the oEmbed lookup, because TikTok's thumbnail URLs expire; a failed fetch isn't retried for an hour (`<version-id>-link.failed`). Images that v2 cached before the pipeline existed (`<first 2 characters>/<version-id>-link`, as the provider sent them) are made into thumbnails on first use without a new lookup. Saved links get their image only when it is asked for, never in the background. Link visitors get cached thumbnails only (`/api/s/{token}/nodes/{id}/thumb`) and never cause a lookup. The browser never loads anything from the providers, so they don't learn when a card is viewed and the Content-Security-Policy stays as it is.
 - Instagram's oEmbed needs a Facebook developer app, so Instagram and all other sites get a card from the shared title and the host only. Homedrive never fetches arbitrary pages for previews.
 - **iPhone:** the Shortcut sends links to `POST /api/inbox/link` (JSON `{url, title, text}`, same device token scope `upload`), which saves the link to the Inbox in the same way.
 - Not in v2: playing videos inside Homedrive. That would need `frame-src` exceptions for the providers' embedded players.
@@ -232,7 +233,7 @@ Thumbnails show the file's contents, not an icon (mockup §4). The server makes 
 
 | Type | Thumbnail |
 |---|---|
-| Images: JPEG, PNG, WebP, GIF, AVIF, HEIC/HEIF, TIFF, BMP | libvips (`vips thumbnail`), turned upright from EXIF |
+| Images: JPEG, PNG, WebP, GIF, AVIF, HEIC/HEIF, TIFF, BMP | libvips (`vips thumbnail`), turned upright from EXIF; BMP through ffmpeg first (libvips reads it only through ImageMagick, which `VIPS_BLOCK_UNTRUSTED` blocks) |
 | Video | a frame at 10 % of the length (at most 30 s in) through ffmpeg, then libvips; plus the length |
 | Audio | the embedded cover art through ffmpeg, else the mockup's title-and-waveform card; plus the length |
 | PDF | the first page through `pdftoppm` (poppler), then libvips |
@@ -243,12 +244,12 @@ Thumbnails show the file's contents, not an icon (mockup §4). The server makes 
 | Folders | 2×2 of the first four items' thumbnails (v1's minis, now with thumbnails) |
 | SVG, Word, `.xls`, `.ods`, other archives, anything else | the type's placeholder (Word previews are *Later*) |
 
-- Images are WebP in two sizes, `grid` (400 px on the long side) and `list` (80 px): `GET /api/nodes/{id}/thumb?size=grid|list&v=<version>`. Snippets are JSON: `GET /api/nodes/{id}/snippet?v=<version>`. Each node in a listing says which kind it has (`thumb: "image" | "snippet" | ""`) and carries its current `version`, so a new version gets a new URL. Answers use `Cache-Control: private, no-cache` like file contents, with the version as `ETag`.
-- Cache: `<state dir>/cache/thumbs/<first 2 characters>/<version-id>-<size>.webp` (and `.json`). It is not in any backup (Home Assistant backups exclude `*/cache/*`) and can be deleted at any time. The hourly cleanup removes entries whose version is gone.
-- A background worker makes them after each upload or save. A request for a missing one makes it on the spot and waits up to 15 s. At most 2 tools run at a time. A file that fails gets a `.failed` marker for that version and shows the placeholder; it isn't tried again until a new version.
+- Images are WebP in two sizes, `grid` (400 px on the long side; cards and the info panel) and `list` (80 px; folder tiles and the Share dialog): `GET /api/nodes/{id}/thumb?size=grid|list&v=<version>`. Snippets are JSON (`{kind: text|code|sheet|archive, lines, rows, entries, total}`): `GET /api/nodes/{id}/snippet?v=<version>`. Each node in a listing says which kind it has (`thumb: "image" | "snippet" | ""`) and carries its current `version`, so a new version gets a new URL; folder tiles (`preview`) carry both too. Answers use `Cache-Control: private, no-cache` like file contents, with the version as `ETag`.
+- Cache: `<state dir>/cache/thumbs/<last 2 characters>/<version-id>-<size>.webp` (and `.json`, `.failed`). The last characters, because the first ones of a UUIDv7 are a timestamp and would put everything in one folder. It is not in any backup (Home Assistant backups exclude `*/cache/*`) and can be deleted at any time. The hourly cleanup removes entries whose version is gone, saved links' failures older than an hour and interrupted jobs' work folders.
+- A background worker makes them after each upload or save, one version at a time. A request for a missing one makes it on the spot and waits up to 15 s; the work goes on if the request gives up. At most 2 tools run at a time. A file that fails (or audio without cover art) gets a `.failed` marker for that version and shows the placeholder; it isn't tried again until a new version.
 - **Viewer previews:** HEIC/HEIF and TIFF, which most browsers can't show, open in the viewer as a WebP of at most 2048 px from `GET /api/nodes/{id}/preview`, made and cached the same way. *Download* still gives the original.
-- **Lengths** of video and audio go into `media` and show on cards and in the info panel.
-- Tools: Alpine's `vips-tools` (with `vips-heif`), `ffmpeg` and `poppler-utils`, about 150 MB on the image. Without them (a development machine) every file shows its placeholder; one log line at startup says which tools are missing.
+- **Lengths** of video and audio go into `media` (`durationMs` on nodes) when the thumbnail is made, and show on cards and in the info panel.
+- Tools: Alpine's `vips-tools` (with `vips-heif`), `ffmpeg` and `poppler-utils`, plus `font-dejavu` for PDFs without embedded fonts, about 150 MB on the image. Without them (a development machine, or anything but Linux, where the sandbox can't run) every file shows its placeholder and snippets still work; one log line at startup says which tools are missing.
 - Each tool runs as a sandboxed subprocess: time, CPU and memory limits, a pixel limit, no shell, nothing from the user on its command line, and ffmpeg can't open other files or the network ([`security.md`](security.md#files)).
 
 ### Storage page (v2)
@@ -378,6 +379,13 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   - After a correct password, the email code follows exactly as for a normal login. The Supervisor check skips Home Assistant's own MFA, and Homedrive is public.
   - The same rate limits as the normal login apply (per IP and per account). An unknown, unlinked or disabled user gets the same "wrong username or password" answer as a wrong password. Events go to the audit log as `login.homeassistant`.
   - Email and Homedrive password keep working for linked users, for example while Home Assistant restarts.
+  - **As built:**
+    - Requests go to `POST <supervisor_url>/auth` with `X-Supervisor-Token` and a JSON body `{username, password}`, content type exactly `application/json`. 200 means right, 401 wrong. Anything else, or no answer within 15 s, is `homeassistant_unavailable` (503), the same for every username.
+    - `POST /api/auth/homeassistant {username, password}` asks the Supervisor first and only then looks up the link. It answers `{challenge, email}`, with the address shortened to `a…@example.com`, and the browser continues with `POST /api/auth/verify`. Every failure answers `ha_invalid_credentials` (401). Accounts that haven't accepted their invitation (no Homedrive password) count as unlinked, because they couldn't confirm sensitive actions.
+    - Rate limits: the client address's sign-in limit, and the per-account limit keyed by the lower-case Home Assistant username. A correct password resets that username's count.
+    - `GET /api/auth/options` → `{homeAssistant}` tells the login page whether to show the button. `GET`, `PUT` and `DELETE /api/me/homeassistant` read, link and unlink the user's own link. `PUT` needs the Homedrive password from the last 15 minutes and the Home Assistant password as well, so a user can't claim someone else's Home Assistant username. Admins use `PATCH /api/admin/users/{id} {haUsername}` (`""` unlinks). A username linked elsewhere is `ha_username_taken`. With the option off, `/api/auth/options` answers `false` and the others 404 (the admin field 400).
+    - Audit: `login.homeassistant` with the username as detail, `failed <username>` without a user ID for failures. Linking adds `homeassistant_linked`, `homeassistant_unlinked` and `homeassistant_link_failed`; admins changing it show in `user_updated` as `ha_username=…`.
+    - The logomark is the one Home Assistant's own frontend uses, in its colour (`#18BCF2`), never in a container, outlined or with a shadow, with clear space of at least a quarter of its height ([guidelines](https://contributors.home-assistant.io/brand/name-and-logo/)). The trademark is the Open Home Foundation's; Homedrive is free and not for sale, so this is not the commercial use that needs their written permission. The login button itself has no logo.
 
 ## 6. HTTP surface
 
@@ -454,6 +462,7 @@ server/                Go module (API, storage, jobs)
   internal/server/     HTTP server, middleware, routes
   internal/db/         SQLite open + embedded migrations
   internal/storage/    data path guards, object store
+  internal/thumbs/     thumbnails, snippets and previews; the tool sandbox (`homedrive sandbox`, internal)
 web/                   React + TypeScript + Vite PWA
 homedrive/             Home Assistant add-on (config.yaml with the version, changelog, docs, translations, icons)
 repository.yaml        Home Assistant add-on repository descriptor

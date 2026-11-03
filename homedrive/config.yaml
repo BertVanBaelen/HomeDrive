@@ -1,5 +1,5 @@
 name: Homedrive
-version: "2.3.0"
+version: "2.6.0"
 slug: homedrive
 description: Self-hosted online drive for your household's documents, with a phone app.
 url: https://github.com/BertVanBaelen/HomeDrive
@@ -33,6 +33,10 @@ backup: cold
 backup_exclude:
   - "*/cache/*"
 
+# Lets Homedrive ask the Supervisor whether a Home Assistant username and
+# password are right, for the opt-in homeassistant_login option.
+auth_api: true
+
 options:
   data_path: /share/homedrive
   backup_time: "03:00"
@@ -41,6 +45,7 @@ options:
   smtp_security: starttls
   log_level: info
   admin_recovery: false
+  homeassistant_login: false
 
 schema:
   public_url: url
@@ -56,3 +61,4 @@ schema:
   smtp_from: str
   log_level: list(debug|info|warn|error)
   admin_recovery: bool
+  homeassistant_login: bool

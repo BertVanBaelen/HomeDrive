@@ -11,7 +11,7 @@ import { useSyncExternalStore } from 'react'
 //   /recent, /starred, /trash, /search?q=…
 //   /storage (/backup, the admins' page in v1, goes there)
 //   /account and /users (admins)
-//   /login, /setup, /recover, /welcome, /save
+//   /login, /login/homeassistant (add-on option), /setup, /recover, /welcome, /save
 
 const listeners = new Set<() => void>()
 
@@ -50,6 +50,7 @@ export type Route =
   | { name: 'users' }
   | { name: 'backup' }
   | { name: 'login' }
+  | { name: 'homeassistantLogin' }
   | { name: 'setup' }
   | { name: 'recover' }
   | { name: 'welcome' }
@@ -59,6 +60,7 @@ export type Route =
 export function parseRoute(full: string): Route {
   const url = new URL(full, location.origin)
   const path = url.pathname
+  if (path === '/login/homeassistant') return { name: 'homeassistantLogin' }
   switch (path) {
     case '/login':
     case '/setup':

@@ -773,6 +773,53 @@
 .save-actions {
   gap: 8px;
 }
+.save-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.save-link__icon {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+}
+.save-link__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.save-link__text input {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+  background: #fff;
+}
+.save-link__text input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.save-link__text span {
+  font-size: 13px;
+  color: var(--primary-700);
+}
+.save-link__text .save-link__url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--gray-500);
+}
 
 @media (max-width: 699px) {
   .search {

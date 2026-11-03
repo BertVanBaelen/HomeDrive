@@ -92,7 +92,8 @@ func (s *Service) located(ctx context.Context, userID string, ids []string, limi
 	return out, nil
 }
 
-// decorate adds what depends on who is asking, and folder previews.
+// decorate adds what depends on who is asking, where saved links go,
+// folder previews and thumbnails.
 func (s *Service) decorate(ctx context.Context, userID string, nodes []Node) error {
 	if err := s.markStars(ctx, userID, nodes); err != nil {
 		return err
@@ -100,7 +101,13 @@ func (s *Service) decorate(ctx context.Context, userID string, nodes []Node) err
 	if err := s.markShared(ctx, userID, nodes); err != nil {
 		return err
 	}
-	return s.addPreviews(ctx, nodes)
+	if err := s.addLinks(ctx, nodes); err != nil {
+		return err
+	}
+	if err := s.addPreviews(ctx, nodes); err != nil {
+		return err
+	}
+	return s.addThumbs(ctx, nodes)
 }
 
 // markShared sets Shared on the nodes that are shared with people or have
@@ -183,8 +190,8 @@ func (s *Service) addPreviews(ctx context.Context, nodes []Node) error {
 	if err != nil {
 		return err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT parent_id, id, kind, name FROM (
-			SELECT parent_id, id, kind, name,
+	rows, err := s.db.QueryContext(ctx, `SELECT parent_id, id, kind, name, version FROM (
+			SELECT parent_id, id, kind, name, coalesce(current_version_id, '') AS version,
 				row_number() OVER (PARTITION BY parent_id ORDER BY kind = 'file', name_key) AS rn
 			FROM nodes
 			WHERE trashed_at IS NULL AND parent_id IN (SELECT value FROM json_each(?))
@@ -197,7 +204,7 @@ func (s *Service) addPreviews(ctx context.Context, nodes []Node) error {
 	for rows.Next() {
 		var parent string
 		var m Mini
-		if err := rows.Scan(&parent, &m.ID, &m.Kind, &m.Name); err != nil {
+		if err := rows.Scan(&parent, &m.ID, &m.Kind, &m.Name, &m.Version); err != nil {
 			return err
 		}
 		m.Type = TypeOf(Node{Kind: m.Kind, Name: m.Name})
@@ -261,7 +268,7 @@ func (s *Service) Recent(ctx context.Context, userID string) ([]Located, error) 
 	return s.locate(ctx, userID, `n.kind = 'file' AND n.trashed_at IS NULL`, nil, `n.modified_at DESC`, 50, false)
 }
 
-// Search finds items whose name contains q, ignoring case.
+// Search finds items whose name or description contains q, ignoring case.
 func (s *Service) Search(ctx context.Context, userID, q string) ([]Located, error) {
 	q = strings.TrimSpace(q)
 	if q == "" {
@@ -272,6 +279,7 @@ func (s *Service) Search(ctx context.Context, userID, q string) ([]Located, erro
 	}
 	pattern := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(nameKey(q)) + "%"
 	return s.locate(ctx, userID,
-		`n.parent_id IS NOT NULL AND n.trashed_at IS NULL AND n.name_key LIKE ?2 ESCAPE '\'`, []any{pattern},
+		`n.parent_id IS NOT NULL AND n.trashed_at IS NULL
+			AND (n.name_key LIKE ?2 ESCAPE '\' OR n.description_key LIKE ?2 ESCAPE '\')`, []any{pattern},
 		`n.kind = 'file', n.name_key`, 100, false)
 }

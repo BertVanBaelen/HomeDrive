@@ -30,12 +30,18 @@ type Upload struct {
 	Size      int64  `json:"size"`
 	Received  int64  `json:"received"`
 	ChunkSize int64  `json:"chunkSize"`
+
+	description string
 }
 
-// CreateUpload starts a chunked upload of a new file into a folder.
-func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name string, size int64) (Upload, error) {
+// CreateUpload starts a chunked upload of a new file into a folder, with
+// the description it gets once complete.
+func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name string, size int64, description string) (Upload, error) {
 	name, err := ValidateName(name)
 	if err != nil {
+		return Upload{}, err
+	}
+	if description, err = ValidateDescription(description); err != nil {
 		return Upload{}, err
 	}
 	if size < 0 || size > MaxFileSize {
@@ -53,8 +59,8 @@ func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name strin
 	}
 	now := s.now()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO uploads (id, user_id, parent_id, name, size, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, userID, parentID, name, size, db.FormatTime(now), db.FormatTime(now.Add(uploadTimeout))); err != nil {
+		`INSERT INTO uploads (id, user_id, parent_id, name, size, description, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, userID, parentID, name, size, description, db.FormatTime(now), db.FormatTime(now.Add(uploadTimeout))); err != nil {
 		s.store.RemoveUpload(u.ID)
 		return Upload{}, err
 	}
@@ -68,8 +74,8 @@ func (s *Service) upload(ctx context.Context, userID, id string) (Upload, error)
 	}
 	u := Upload{ID: id, ChunkSize: ChunkSize}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT parent_id, name, size, received FROM uploads WHERE id = ? AND user_id = ? AND expires_at > ?`,
-		id, userID, s.stamp()).Scan(&u.ParentID, &u.Name, &u.Size, &u.Received)
+		`SELECT parent_id, name, size, received, description FROM uploads WHERE id = ? AND user_id = ? AND expires_at > ?`,
+		id, userID, s.stamp()).Scan(&u.ParentID, &u.Name, &u.Size, &u.Received, &u.description)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Upload{}, ErrNotFound
 	}
@@ -146,7 +152,7 @@ func (s *Service) CompleteUpload(ctx context.Context, userID, id string) (Node, 
 	if err != nil {
 		return Node{}, err
 	}
-	nodeID, err := s.addFile(ctx, userID, u.ParentID, u.Name, objectID, sum, u.Size)
+	nodeID, err := s.addFile(ctx, userID, u.ParentID, u.Name, u.description, objectID, sum, u.Size)
 	if err != nil {
 		// The object is unreferenced now; retention cleanup removes it.
 		s.log.Warn("upload completed but file not added", "upload", id, "object", objectID, "error", err)
@@ -173,8 +179,10 @@ func (s *Service) CancelUpload(ctx context.Context, userID, id string) error {
 	return s.store.RemoveUpload(id)
 }
 
-// addFile creates a file node with its first version.
-func (s *Service) addFile(ctx context.Context, userID, parentID, name, objectID, sum string, size int64) (string, error) {
+// addFile creates a file node with its first version. A saved link also
+// gets its address recorded.
+func (s *Service) addFile(ctx context.Context, userID, parentID, name, description, objectID, sum string, size int64) (string, error) {
+	link := s.linkTarget(name, objectID, size)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", err
@@ -190,10 +198,17 @@ func (s *Service) addFile(ctx context.Context, userID, parentID, name, objectID,
 	}
 	nodeID, versionID, ts := db.NewID(), db.NewID(), s.stamp()
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO nodes (id, drive_id, parent_id, kind, name, name_key, current_version_id, size, mime, created_by, created_at, modified_at)
-		 VALUES (?, ?, ?, 'file', ?, ?, ?, ?, ?, ?, ?, ?)`,
-		nodeID, parent.DriveID, parent.ID, name, nameKey(name), versionID, size, MimeOf(name), userID, ts, ts); err != nil {
+		`INSERT INTO nodes (id, drive_id, parent_id, kind, name, name_key, current_version_id, size, mime, created_by, created_at, modified_at,
+			description, description_key)
+		 VALUES (?, ?, ?, 'file', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		nodeID, parent.DriveID, parent.ID, name, nameKey(name), versionID, size, MimeOf(name), userID, ts, ts,
+		description, descriptionKey(description)); err != nil {
 		return "", err
+	}
+	if link != nil {
+		if err := indexLink(ctx, tx, nodeID, link); err != nil {
+			return "", err
+		}
 	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO versions (id, node_id, object_id, size, sha256, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -203,7 +218,11 @@ func (s *Service) addFile(ctx context.Context, userID, parentID, name, objectID,
 	if err := s.touch(ctx, tx, parent.ID); err != nil {
 		return "", err
 	}
-	return nodeID, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	s.saved(name, versionID)
+	return nodeID, nil
 }
 
 // Open returns a live file's current contents for reading.
@@ -228,12 +247,15 @@ const InboxName = "Inbox"
 const MaxInboxUpload = 95 << 20
 
 // UploadToInbox stores a file sent in one request into the user's Inbox,
-// creating the folder when needed. A taken name gets a number added.
-func (s *Service) UploadToInbox(ctx context.Context, userID, name string, r io.Reader) (Node, error) {
+// creating the folder when needed. A taken name gets a number added. The
+// description is text shared with the file; it is cut to the maximum
+// length rather than refused.
+func (s *Service) UploadToInbox(ctx context.Context, userID, name, description string, r io.Reader) (Node, error) {
 	name, err := ValidateName(name)
 	if err != nil {
 		return Node{}, err
 	}
+	description = ClipDescription(description)
 	// The size isn't known up front; assume the largest allowed.
 	if err := s.checkSpace(MaxInboxUpload); err != nil {
 		return Node{}, err
@@ -259,7 +281,7 @@ func (s *Service) UploadToInbox(ctx context.Context, userID, name string, r io.R
 		s.store.RemoveUpload(id)
 		return Node{}, err
 	}
-	nodeID, err := s.addFile(ctx, userID, inbox, name, objectID, sum, n)
+	nodeID, err := s.addFile(ctx, userID, inbox, name, description, objectID, sum, n)
 	if err != nil {
 		s.removeObjects([]string{objectID})
 		return Node{}, err

@@ -8,6 +8,7 @@ import { showToast } from '../components/Toast'
 import { notifyChanged, onChanged } from '../events'
 import { formatSize, formatWhen } from '../format'
 import { plural, useLocale, useT } from '../i18n'
+import { HomeAssistantUserDialog, useHomeAssistantLogin } from './HomeAssistant'
 import { Field } from './Login'
 
 // Users is the admin page: invite people, send password links, change
@@ -18,6 +19,8 @@ export function Users({ me }: { me: User }) {
   const [users, setUsers] = useState<UserInfo[] | null>(null)
   const [inviting, setInviting] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const homeAssistant = useHomeAssistantLogin()
+  const [linking, setLinking] = useState<UserInfo | null>(null)
 
   const load = useCallback(() => {
     api.users().then(setUsers, (err) => showToast(errorText(t, err), { error: true }))
@@ -67,6 +70,9 @@ export function Users({ me }: { me: User }) {
                     {t(u.role === 'admin' ? 'role.admin' : 'role.member')}
                   </span>
                   <span className={'badge badge--' + u.status}>{t(`status.${u.status}`)}</span>
+                  {homeAssistant && u.haUsername && (
+                    <span className="badge">{t('ha.badge', { username: u.haUsername })}</span>
+                  )}
                   <span>
                     {u.lastSeenAt ? t('account.lastActive', { when: formatWhen(u.lastSeenAt, t, locale) }) : t('users.never')}
                   </span>
@@ -78,6 +84,13 @@ export function Users({ me }: { me: User }) {
                     onClick={() => act(u, () => api.sendLink(u.id), t('users.linkSent', { email: u.email }))}>
                     <Icon d={u.status === 'invited' ? icons.send : icons.key} size={16} />
                     {t(u.status === 'invited' ? 'users.resend' : 'users.reset')}
+                  </button>
+                )}
+                {homeAssistant && (
+                  <button type="button" className="btn btn--small" disabled={busy === u.id} onClick={() => setLinking(u)}
+                    aria-label={t('ha.adminAria', { name: u.name })}>
+                    <Icon d={icons.link} size={16} />
+                    Home Assistant
                   </button>
                 )}
                 {!you && (
@@ -102,6 +115,8 @@ export function Users({ me }: { me: User }) {
       </ul>
 
       <AdminDrives me={me} />
+
+      {linking && <HomeAssistantUserDialog user={linking} onClose={() => setLinking(null)} onDone={load} />}
 
       {inviting && (
         <InviteDialog onClose={() => setInviting(false)}

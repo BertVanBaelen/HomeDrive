@@ -161,6 +161,10 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
+	if req.HAUsername != nil && s.ha == nil {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 	ctx, admin := r.Context(), currentUser(r.Context())
 	u, err := s.accounts.UpdateUser(ctx, admin, r.PathValue("id"), req)
 	if err != nil {
@@ -176,6 +180,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Disabled != nil {
 		changes = append(changes, map[bool]string{true: "disabled", false: "enabled"}[*req.Disabled])
+	}
+	if req.HAUsername != nil {
+		changes = append(changes, "ha_username="+u.HAUsername)
 	}
 	s.accounts.Audit(ctx, admin.ID, ClientIP(ctx).String(), "user_updated", u.ID+" "+strings.Join(changes, ","))
 	writeJSON(w, http.StatusOK, u)

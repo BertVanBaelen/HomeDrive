@@ -1,6 +1,7 @@
+import { useEffect, useId, useState } from 'react'
 import { useContentUrl } from './content'
 import { zipUrl, type Drive, type Node } from '../api'
-import { displayName, formatDateTime, formatSize } from '../format'
+import { displayName, formatDateTime, formatDuration, formatSize } from '../format'
 import { plural, useLocale, useT, type MessageKey } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
 import { Thumb } from './Thumb'
@@ -12,6 +13,8 @@ export interface InfoActions {
   onTrash: () => void
   onStar: () => void
   onShare?: () => void
+  // onDescribe saves a new description; it throws when that fails.
+  onDescribe?: (text: string) => Promise<void>
 }
 
 // InfoPanel is the ⓘ side panel (a bottom sheet on phones). Items in the
@@ -48,6 +51,9 @@ export function InfoPanel({
   const isShareRoot = drive?.kind === 'share' && drive.rootId === node.id
   const locked = readOnly || isShareRoot
   const canShare = !!actions?.onShare && !!drive?.canShare && !node.trashedAt
+  // Anyone who may edit an item may describe it, the item shared with them
+  // included.
+  const describe = !readOnly && !node.trashedAt ? actions?.onDescribe : undefined
 
   const starBtn = actions && (
     <button type="button" className="btn btn--small" aria-pressed={node.starred} onClick={actions.onStar}>
@@ -137,15 +143,30 @@ export function InfoPanel({
             </div>
           </div>
         )}
+        <Description key={node.id} text={node.description ?? ''} onSave={describe} />
         <dl>
           <dt>{t('info.fileName')}</dt>
           <dd>{node.name}</dd>
           <dt>{t('info.modified')}</dt>
           <dd>{formatDateTime(node.modifiedAt, locale)}</dd>
+          {node.durationMs ? (
+            <>
+              <dt>{t('info.length')}</dt>
+              <dd>{formatDuration(node.durationMs)}</dd>
+            </>
+          ) : null}
           {node.trashedAt && (
             <>
               <dt>{t('info.deleted')}</dt>
               <dd>{formatDateTime(node.trashedAt, locale)}</dd>
+            </>
+          )}
+          {node.link && (
+            <>
+              <dt>{t('info.link')}</dt>
+              <dd>
+                <a href={node.link.url} target="_blank" rel="noopener noreferrer">{node.link.url}</a>
+              </dd>
             </>
           )}
           <dt>{t('info.location')}</dt>
@@ -159,5 +180,63 @@ export function InfoPanel({
         </dl>
       </aside>
     </>
+  )
+}
+
+// Description is the item's plain-text description: a text box for those
+// who may edit it (Save and Cancel show once it changes, ⌘/Ctrl+Enter
+// saves), the text itself for everyone else, nothing when it is empty.
+function Description({ text, onSave }: { text: string; onSave?: (text: string) => Promise<void> }) {
+  const t = useT()
+  const id = useId()
+  const [draft, setDraft] = useState(text)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => setDraft(text), [text])
+
+  if (!onSave) {
+    if (!text) return null
+    return (
+      <section className="info__desc" aria-labelledby={id}>
+        <span id={id} className="info__desc-label">{t('info.description')}</span>
+        <p className="description">{text}</p>
+      </section>
+    )
+  }
+  const changed = draft.trim() !== text
+  async function save() {
+    if (!onSave || !changed || busy) return
+    setBusy(true)
+    try {
+      await onSave(draft)
+    } catch {
+      // The toast told what went wrong; the draft stays to try again.
+    }
+    setBusy(false)
+  }
+  return (
+    <section className="info__desc">
+      <label htmlFor={id} className="info__desc-label">{t('info.description')}</label>
+      <textarea id={id} className="textarea" rows={3} maxLength={5000} placeholder={t('info.descriptionPlaceholder')}
+        value={draft} disabled={busy} onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault()
+            save()
+          } else if (e.key === 'Escape' && changed) {
+            e.stopPropagation()
+            setDraft(text)
+          }
+        }} />
+      {changed && (
+        <div className="info__desc-actions">
+          <button type="button" className="btn btn--small" disabled={busy} onClick={() => setDraft(text)}>
+            {t('common.cancel')}
+          </button>
+          <button type="button" className="btn btn--small btn--primary" disabled={busy} onClick={save}>
+            {t('info.descriptionSave')}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }

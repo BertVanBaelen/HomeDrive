@@ -23,7 +23,10 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 
 FROM alpine:3.24.3
 ARG VERSION=dev
-RUN apk add --no-cache ca-certificates tzdata
+# Thumbnails: libvips (with HEIF for iPhone photos), ffmpeg and poppler,
+# started only through `homedrive sandbox` (docs/security.md#files). The
+# DejaVu fonts let poppler draw PDFs whose fonts aren't embedded.
+RUN apk add --no-cache ca-certificates tzdata vips-tools vips-heif ffmpeg poppler-utils font-dejavu
 COPY --from=server /out/homedrive /usr/local/bin/homedrive
 COPY --from=web /src/web/dist /app/web
 

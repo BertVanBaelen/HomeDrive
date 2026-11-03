@@ -4,16 +4,21 @@ import { errorText } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
 import { Logo } from '../components/Logo'
 import { useT } from '../i18n'
+import { navigate } from '../router'
+import { useHomeAssistantLogin } from './HomeAssistant'
 
-// AuthLayout centres a card under the logo, for sign-in and setup.
-export function AuthLayout({ children, help }: { children: ReactNode; help?: string }) {
+// AuthLayout centres a card under the logo, for sign-in and setup. brand
+// replaces the logo.
+export function AuthLayout({ children, help, brand }: { children: ReactNode; help?: string; brand?: ReactNode }) {
   const t = useT()
   return (
     <main className="auth">
-      <div className="auth__brand">
-        <Logo size={36} label={t('app.name')} />
-        <span>{t('app.name')}</span>
-      </div>
+      {brand ?? (
+        <div className="auth__brand">
+          <Logo size={36} label={t('app.name')} />
+          <span>{t('app.name')}</span>
+        </div>
+      )}
       <div className="auth__card">{children}</div>
       {help && <p className="auth__help">{help}</p>}
     </main>
@@ -91,6 +96,7 @@ export function CodeStep({
 
 export function Login({ onSignedIn }: { onSignedIn: (u: User) => void }) {
   const t = useT()
+  const homeAssistant = useHomeAssistantLogin()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [challenge, setChallenge] = useState('')
@@ -134,6 +140,16 @@ export function Login({ onSignedIn }: { onSignedIn: (u: User) => void }) {
           {t('login.submit')}
         </button>
       </form>
+      {homeAssistant && (
+        <>
+          <div className="auth__or">
+            <span>{t('login.or')}</span>
+          </div>
+          <button type="button" className="btn btn--block" onClick={() => navigate('/login/homeassistant')}>
+            {t('ha.loginButton')}
+          </button>
+        </>
+      )}
     </AuthLayout>
   )
 }

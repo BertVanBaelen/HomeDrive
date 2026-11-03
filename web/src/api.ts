@@ -1,7 +1,8 @@
 // Typed access to Homedrive's JSON API (server/internal/server). Errors carry
 // the server's stable error code, which the UI translates.
 
-export type FileType = 'folder' | 'text' | 'sheet' | 'doc' | 'pdf' | 'image' | 'video' | 'audio' | 'archive' | 'code'
+export type FileType =
+  | 'folder' | 'text' | 'sheet' | 'doc' | 'pdf' | 'image' | 'video' | 'audio' | 'archive' | 'code' | 'link'
 
 export interface User {
   id: string
@@ -69,6 +70,46 @@ export interface Node {
   shared?: boolean
   // A folder's first items, for its thumbnail.
   preview?: Mini[]
+  // Plain text its editors wrote about it.
+  description?: string
+  // The file's current version, so thumbnail addresses change with it.
+  version?: string
+  // Where a saved link (a .url file) goes.
+  link?: LinkInfo
+  // The thumbnail the server has for it: an image, a snippet, or none.
+  thumb?: ThumbKind
+  // The length of a video or audio file, once known.
+  durationMs?: number
+}
+
+export type ThumbKind = 'image' | 'snippet'
+
+// Snippet is the start of a text, spreadsheet or zip, which the web app
+// lays out as a page, a code block, a sheet or a list.
+export interface Snippet {
+  kind: 'text' | 'code' | 'sheet' | 'archive'
+  lines?: string[]
+  rows?: string[][]
+  // An archive's first items at its top (folders end in /) and how many
+  // there are in all.
+  entries?: string[]
+  total?: number
+}
+
+// LinkInfo is where a saved link goes. site is the provider (YouTube,
+// TikTok) or the host; author is known only from a provider.
+export interface LinkInfo {
+  url: string
+  site: string
+  author?: string
+}
+
+// LinkPreview is what the Save page shows before a link is saved.
+export interface LinkPreview {
+  url: string
+  site: string
+  title?: string
+  author?: string
 }
 
 export interface Mini {
@@ -76,6 +117,8 @@ export interface Mini {
   kind: 'folder' | 'file'
   type: FileType
   name: string
+  version?: string
+  thumb?: ThumbKind
 }
 
 export interface Crumb {
@@ -148,6 +191,10 @@ export interface PublicNode {
   modifiedAt: string
   childCount?: number
   preview?: Mini[]
+  version?: string
+  link?: LinkInfo
+  thumb?: ThumbKind
+  durationMs?: number
 }
 
 export interface LinkPage {
@@ -160,6 +207,8 @@ export interface LinkPage {
 export interface UserInfo extends User {
   createdAt: string
   status: 'active' | 'invited' | 'disabled'
+  // The Home Assistant username they may log in with (add-on option).
+  haUsername?: string
   lastSeenAt?: string
 }
 
@@ -322,6 +371,10 @@ export const api = {
     request<{ challenge: string }>('POST', '/api/auth/login', { email, password }),
   verify: (challenge: string, code: string) => request<User>('POST', '/api/auth/verify', { challenge, code }),
   logout: () => request<void>('POST', '/api/auth/logout'),
+  // Home Assistant login, in the add-on when its option is on.
+  authOptions: () => request<{ homeAssistant: boolean }>('GET', '/api/auth/options'),
+  homeAssistantLogin: (username: string, password: string) =>
+    request<{ challenge: string; email: string }>('POST', '/api/auth/homeassistant', { username, password }),
 
   setupCheck: (token: string) => request<void>('POST', '/api/setup/check', { token }),
   setupBegin: (p: { token: string; email: string; name: string; password: string; locale: string }) =>
@@ -348,6 +401,9 @@ export const api = {
   rename: (id: string, name: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { name }),
   move: (id: string, parentId: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { parentId }),
   star: (id: string, starred: boolean) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { starred }),
+  describe: (id: string, description: string) =>
+    request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { description }),
+  linkPreview: (url: string) => request<LinkPreview>('GET', `/api/link-preview?url=${encodeURIComponent(url)}`),
   trash: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}`),
   restore: (id: string) => request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/restore`),
   trashList: () => request<Located[]>('GET', '/api/trash'),
@@ -385,11 +441,15 @@ export const api = {
   deviceTokens: () => request<DeviceToken[]>('GET', '/api/me/devices'),
   createDeviceToken: (name: string) => request<{ device: DeviceToken; token: string }>('POST', '/api/me/devices', { name }),
   revokeDeviceToken: (id: string) => request<void>('DELETE', `/api/me/devices/${encodeURIComponent(id)}`),
+  homeAssistantLink: () => request<{ username: string }>('GET', '/api/me/homeassistant'),
+  linkHomeAssistant: (username: string, password: string) =>
+    request<{ username: string }>('PUT', '/api/me/homeassistant', { username, password }),
+  unlinkHomeAssistant: () => request<void>('DELETE', '/api/me/homeassistant'),
 
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
   inviteUser: (p: { email: string; name: string; role: string; locale: string; driveIds?: string[] }) =>
     request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
-  updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
+  updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean; haUsername?: string }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
   adminDrives: () => request<AdminDrive[]>('GET', '/api/admin/drives'),
@@ -407,8 +467,8 @@ export const api = {
   welcomeFinish: (token: string, password: string) =>
     request<User>('POST', '/api/welcome/finish', { token, password }),
 
-  createUpload: (parentId: string, name: string, size: number) =>
-    request<Upload>('POST', '/api/uploads', { parentId, name, size }),
+  createUpload: (parentId: string, name: string, size: number, description = '') =>
+    request<Upload>('POST', '/api/uploads', { parentId, name, size, description }),
   uploadStatus: (id: string) => request<Upload>('GET', `/api/uploads/${encodeURIComponent(id)}`),
   completeUpload: (id: string) => request<Node>('POST', `/api/uploads/${encodeURIComponent(id)}/complete`),
   cancelUpload: (id: string) => request<void>('DELETE', `/api/uploads/${encodeURIComponent(id)}`),
@@ -423,6 +483,29 @@ export const contentUrl: ContentUrl = (id, download = false) =>
 
 export function zipUrl(id: string): string {
   return `/api/nodes/${encodeURIComponent(id)}/zip`
+}
+
+// ThumbUrl gives the address of a file's thumbnail (grid or list size),
+// its snippet, or the viewer's preview of a HEIC or TIFF photo. The
+// version makes a new one load when the file changes.
+export type ThumbAsset = 'grid' | 'list' | 'snippet' | 'preview'
+export type ThumbUrl = (id: string, version?: string, asset?: ThumbAsset) => string
+
+function thumbAddress(base: string): ThumbUrl {
+  return (id, version, asset = 'grid') => {
+    const path = asset === 'snippet' || asset === 'preview' ? asset : 'thumb'
+    const q = new URLSearchParams()
+    if (asset === 'list') q.set('size', 'list')
+    if (version) q.set('v', version)
+    const query = q.toString()
+    return `${base}${encodeURIComponent(id)}/${path}${query ? '?' + query : ''}`
+  }
+}
+
+export const thumbUrl: ThumbUrl = thumbAddress('/api/nodes/')
+
+export function linkThumb(token: string): ThumbUrl {
+  return thumbAddress(`/api/s/${encodeURIComponent(token)}/nodes/`)
 }
 
 export function linkContent(token: string): ContentUrl {
