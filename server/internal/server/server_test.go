@@ -96,7 +96,8 @@ func (f *fakeMail) lastCode(t *testing.T, addr string) string {
 	return ""
 }
 
-func newTestEnv(t *testing.T) *testEnv {
+// newTestEnv takes extra settings as environment variables, NAME=value.
+func newTestEnv(t *testing.T, environ ...string) *testEnv {
 	t.Helper()
 	dir := t.TempDir()
 	web := filepath.Join(dir, "web")
@@ -119,14 +120,14 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 
-	cfg, err := config.Load([]string{
+	cfg, err := config.Load(append([]string{
 		"HOMEDRIVE_PUBLIC_URL=https://" + publicHost,
 		"HOMEDRIVE_STATE_DIR=" + filepath.Join(dir, "state"),
 		"HOMEDRIVE_DATA_PATH=" + filepath.Join(dir, "files"),
 		"HOMEDRIVE_WEB_DIR=" + web,
 		"HOMEDRIVE_SMTP_HOST=smtp.example.com",
 		"HOMEDRIVE_SMTP_FROM=drive@example.com",
-	})
+	}, environ...))
 	if err != nil {
 		t.Fatal(err)
 	}

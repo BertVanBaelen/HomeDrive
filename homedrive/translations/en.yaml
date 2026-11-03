@@ -45,6 +45,11 @@ configuration:
       Only when every administrator is locked out. Turn on and restart: the log
       shows a one-time link to set a new administrator password. Turn off again
       afterwards.
+  homeassistant_login:
+    name: Log in with Home Assistant
+    description: >-
+      Lets people log in with their Home Assistant username and password once
+      their Homedrive account is linked to it. The email code still follows.
 network:
   8080/tcp: >-
     Web interface. Leave empty when the Cloudflared add-on connects to Homedrive;

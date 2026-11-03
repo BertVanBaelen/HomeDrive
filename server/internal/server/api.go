@@ -170,6 +170,8 @@ var apiErrors = []struct {
 	{accounts.ErrInvalidRole, http.StatusBadRequest, "invalid_role"},
 	{accounts.ErrWrongPassword, http.StatusForbidden, "wrong_password"},
 	{accounts.ErrTooManyDevices, http.StatusConflict, "too_many_devices"},
+	{accounts.ErrInvalidHAUsername, http.StatusBadRequest, "invalid_ha_username"},
+	{accounts.ErrHAUsernameTaken, http.StatusConflict, "ha_username_taken"},
 	{auth.ErrPasswordTooShort, http.StatusBadRequest, "password_too_short"},
 	{auth.ErrPasswordTooLong, http.StatusBadRequest, "password_too_long"},
 	{auth.ErrPasswordCommon, http.StatusBadRequest, "password_common"},

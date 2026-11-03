@@ -34,6 +34,10 @@ const (
 	envSMTPPasswordFile = envPrefix + "SMTP_PASSWORD_FILE"
 )
 
+// envSupervisorToken is set by the Home Assistant Supervisor for add-ons, so
+// it has no HOMEDRIVE_ prefix. Without it there is no Supervisor to ask.
+const envSupervisorToken = "SUPERVISOR_TOKEN"
+
 // defaults lists every option Homedrive understands.
 var defaults = map[string]string{
 	"public_url":            "",
@@ -53,6 +57,8 @@ var defaults = map[string]string{
 	"web_dir":               "/app/web",
 	"log_level":             "info",
 	"admin_recovery":        "false",
+	"homeassistant_login":   "false",
+	"supervisor_url":        "http://supervisor",
 }
 
 type SMTPSecurity string
@@ -75,6 +81,13 @@ type SMTP struct {
 // public_url is a localhost address (development).
 func (s SMTP) Configured() bool { return s.Host != "" }
 
+// Supervisor is how the add-on reaches the Home Assistant Supervisor. URL is
+// http://supervisor except in tests (supervisor_url, environment only).
+type Supervisor struct {
+	URL   string
+	Token string
+}
+
 type TimeOfDay struct{ Hour, Minute int }
 
 func (t TimeOfDay) String() string { return fmt.Sprintf("%02d:%02d", t.Hour, t.Minute) }
@@ -96,6 +109,10 @@ type Config struct {
 	// AdminRecovery prints a one-time link at startup to set a new password
 	// for an admin who is locked out.
 	AdminRecovery bool
+	// HomeAssistant is set when people may log in with a Home Assistant
+	// username and password: homeassistant_login is on and Homedrive runs as
+	// the add-on.
+	HomeAssistant *Supervisor
 
 	// Warnings are non-fatal problems found while loading, such as unknown
 	// options. They are meant to be logged once at startup.
@@ -108,7 +125,7 @@ type Config struct {
 func Load(environ []string) (*Config, error) {
 	env := make(map[string]string)
 	for _, kv := range environ {
-		if k, v, ok := strings.Cut(kv, "="); ok && strings.HasPrefix(k, envPrefix) {
+		if k, v, ok := strings.Cut(kv, "="); ok && (strings.HasPrefix(k, envPrefix) || k == envSupervisorToken) {
 			env[k] = v
 		}
 	}
@@ -134,7 +151,7 @@ func Load(environ []string) (*Config, error) {
 	}
 
 	for name, v := range env {
-		if name == envOptionsFile || name == envSMTPPasswordFile {
+		if name == envOptionsFile || name == envSMTPPasswordFile || name == envSupervisorToken {
 			continue
 		}
 		key := strings.ToLower(strings.TrimPrefix(name, envPrefix))
@@ -159,6 +176,13 @@ func Load(environ []string) (*Config, error) {
 	cfg, err := parse(values)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.HomeAssistant != nil {
+		if cfg.HomeAssistant.Token = env[envSupervisorToken]; cfg.HomeAssistant.Token == "" {
+			// Standalone Docker: there is no Supervisor to check passwords.
+			warnings = append(warnings, "ignoring homeassistant_login: it only works in the Home Assistant add-on")
+			cfg.HomeAssistant = nil
+		}
 	}
 	slices.Sort(warnings)
 	cfg.Warnings = warnings
@@ -292,6 +316,17 @@ func parse(values map[string]string) (*Config, error) {
 		bad("admin_recovery", "must be true or false")
 	} else {
 		cfg.AdminRecovery = b
+	}
+
+	if b, err := strconv.ParseBool(strings.TrimSpace(values["homeassistant_login"])); err != nil {
+		bad("homeassistant_login", "must be true or false")
+	} else if b {
+		if u, err := url.Parse(strings.TrimSpace(values["supervisor_url"])); err != nil || u.Host == "" ||
+			(u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || strings.Trim(u.Path, "/") != "" {
+			bad("supervisor_url", "must be an http(s) URL without a path, for example http://supervisor")
+		} else {
+			cfg.HomeAssistant = &Supervisor{URL: u.Scheme + "://" + u.Host}
+		}
 	}
 
 	if len(errs) > 0 {
@@ -442,5 +477,6 @@ func (c *Config) LogAttrs() []any {
 		"backup", backup,
 		"smtp", mail,
 		"trusted_proxies", c.TrustedProxies,
+		"homeassistant_login", c.HomeAssistant != nil,
 	}
 }

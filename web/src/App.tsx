@@ -7,6 +7,7 @@ import { Toast } from './components/Toast'
 import { detectLocale, LocaleContext, type Locale } from './i18n'
 import { Account } from './pages/Account'
 import { Browser } from './pages/Browser'
+import { HomeAssistantLogin } from './pages/HomeAssistant'
 import { LinkPage } from './pages/LinkPage'
 import { Login } from './pages/Login'
 import { Save } from './pages/Save'
@@ -30,12 +31,12 @@ export function App() {
     document.documentElement.lang = locale
   }, [locale])
   useEffect(() => {
-    if (user && route.name === 'login') navigate('/', true)
+    if (user && (route.name === 'login' || route.name === 'homeassistantLogin')) navigate('/', true)
   }, [user, route.name])
 
   function signedIn(u: User) {
     setUser(u)
-    if (['login', 'setup', 'recover', 'welcome'].includes(route.name)) navigate('/', true)
+    if (['login', 'homeassistantLogin', 'setup', 'recover', 'welcome'].includes(route.name)) navigate('/', true)
   }
 
   async function signOut() {
@@ -55,8 +56,9 @@ export function App() {
         <Logo size={48} />
       </div>
     )
-  } else if (user === null) page = <Login onSignedIn={signedIn} />
-  else if (route.name === 'login') page = null
+  } else if (user === null) {
+    page = route.name === 'homeassistantLogin' ? <HomeAssistantLogin onSignedIn={signedIn} /> : <Login onSignedIn={signedIn} />
+  } else if (route.name === 'login' || route.name === 'homeassistantLogin') page = null
   else if (route.name === 'save') {
     page = (
       <Page user={user} onSignOut={signOut}>

@@ -6,6 +6,7 @@ import { SelectField } from '../components/Select'
 import { showToast } from '../components/Toast'
 import { formatWhen } from '../format'
 import { detectLocale, translator, useLocale, useT, type Translate } from '../i18n'
+import { HomeAssistantAccount } from './HomeAssistant'
 import { Field } from './Login'
 import { ShortcutDevices } from './Shortcut'
 
@@ -42,6 +43,7 @@ export function Account({ user, onUser }: { user: User; onUser: (u: User) => voi
       <h1>{t('account.title')}</h1>
       <Profile user={user} onUser={onUser} />
       <Password />
+      <HomeAssistantAccount />
       <Devices />
       <ShortcutDevices />
     </div>

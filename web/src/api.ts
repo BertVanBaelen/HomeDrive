@@ -207,6 +207,8 @@ export interface LinkPage {
 export interface UserInfo extends User {
   createdAt: string
   status: 'active' | 'invited' | 'disabled'
+  // The Home Assistant username they may log in with (add-on option).
+  haUsername?: string
   lastSeenAt?: string
 }
 
@@ -369,6 +371,10 @@ export const api = {
     request<{ challenge: string }>('POST', '/api/auth/login', { email, password }),
   verify: (challenge: string, code: string) => request<User>('POST', '/api/auth/verify', { challenge, code }),
   logout: () => request<void>('POST', '/api/auth/logout'),
+  // Home Assistant login, in the add-on when its option is on.
+  authOptions: () => request<{ homeAssistant: boolean }>('GET', '/api/auth/options'),
+  homeAssistantLogin: (username: string, password: string) =>
+    request<{ challenge: string; email: string }>('POST', '/api/auth/homeassistant', { username, password }),
 
   setupCheck: (token: string) => request<void>('POST', '/api/setup/check', { token }),
   setupBegin: (p: { token: string; email: string; name: string; password: string; locale: string }) =>
@@ -435,11 +441,15 @@ export const api = {
   deviceTokens: () => request<DeviceToken[]>('GET', '/api/me/devices'),
   createDeviceToken: (name: string) => request<{ device: DeviceToken; token: string }>('POST', '/api/me/devices', { name }),
   revokeDeviceToken: (id: string) => request<void>('DELETE', `/api/me/devices/${encodeURIComponent(id)}`),
+  homeAssistantLink: () => request<{ username: string }>('GET', '/api/me/homeassistant'),
+  linkHomeAssistant: (username: string, password: string) =>
+    request<{ username: string }>('PUT', '/api/me/homeassistant', { username, password }),
+  unlinkHomeAssistant: () => request<void>('DELETE', '/api/me/homeassistant'),
 
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
   inviteUser: (p: { email: string; name: string; role: string; locale: string; driveIds?: string[] }) =>
     request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
-  updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean }) =>
+  updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean; haUsername?: string }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),
   adminDrives: () => request<AdminDrive[]>('GET', '/api/admin/drives'),
