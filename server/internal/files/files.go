@@ -47,6 +47,8 @@ type Service struct {
 	store *storage.Store
 	log   *slog.Logger
 	now   func() time.Time
+	// thumbs is the thumbnail pipeline, or nil.
+	thumbs Thumbnails
 
 	uploadMu    sync.Mutex
 	uploadLocks map[string]*sync.Mutex
@@ -109,16 +111,22 @@ type Node struct {
 	Version string `json:"version,omitempty"`
 	// Link is where a saved link (a .url file) goes.
 	Link *LinkInfo `json:"link,omitempty"`
+	// Thumb is the thumbnail the file has: "image", "snippet" or none.
+	Thumb string `json:"thumb,omitempty"`
+	// DurationMs is the length of a video or audio file, once known.
+	DurationMs int64 `json:"durationMs,omitempty"`
 
 	versionID string
 }
 
 // Mini is an item shown inside a folder's thumbnail.
 type Mini struct {
-	ID   string `json:"id"`
-	Kind string `json:"kind"`
-	Type string `json:"type"`
-	Name string `json:"name"`
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+	Thumb   string `json:"thumb,omitempty"`
 }
 
 // Located is a node listed outside its folder (trash, starred, recent,

@@ -16,6 +16,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 type Server struct {
@@ -43,10 +44,10 @@ type Server struct {
 	// zips counts zip downloads in progress.
 	zips *gate
 
-	// previews asks oEmbed providers about saved links; thumbs caches
-	// their thumbnails.
+	// previews asks oEmbed providers about saved links.
 	previews *savedlink.Client
-	thumbs   *savedlink.Thumbs
+	// thumbs makes and caches thumbnails and previews.
+	thumbs *thumbs.Service
 }
 
 // Deps are the services the HTTP layer serves.
@@ -56,6 +57,9 @@ type Deps struct {
 	Backup   *backup.Service
 	// Previews is nil except in tests, which keep requests local.
 	Previews *savedlink.Client
+	// Thumbs is the thumbnail pipeline, connected to Files. Without it
+	// only snippets are made.
+	Thumbs *thumbs.Service
 }
 
 func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
@@ -71,6 +75,11 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	previews := deps.Previews
 	if previews == nil {
 		previews = savedlink.NewClient(nil)
+	}
+	th := deps.Thumbs
+	if th == nil {
+		th = thumbs.NewWithoutTools(cfg.StateDir, deps.Files, log)
+		deps.Files.SetThumbnails(th)
 	}
 	return &Server{
 		cfg:           cfg,
@@ -89,7 +98,7 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		linkPassTotal: ratelimit.New(50, time.Hour),
 		zips:          newGate(),
 		previews:      previews,
-		thumbs:        savedlink.NewThumbs(cfg.StateDir),
+		thumbs:        th,
 	}, nil
 }
 
@@ -110,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	s.shareRoutes(mux)
 	s.linkRoutes(mux)
 	s.savedLinkRoutes(mux)
+	s.thumbRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

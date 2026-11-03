@@ -218,7 +218,11 @@ func (s *Service) addFile(ctx context.Context, userID, parentID, name, descripti
 	if err := s.touch(ctx, tx, parent.ID); err != nil {
 		return "", err
 	}
-	return nodeID, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	s.saved(name, versionID)
+	return nodeID, nil
 }
 
 // Open returns a live file's current contents for reading.

@@ -29,6 +29,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/mail"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/server"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 // version is set at build time with -ldflags "-X main.version=…".
@@ -44,6 +45,9 @@ func main() {
 			return
 		case "export":
 			os.Exit(export(os.Args[2:]))
+		case thumbs.SandboxCommand:
+			// Internal: the server starts thumbnail tools this way.
+			os.Exit(thumbs.Sandbox(os.Args[2:]))
 		default:
 			fmt.Fprintf(os.Stderr, "unknown command %q (commands: healthcheck, version, export)\n", os.Args[1])
 			os.Exit(2)
@@ -127,9 +131,12 @@ func run() error {
 	}
 
 	fs := files.New(conn, store, log)
-	go housekeeping(ctx, log, fs, acc)
+	th := thumbs.New(cfg.StateDir, fs, log)
+	fs.SetThumbnails(th)
+	go th.Start(ctx)
+	go housekeeping(ctx, log, fs, acc, th)
 
-	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: fs, Backup: bk})
+	srv, err := server.New(cfg, log, server.Deps{Accounts: acc, Files: fs, Backup: bk, Thumbs: th})
 	if err != nil {
 		return err
 	}
@@ -197,8 +204,8 @@ func export(args []string) int {
 
 // housekeeping runs the cleanup jobs shortly after start and then every
 // hour: unfinished uploads, leftovers of interrupted writes, expired
-// sessions and codes.
-func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc *accounts.Service) {
+// sessions and codes, thumbnails of versions that are gone.
+func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc *accounts.Service, th *thumbs.Service) {
 	timer := time.NewTimer(time.Minute)
 	defer timer.Stop()
 	for {
@@ -214,6 +221,11 @@ func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc 
 		}
 		if err := acc.Cleanup(ctx); err != nil {
 			log.Warn("cleaning up accounts", "error", err)
+		}
+		if n, err := th.Cleanup(ctx); err != nil {
+			log.Warn("cleaning up thumbnails", "error", err)
+		} else if n > 0 {
+			log.Info("cleaned up thumbnails", "removed", n)
 		}
 		timer.Reset(time.Hour)
 	}

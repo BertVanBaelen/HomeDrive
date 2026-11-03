@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 // fakeProviders answers for YouTube's oEmbed endpoint and thumbnail host
@@ -55,9 +57,9 @@ func (f *fakeProviders) asked(substr string) bool {
 }
 
 type linkNode struct {
-	ID, Name, Type, Description, Version string
-	ModifiedAt                           time.Time
-	Link                                 *struct{ URL, Site, Author string }
+	ID, Name, Type, Description, Version, Thumb string
+	ModifiedAt                                  time.Time
+	Link                                        *struct{ URL, Site, Author string }
 }
 
 func nodeOf(t *testing.T, c *client, id string) linkNode {
@@ -183,11 +185,15 @@ func TestSavedLinks(t *testing.T) {
 		t.Fatalf("Content-Disposition = %q", cd)
 	}
 
-	// The thumbnail comes from the provider once, then from the cache.
+	// The thumbnail comes from the provider once, made into WebP sizes,
+	// then from the cache.
+	if n.Thumb != "image" {
+		t.Fatalf("thumb = %q", n.Thumb)
+	}
 	thumb := "/api/nodes/" + n.ID + "/thumb?v=" + n.Version
 	r = a.get(thumb)
 	expect(t, r, 200)
-	if r.Body.String() != fakeJPEG || r.Header().Get("Content-Type") != "image/jpeg" ||
+	if r.Body.String() != thumbs.FakeWebP || r.Header().Get("Content-Type") != "image/webp" ||
 		!strings.HasPrefix(r.Header().Get("Content-Security-Policy"), "sandbox") {
 		t.Fatalf("thumbnail: %q %v", r.Body.String(), r.Header())
 	}

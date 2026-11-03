@@ -36,6 +36,9 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
+      # The thumbnail tools, so their tests run against the real thing.
+      - name: Thumbnail tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvips-tools ffmpeg poppler-utils
       - run: go test -race ./...
       - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
