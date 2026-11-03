@@ -368,6 +368,7 @@ export const en = {
   'info.descriptionPlaceholder': 'Add a description',
   'info.descriptionSave': 'Save',
   'info.link': 'Link',
+  'info.length': 'Length',
   'item.starred': 'Starred',
   'item.shared': 'Shared',
 
@@ -429,6 +430,7 @@ export const en = {
   'viewer.next': 'Next file',
   'viewer.noPreview': 'No preview for this file',
   'viewer.noPreviewBody': 'Download it to open it on your device.',
+  'thumb.more': '+{count} more',
   'viewer.pdfFailed': 'This PDF couldn’t be shown. Download it to open it on your device.',
   'viewer.pdfPage': 'Page {n}',
 

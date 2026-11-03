@@ -370,6 +370,7 @@ export const nl: Messages = {
   'info.descriptionPlaceholder': 'Voeg een beschrijving toe',
   'info.descriptionSave': 'Bewaren',
   'info.link': 'Link',
+  'info.length': 'Duur',
   'item.starred': 'Met ster',
   'item.shared': 'Gedeeld',
 
@@ -431,6 +432,7 @@ export const nl: Messages = {
   'viewer.next': 'Volgend bestand',
   'viewer.noPreview': 'Geen voorbeeld voor dit bestand',
   'viewer.noPreviewBody': 'Download het om het op je toestel te openen.',
+  'thumb.more': '+{count} meer',
   'viewer.pdfFailed': 'Deze pdf kan niet worden getoond. Download hem om hem op je toestel te openen.',
   'viewer.pdfPage': 'Pagina {n}',
 

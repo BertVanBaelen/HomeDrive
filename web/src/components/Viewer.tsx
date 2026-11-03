@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { Node } from '../api'
-import { displayName, formatDateTime, formatSize } from '../format'
+import { displayName, formatDateTime, formatDuration, formatSize } from '../format'
 import { useLocale, useT, type MessageKey } from '../i18n'
-import { useContentUrl } from './content'
+import { useContentUrl, useThumbUrl } from './content'
 import { fileTypes, Icon, icons } from './Icon'
 import { LinkCard } from './LinkCard'
 import { Logo } from './Logo'
@@ -11,12 +11,15 @@ import { Logo } from './Logo'
 const PdfView = lazy(() => import('./PdfView'))
 
 const showableImage = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
+// Photos browsers can't show open through the server's preview (WebP).
+const convertedImage = /\.(heic|heif|tiff?)$/i
 const playableVideo = /\.(mp4|m4v|webm|mov)$/i
 const maxTextBytes = 2_000_000
 
 export function canPreview(n: Node): boolean {
   return (
     (n.type === 'image' && showableImage.test(n.name)) ||
+    (n.type === 'image' && convertedImage.test(n.name) && n.thumb === 'image') ||
     (n.type === 'video' && playableVideo.test(n.name)) ||
     n.type === 'audio' ||
     (n.type === 'pdf' && /\.pdf$/i.test(n.name)) ||
@@ -118,6 +121,12 @@ export function Viewer({
               <dd>{sizeLabel}</dd>
               <dt>{t('info.modified')}</dt>
               <dd>{formatDateTime(n.modifiedAt, locale)}</dd>
+              {n.durationMs ? (
+                <>
+                  <dt>{t('info.length')}</dt>
+                  <dd>{formatDuration(n.durationMs)}</dd>
+                </>
+              ) : null}
               <dt>{t('info.location')}</dt>
               <dd>{location}</dd>
               {n.description && (
@@ -137,6 +146,7 @@ export function Viewer({
 function Preview({ node }: { node: Node }) {
   const t = useT()
   const contentUrl = useContentUrl()
+  const thumbUrl = useThumbUrl()
   if (!canPreview(node)) {
     const type = fileTypes[node.type]
     return (
@@ -153,6 +163,7 @@ function Preview({ node }: { node: Node }) {
   }
   switch (node.type) {
     case 'image':
+      if (convertedImage.test(node.name)) return <img src={thumbUrl(node.id, node.version, 'preview')} alt={displayName(node)} />
       return <img src={contentUrl(node.id)} alt={displayName(node)} />
     case 'video':
       return <video src={contentUrl(node.id)} controls autoPlay playsInline />

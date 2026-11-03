@@ -5,6 +5,7 @@ import { plural, useLocale, useT, type MessageKey } from '../i18n'
 import { errorText, Modal } from './Dialogs'
 import { Icon, icons } from './Icon'
 import { Select } from './Select'
+import { Thumb } from './Thumb'
 import { initials } from './Shell'
 
 const accesses: ShareAccess[] = ['view', 'edit']
@@ -59,7 +60,7 @@ export function ShareDialog({ node, me, onClose }: { node: Node; me: User; onClo
   const link = sharing?.link ?? null
 
   return (
-    <Modal title={t('share.title')} subtitle={displayName(node)} onClose={onClose}>
+    <Modal title={t('share.title')} subtitle={displayName(node)} lead={<Thumb node={node} small />} onClose={onClose}>
       {sharing && drive && (
         <section className="share-people" aria-label={t('share.people')}>
           <h3>{t('share.people')}</h3>
