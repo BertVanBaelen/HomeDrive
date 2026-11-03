@@ -1841,6 +1841,55 @@
   font-size: 13px;
   color: var(--gray-500);
 }
+.auth__or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--gray-500);
+  font-size: 13px;
+}
+.auth__or::before,
+.auth__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gray-200);
+}
+/* Home Assistant login: the two logos joined by a chain link. The Home
+   Assistant logomark keeps at least a quarter of its height clear around
+   it, and is never put on a coloured shape. */
+.ha-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ha-brand__chain {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: #f3f4f6;
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ha-brand__homedrive {
+  display: flex;
+  color: var(--primary-900);
+}
+.ha-linked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ha-linked svg {
+  flex: none;
+}
+.ha-linked p {
+  flex: 1;
+  margin: 0;
+  color: var(--gray-800);
+}
 .splash {
   min-height: 100dvh;
   display: flex;
