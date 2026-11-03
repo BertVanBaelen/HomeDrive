@@ -2,6 +2,23 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.6.0
+
+**Log in with Home Assistant** (add-on only, off by default)
+
+- Turn on `homeassistant_login` in the add-on options. People whose Homedrive account is linked to a Home Assistant user can then log in with that username and password, followed by the usual email code.
+- Admins link usernames on *Manage Users*; people can link their own in *Account Settings*. Email and Homedrive password keep working.
+- The add-on now asks for Home Assistant's `auth_api` permission for this.
+
+## 2.5.0
+
+**Thumbnails**
+
+- Files show their contents instead of an icon: photos, video posters with their length, audio covers, the first page of PDFs, the start of text and code files, spreadsheet tables, the contents of `.zip` files, and folders as their first four items.
+- iPhone photos (HEIC) and TIFF images now open in the viewer.
+- Saved links' video pictures are resized like other thumbnails.
+- The image now includes libvips, ffmpeg and poppler (about 150 MB larger).
+
 ## 2.4.0
 
 **Descriptions and saved links**
