@@ -623,7 +623,11 @@ func TestPublicLinks(t *testing.T) {
 		return v.send("GET", page, "", nil, map[string]string{"Cookie": name + "=" + value})
 	}
 	expect(t, withGrant("__Host-hd_link_"+l.ID, grant), 200)
-	expectCode(t, withGrant("__Host-hd_link_"+l.ID, grant[:len(grant)-1]+"A"), 401, "link_locked")
+	tampered := grant[:len(grant)-1] + "A"
+	if tampered == grant {
+		tampered = grant[:len(grant)-1] + "E"
+	}
+	expectCode(t, withGrant("__Host-hd_link_"+l.ID, tampered), 401, "link_locked")
 	expectCode(t, withGrant("__Host-hd_link_"+l.ID, ""), 401, "link_locked")
 	expectCode(t, withGrant("__Host-hd_link_"+fl.ID, grant), 401, "link_locked")
 	// A new password ends the grants given before.

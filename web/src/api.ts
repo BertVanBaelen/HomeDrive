@@ -76,6 +76,24 @@ export interface Node {
   version?: string
   // Where a saved link (a .url file) goes.
   link?: LinkInfo
+  // The thumbnail the server has for it: an image, a snippet, or none.
+  thumb?: ThumbKind
+  // The length of a video or audio file, once known.
+  durationMs?: number
+}
+
+export type ThumbKind = 'image' | 'snippet'
+
+// Snippet is the start of a text, spreadsheet or zip, which the web app
+// lays out as a page, a code block, a sheet or a list.
+export interface Snippet {
+  kind: 'text' | 'code' | 'sheet' | 'archive'
+  lines?: string[]
+  rows?: string[][]
+  // An archive's first items at its top (folders end in /) and how many
+  // there are in all.
+  entries?: string[]
+  total?: number
 }
 
 // LinkInfo is where a saved link goes. site is the provider (YouTube,
@@ -99,6 +117,8 @@ export interface Mini {
   kind: 'folder' | 'file'
   type: FileType
   name: string
+  version?: string
+  thumb?: ThumbKind
 }
 
 export interface Crumb {
@@ -173,6 +193,8 @@ export interface PublicNode {
   preview?: Mini[]
   version?: string
   link?: LinkInfo
+  thumb?: ThumbKind
+  durationMs?: number
 }
 
 export interface LinkPage {
@@ -453,16 +475,27 @@ export function zipUrl(id: string): string {
   return `/api/nodes/${encodeURIComponent(id)}/zip`
 }
 
-// ThumbUrl gives the address of a saved link's thumbnail; the version
-// makes a new one load when the link changes.
-export type ThumbUrl = (id: string, version?: string) => string
+// ThumbUrl gives the address of a file's thumbnail (grid or list size),
+// its snippet, or the viewer's preview of a HEIC or TIFF photo. The
+// version makes a new one load when the file changes.
+export type ThumbAsset = 'grid' | 'list' | 'snippet' | 'preview'
+export type ThumbUrl = (id: string, version?: string, asset?: ThumbAsset) => string
 
-export const thumbUrl: ThumbUrl = (id, version) =>
-  `/api/nodes/${encodeURIComponent(id)}/thumb${version ? `?v=${encodeURIComponent(version)}` : ''}`
+function thumbAddress(base: string): ThumbUrl {
+  return (id, version, asset = 'grid') => {
+    const path = asset === 'snippet' || asset === 'preview' ? asset : 'thumb'
+    const q = new URLSearchParams()
+    if (asset === 'list') q.set('size', 'list')
+    if (version) q.set('v', version)
+    const query = q.toString()
+    return `${base}${encodeURIComponent(id)}/${path}${query ? '?' + query : ''}`
+  }
+}
+
+export const thumbUrl: ThumbUrl = thumbAddress('/api/nodes/')
 
 export function linkThumb(token: string): ThumbUrl {
-  const base = `/api/s/${encodeURIComponent(token)}/nodes/`
-  return (id, version) => `${base}${encodeURIComponent(id)}/thumb${version ? `?v=${encodeURIComponent(version)}` : ''}`
+  return thumbAddress(`/api/s/${encodeURIComponent(token)}/nodes/`)
 }
 
 export function linkContent(token: string): ContentUrl {

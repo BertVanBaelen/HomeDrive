@@ -10,6 +10,7 @@ import (
 
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 // Saved links (docs/architecture.md §4, "Descriptions and saved links"):
@@ -19,8 +20,6 @@ import (
 
 func (s *Server) savedLinkRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/link-preview", s.authed(s.handleLinkPreview))
-	mux.HandleFunc("GET /api/nodes/{id}/thumb", s.authed(s.handleLinkThumb))
-	mux.HandleFunc("GET /api/s/{token}/nodes/{id}/thumb", s.visitor(s.handleVisitorThumb))
 	// Like POST /api/inbox, for the iPhone Shortcut: a device token, no
 	// cookie.
 	mux.HandleFunc("POST /api/inbox/link", s.handleInboxLink)
@@ -84,88 +83,51 @@ func (s *Server) keepAuthor(ctx context.Context, nodeID string, pv savedlink.Pre
 	}
 }
 
-// handleLinkThumb serves a saved link's thumbnail from the cache. On a
-// miss it asks the provider again, because TikTok's thumbnail addresses
-// expire, and caches what it gets.
-func (s *Server) handleLinkThumb(w http.ResponseWriter, r *http.Request) {
-	ctx, uid := r.Context(), currentUser(r.Context()).ID
-	d, err := s.files.Get(ctx, uid, r.PathValue("id"))
-	if err != nil {
-		s.fail(w, r, err)
-		return
+// errLinkRateLimited is a link thumbnail that would need a lookup the
+// user has no lookups left for.
+var errLinkRateLimited = errors.New("link lookups rate limited")
+
+// linkThumb finds a saved link's image at a size. On a miss it asks the
+// provider again, because TikTok's thumbnail addresses expire, and makes
+// thumbnails of what it gets. Link visitors (no userID) get the cache only.
+func (s *Server) linkThumb(ctx context.Context, n files.Node, size thumbs.Size, userID string) (string, error) {
+	if p, err := s.thumbs.LinkImage(n.Version, size); err == nil {
+		return p, nil
 	}
-	n := d.Node
-	if n.Link == nil || n.Version == "" {
-		writeError(w, http.StatusNotFound, "not_found")
-		return
-	}
-	if b, err := s.thumbs.Get(n.Version); err == nil {
-		serveThumb(w, r, b, n.Version)
-		return
+	if n.Link == nil || s.thumbs.Kind(n.Name, n.Version) != thumbs.KindImage {
+		return "", thumbs.ErrNone
 	}
 	u, err := url.Parse(n.Link.URL)
-	if err != nil || !savedlink.HasPreview(u) || s.thumbs.Failed(n.Version) {
-		writeError(w, http.StatusNotFound, "not_found")
-		return
+	if err != nil || !savedlink.HasPreview(u) {
+		return "", thumbs.ErrNone
 	}
-	pv, err := s.previews.Lookup(ctx, uid, u)
+	// v2 before thumbnails cached the provider's image as it was.
+	if b := s.thumbs.LegacyLink(n.Version); b != nil && s.thumbs.MakeLink(ctx, n.Version, b) == nil {
+		return s.thumbs.LinkImage(n.Version, size)
+	}
+	if userID == "" {
+		return "", thumbs.ErrNone
+	}
+	pv, err := s.previews.Lookup(ctx, userID, u)
 	if errors.Is(err, savedlink.ErrRateLimited) {
-		writeError(w, http.StatusTooManyRequests, "rate_limited")
-		return
+		return "", errLinkRateLimited
 	}
 	var b []byte
 	if err == nil {
 		s.keepAuthor(ctx, n.ID, pv)
 		b, _, err = s.previews.Thumbnail(ctx, pv)
 	}
+	if err == nil {
+		err = s.thumbs.MakeLink(ctx, n.Version, b)
+	}
 	if err != nil {
 		if ctx.Err() == nil {
 			s.log.Debug("link thumbnail failed", "site", n.Link.Site, "error", err)
-			s.thumbs.Fail(n.Version)
+			s.thumbs.FailLink(n.Version)
 		}
-		writeError(w, http.StatusNotFound, "not_found")
-		return
+		return "", thumbs.ErrNone
 	}
-	if err := s.thumbs.Put(n.Version, b); err != nil {
-		s.log.Warn("caching a link thumbnail", "error", err)
-	}
-	serveThumb(w, r, b, n.Version)
-}
-
-// handleVisitorThumb serves a cached thumbnail to a link visitor. Visitors
-// never make Homedrive ask a provider.
-func (s *Server) handleVisitorThumb(w http.ResponseWriter, r *http.Request, v files.Visit) {
-	page, err := s.files.LinkPage(r.Context(), v, visitNode(r, v))
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	b, err := s.thumbs.Get(page.Node.Version)
-	if page.Node.Link == nil || err != nil {
-		writeError(w, http.StatusNotFound, "not_found")
-		return
-	}
-	serveThumb(w, r, b, page.Node.Version)
-}
-
-// serveThumb sends a cached image under the same rules as file contents.
-func serveThumb(w http.ResponseWriter, r *http.Request, b []byte, version string) {
-	ctype := savedlink.ImageType(b)
-	if ctype == "" {
-		writeError(w, http.StatusNotFound, "not_found")
-		return
-	}
-	h := w.Header()
-	h.Set("Content-Type", ctype)
-	h.Set("Content-Disposition", "inline")
-	h.Set("Content-Security-Policy", "sandbox; default-src 'none'")
-	h.Set("Cache-Control", "private, no-cache")
-	h.Set("ETag", `"`+version+`"`)
-	if match := r.Header.Get("If-None-Match"); match != "" && strings.Contains(match, `"`+version+`"`) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	w.Write(b)
+	return s.thumbs.LinkImage(n.Version, size)
 }
 
 // handleInboxLink saves a link from the iPhone Shortcut to the Inbox:

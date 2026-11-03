@@ -22,6 +22,7 @@ import (
 	hdmail "github.com/BertVanBaelen/HomeDrive/server/internal/mail"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/thumbs"
 )
 
 const (
@@ -152,7 +153,12 @@ func newTestEnv(t *testing.T) *testEnv {
 	fm := &fakeMail{}
 	acc := accounts.New(conn, fm, log, cfg.Origin())
 	providers := &fakeProviders{}
-	srv, err := New(cfg, log, Deps{Accounts: acc, Files: files.New(conn, store, log), Previews: savedlink.NewClient(providers)})
+	fs := files.New(conn, store, log)
+	// The tools are faked: tests run anywhere, and real tools have tests
+	// of their own (internal/thumbs).
+	th := thumbs.NewWithFakes(cfg.StateDir, fs, log, thumbs.Fakes)
+	fs.SetThumbnails(th)
+	srv, err := New(cfg, log, Deps{Accounts: acc, Files: fs, Previews: savedlink.NewClient(providers), Thumbs: th})
 	if err != nil {
 		t.Fatal(err)
 	}

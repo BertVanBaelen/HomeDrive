@@ -787,8 +787,10 @@
   bottom: 10px;
 }
 
-/* thumbnails */
+/* thumbnails (mockup Thumb.dc.html). Sizes inside scale with --z: 1 on
+   cards, 1.25 in the info panel, 0.5 in the Share dialog. */
 .thumb {
+  --z: 1;
   position: relative;
   display: block;
   width: 100%;
@@ -796,6 +798,12 @@
   overflow: hidden;
   border-radius: var(--radius-control);
   background: #f3f4f6;
+  color: #1f2937;
+  line-height: 1.35;
+}
+.thumb--small {
+  --z: 0.5;
+  height: 52px;
 }
 .thumb img {
   position: absolute;
@@ -815,26 +823,32 @@
   position: absolute;
   left: 17%;
   right: 17%;
-  top: 10px;
+  top: calc(10px * var(--z));
   bottom: -4px;
+  overflow: hidden;
   border-radius: 3px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.thumb__page--image img {
+  object-position: top;
+}
+.thumb__page--blank {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 10px;
+  gap: calc(6px * var(--z));
+  padding: calc(12px * var(--z)) calc(10px * var(--z));
 }
-.thumb__page i {
+.thumb__page--blank i {
   display: block;
-  height: 5px;
+  height: calc(5px * var(--z));
   border-radius: 2px;
   background: #e5e7eb;
 }
-.thumb__page i:first-child {
-  height: 8px;
+.thumb__page--blank i:first-child {
+  height: calc(8px * var(--z));
   width: 55%;
-  margin-bottom: 4px;
+  margin-bottom: calc(4px * var(--z));
 }
 .thumb__badge {
   position: absolute;
@@ -874,23 +888,222 @@
 .thumb__play svg {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
 }
+/* Videos: the poster darkened a little, a round play button, the length. */
+.thumb__video {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.3);
+}
+.thumb__play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(34px * var(--z));
+  height: calc(34px * var(--z));
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+.thumb__play-btn svg {
+  width: 45%;
+  height: 45%;
+}
+.thumb__duration {
+  position: absolute;
+  right: calc(8px * var(--z));
+  bottom: calc(8px * var(--z));
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font-size: max(9px, calc(11px * var(--z)));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Audio without cover art: title, length and a waveform. */
+.thumb__audio {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(10px * var(--z));
+}
+.thumb__audio-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--z));
+  min-width: 0;
+}
+.thumb__audio-text strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: calc(13px * var(--z));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thumb__audio-text span {
+  color: #fbcfe8;
+  font-size: calc(10px * var(--z));
+}
+.thumb__wave {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(2px * var(--z));
+  height: 40%;
+}
+.thumb__wave i {
+  flex: 1 1 0;
+  border-radius: 9999px;
+  background: #f9a8d4;
+}
+/* Snippets, laid out from the server's JSON. */
+.snip-page {
+  display: flex;
+  flex-direction: column;
+  padding: calc(9px * var(--z));
+}
+.snip-page span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snip-page__h {
+  color: #111827;
+  font-size: calc(11px * var(--z));
+  font-weight: 700;
+}
+.snip-page__sec {
+  margin-top: calc(6px * var(--z));
+  color: #1f2937;
+  font-size: calc(6.5px * var(--z));
+  font-weight: 700;
+}
+.snip-page__p {
+  margin-top: calc(2.5px * var(--z));
+  color: #374151;
+  font-size: calc(5.5px * var(--z));
+}
+.snip-page__rule {
+  margin-top: calc(4px * var(--z));
+  border-top: 1px solid #e5e7eb;
+}
+.snip-code {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding: calc(10px * var(--z));
+}
+.snip-code span {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: calc(6px * var(--z));
+  white-space: pre;
+}
+.snip-sheet {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: calc(10px * var(--z));
+  bottom: -4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.snip-sheet__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.snip-sheet__row:nth-child(odd):not(.snip-sheet__row--head) {
+  background: #f9fafb;
+}
+.snip-sheet__row span {
+  overflow: hidden;
+  padding: calc(2px * var(--z)) calc(3px * var(--z));
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+  font-size: calc(5.5px * var(--z));
+  text-align: right;
+  white-space: nowrap;
+}
+.snip-sheet__row span:first-child {
+  font-weight: 600;
+  text-align: left;
+}
+.snip-sheet__row--head span {
+  color: #fff;
+  font-weight: 600;
+}
+.snip-archive {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: calc(10px * var(--z));
+  bottom: -4px;
+  display: flex;
+  flex-direction: column;
+  gap: calc(3px * var(--z));
+  overflow: hidden;
+  padding: calc(8px * var(--z));
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.snip-archive strong {
+  overflow: hidden;
+  color: #92400e;
+  font-size: calc(7px * var(--z));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snip-archive span {
+  display: flex;
+  align-items: center;
+  gap: calc(3px * var(--z));
+  overflow: hidden;
+  color: #374151;
+  font-size: calc(5.5px * var(--z));
+  white-space: nowrap;
+}
+.snip-archive span i {
+  flex: 0 0 auto;
+  width: calc(4px * var(--z));
+  height: calc(4px * var(--z));
+  border-radius: 2px;
+}
+.snip-archive .snip-archive__more {
+  color: #6b7280;
+}
+/* The info panel shows it a little larger. */
+.info > .thumb {
+  --z: 1.25;
+  height: 200px;
+  flex: 0 0 auto;
+}
+/* Folders: their first four items. */
 .thumb__minis {
   position: absolute;
   inset: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  padding: 10px;
-  gap: 6px;
+  padding: calc(10px * var(--z));
+  gap: calc(4px * var(--z));
 }
 .mini {
   position: relative;
   overflow: hidden;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 .mini img {
   position: absolute;
@@ -898,6 +1111,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.mini__stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
 }
 
 /* Folder zoom: the glow that grows from the folder to the file area. */
@@ -1348,11 +1568,19 @@
   justify-content: space-between;
   gap: 12px;
 }
-.modal__head div {
+.modal__head > div {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+/* The Share dialog's thumbnail of the item. */
+.modal__thumb {
+  flex: 0 0 auto;
+  width: 72px;
+}
+.modal__head > div.modal__title {
+  flex: 1 1 auto;
 }
 .modal__head h2 {
   margin: 0;
@@ -1361,7 +1589,7 @@
   color: var(--gray-900);
   overflow-wrap: anywhere;
 }
-.modal__head span {
+.modal__head > div > span {
   font-size: 13px;
   color: var(--gray-500);
 }

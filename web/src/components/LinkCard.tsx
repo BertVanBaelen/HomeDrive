@@ -5,44 +5,39 @@ import { useT } from '../i18n'
 import { useThumbUrl } from './content'
 import { fileTypes, Icon, icons } from './Icon'
 
-// Sites whose links get a thumbnail from the server (their oEmbed
-// providers); every other site shows the globe.
-const previewSites = new Set(['YouTube', 'TikTok'])
-
-export function hasThumb(link?: LinkInfo): boolean {
-  return !!link && previewSites.has(link.site)
-}
-
 // linkByline is "YouTube · Cats Inc": the site, and the author when known.
 export function linkByline(link: LinkInfo): string {
   return [link.site, link.author].filter(Boolean).join(' · ')
 }
 
 // LinkThumb is a saved link's thumbnail on its card: the video's picture
-// with a play mark, else the globe in the link colours. The site is the
-// badge where other files show their extension.
-export function LinkThumb({ node }: { node: Node }) {
+// (from its oEmbed provider, through the server) with a play mark, else
+// the globe in the link colours. The site is the badge where other files
+// show their extension.
+export function LinkThumb({ node, small }: { node: Node; small?: boolean }) {
   const thumbUrl = useThumbUrl()
   const [failed, setFailed] = useState(false)
   const t = fileTypes.link
   const site = node.link?.site
-  if (hasThumb(node.link) && !failed) {
+  const cls = 'thumb' + (small ? ' thumb--small' : '')
+  if (node.thumb === 'image' && !failed) {
     return (
-      <span className="thumb thumb--dark" style={{ background: '#111827' }} data-thumb>
-        <img src={thumbUrl(node.id, node.version)} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+      <span className={cls + ' thumb--dark'} style={{ background: '#111827' }} data-thumb>
+        <img src={thumbUrl(node.id, node.version, small ? 'list' : 'grid')} alt="" loading="lazy" decoding="async"
+          onError={() => setFailed(true)} />
         <span className="thumb__play">
-          <Icon d={icons.play} size={40} stroke="#fff" width={1.5} />
+          <Icon d={icons.play} size={small ? 20 : 40} stroke="#fff" width={1.5} />
         </span>
-        <span className="thumb__badge thumb__badge--site">{site}</span>
+        {!small && <span className="thumb__badge thumb__badge--site">{site}</span>}
       </span>
     )
   }
   return (
-    <span className="thumb" style={{ background: t.bg }} data-thumb>
+    <span className={cls} style={{ background: t.bg }} data-thumb>
       <span className="thumb__icon">
-        <Icon d={icons.globe} size={44} stroke={t.c} width={1.5} />
+        <Icon d={icons.globe} size={small ? 24 : 44} stroke={t.c} width={1.5} />
       </span>
-      <span className="thumb__badge thumb__badge--site">{site ?? 'url'}</span>
+      {!small && <span className="thumb__badge thumb__badge--site">{site ?? 'url'}</span>}
     </span>
   )
 }
@@ -58,7 +53,7 @@ export function LinkCard({ node }: { node: Node }) {
   return (
     <a className="link-card" href={link.url} target="_blank" rel="noopener noreferrer">
       <span className="link-card__media">
-        {hasThumb(link) && !failed ? (
+        {node.thumb === 'image' && !failed ? (
           <>
             <img src={thumbUrl(node.id, node.version)} alt="" onError={() => setFailed(true)} />
             <span className="thumb__play">

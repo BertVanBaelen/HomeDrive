@@ -15,15 +15,18 @@ export function errorText(t: Translate, err: unknown): string {
 const focusable = 'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
 
 // Modal is a dialog that traps focus, closes on Esc and gives focus back to
-// where it was. On phones it is a bottom sheet.
+// where it was. On phones it is a bottom sheet. lead goes before the
+// title, such as the thumbnail of the item a dialog is about.
 export function Modal({
   title,
   subtitle,
+  lead,
   onClose,
   children,
 }: {
   title: string
   subtitle?: string
+  lead?: ReactNode
   onClose: () => void
   children: ReactNode
 }) {
@@ -67,7 +70,8 @@ export function Modal({
       <button type="button" aria-label={t('common.close')} className="modal-scrim" tabIndex={-1} onClick={onClose} />
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className="modal">
         <div className="modal__head">
-          <div>
+          {lead && <span className="modal__thumb">{lead}</span>}
+          <div className="modal__title">
             <h2 id={titleId}>{title}</h2>
             {subtitle && <span>{subtitle}</span>}
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { useContentUrl } from './content'
 import { zipUrl, type Drive, type Node } from '../api'
-import { displayName, formatDateTime, formatSize } from '../format'
+import { displayName, formatDateTime, formatDuration, formatSize } from '../format'
 import { plural, useLocale, useT, type MessageKey } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
 import { Thumb } from './Thumb'
@@ -149,6 +149,12 @@ export function InfoPanel({
           <dd>{node.name}</dd>
           <dt>{t('info.modified')}</dt>
           <dd>{formatDateTime(node.modifiedAt, locale)}</dd>
+          {node.durationMs ? (
+            <>
+              <dt>{t('info.length')}</dt>
+              <dd>{formatDuration(node.durationMs)}</dd>
+            </>
+          ) : null}
           {node.trashedAt && (
             <>
               <dt>{t('info.deleted')}</dt>
