@@ -172,8 +172,16 @@ func TestHomeAssistantLogin(t *testing.T) {
 		t.Error("the Supervisor wasn't asked for a disabled account")
 	}
 
+	// So does someone who hasn't accepted their invitation yet.
+	r = admin.json("POST", "/api/admin/users", map[string]string{"email": "bob@example.com", "name": "Bob", "role": "member"})
+	expect(t, r, 201)
+	var invited struct{ User struct{ ID string } }
+	r.decode(t, &invited)
+	expect(t, admin.json("PATCH", "/api/admin/users/"+invited.User.ID, map[string]string{"haUsername": "bob"}), 200)
+	expectCode(t, haLogin(env.client(t), "bob", "bob's ha password"), 401, "ha_invalid_credentials")
+
 	got := strings.Join(env.auditEvents(t, "login.homeassistant"), "\n")
-	want := "failed anna\nfailed anna\nfailed nobody\nfailed anna\nuser anna\nfailed anna"
+	want := "failed anna\nfailed anna\nfailed nobody\nfailed anna\nuser anna\nfailed anna\nfailed bob"
 	if got != want {
 		t.Errorf("audit log:\n%s\nwant:\n%s", got, want)
 	}

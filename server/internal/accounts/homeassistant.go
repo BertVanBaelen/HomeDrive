@@ -31,11 +31,12 @@ func NormalizeHAUsername(s string) (string, error) {
 }
 
 // HAUser is the account linked to a normalized Home Assistant username.
-// Unlinked usernames and disabled accounts give ErrInvalidCredentials, as
-// a wrong password does.
+// Unlinked usernames, disabled accounts and invitations not accepted yet
+// give ErrInvalidCredentials, as a wrong password does. (Without a
+// Homedrive password, sensitive actions couldn't be confirmed.)
 func (s *Service) HAUser(ctx context.Context, username string) (User, error) {
 	u, err := scanUser(s.db.QueryRowContext(ctx,
-		`SELECT `+userColumns+` FROM users WHERE ha_username = ? AND disabled_at IS NULL`, username))
+		`SELECT `+userColumns+` FROM users WHERE ha_username = ? AND disabled_at IS NULL AND password_hash != ''`, username))
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrInvalidCredentials
 	}
