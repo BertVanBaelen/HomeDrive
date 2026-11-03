@@ -14,6 +14,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/backup"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/homeassistant"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 )
@@ -47,6 +48,10 @@ type Server struct {
 	// their thumbnails.
 	previews *savedlink.Client
 	thumbs   *savedlink.Thumbs
+
+	// ha checks Home Assistant passwords; nil when Home Assistant login
+	// is off.
+	ha *homeassistant.Client
 }
 
 // Deps are the services the HTTP layer serves.
@@ -72,6 +77,10 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if previews == nil {
 		previews = savedlink.NewClient(nil)
 	}
+	var ha *homeassistant.Client
+	if sv := cfg.HomeAssistant; sv != nil {
+		ha = homeassistant.New(sv.URL, sv.Token)
+	}
 	return &Server{
 		cfg:           cfg,
 		log:           log,
@@ -90,6 +99,7 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		zips:          newGate(),
 		previews:      previews,
 		thumbs:        savedlink.NewThumbs(cfg.StateDir),
+		ha:            ha,
 	}, nil
 }
 
@@ -100,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	s.authRoutes(mux)
+	s.homeAssistantRoutes(mux)
 	s.accountRoutes(mux)
 	s.deviceRoutes(mux)
 	mux.HandleFunc("GET /api/admin/backup", s.admin(s.handleBackupStatus))

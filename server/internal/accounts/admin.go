@@ -34,12 +34,13 @@ const (
 type UserInfo struct {
 	User
 	Status     string     `json:"status"` // active | invited | disabled
+	HAUsername string     `json:"haUsername,omitempty"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
 }
 
 const userInfoQuery = `SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at,
 	u.password_hash = '', u.disabled_at IS NOT NULL,
-	(SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id)
+	(SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id), coalesce(u.ha_username, '')
 	FROM users u`
 
 func scanUserInfo(row interface{ Scan(...any) error }) (UserInfo, error) {
@@ -49,7 +50,7 @@ func scanUserInfo(row interface{ Scan(...any) error }) (UserInfo, error) {
 		invited, disabled bool
 		seen              sql.NullString
 	)
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &invited, &disabled, &seen); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &invited, &disabled, &seen, &u.HAUsername); err != nil {
 		return UserInfo{}, err
 	}
 	u.CreatedAt, _ = db.ParseTime(created)
@@ -227,9 +228,12 @@ type UserPatch struct {
 	Name     *string `json:"name"`
 	Role     *string `json:"role"`
 	Disabled *bool   `json:"disabled"`
+	// HAUsername links a Home Assistant username; "" unlinks it.
+	HAUsername *string `json:"haUsername"`
 }
 
-// UpdateUser changes a user's name, role or whether they can sign in.
+// UpdateUser changes a user's name, role, Home Assistant username or
+// whether they can sign in.
 // Admins can't lock themselves out, and one active admin always remains.
 func (s *Service) UpdateUser(ctx context.Context, admin User, userID string, p UserPatch) (UserInfo, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -259,6 +263,11 @@ func (s *Service) UpdateUser(ctx context.Context, admin User, userID string, p U
 			return UserInfo{}, ErrInvalidRole
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, *p.Role, info.ID); err != nil {
+			return UserInfo{}, err
+		}
+	}
+	if p.HAUsername != nil {
+		if err := setHAUsername(ctx, tx, info.ID, *p.HAUsername); err != nil {
 			return UserInfo{}, err
 		}
 	}

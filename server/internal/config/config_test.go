@@ -129,6 +129,52 @@ func TestSMTPPasswordFile(t *testing.T) {
 	}
 }
 
+func TestHomeAssistantLogin(t *testing.T) {
+	env := baseEnv(t)
+	cfg, err := Load(environ(env))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HomeAssistant != nil {
+		t.Errorf("on by default: %+v", cfg.HomeAssistant)
+	}
+
+	// Standalone Docker has no Supervisor: the option is ignored.
+	env["HOMEDRIVE_HOMEASSISTANT_LOGIN"] = "true"
+	cfg, err = Load(environ(env))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HomeAssistant != nil || !strings.Contains(strings.Join(cfg.Warnings, "\n"), "homeassistant_login") {
+		t.Errorf("without SUPERVISOR_TOKEN: %+v, warnings %q", cfg.HomeAssistant, cfg.Warnings)
+	}
+
+	env["SUPERVISOR_TOKEN"] = "sv-token"
+	cfg, err = Load(environ(env))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HomeAssistant == nil || *cfg.HomeAssistant != (Supervisor{URL: "http://supervisor", Token: "sv-token"}) {
+		t.Errorf("HomeAssistant = %+v", cfg.HomeAssistant)
+	}
+	for _, v := range cfg.LogAttrs() {
+		if s, ok := v.(string); ok && strings.Contains(s, "sv-token") {
+			t.Error("LogAttrs leaks the Supervisor token")
+		}
+	}
+
+	env["HOMEDRIVE_SUPERVISOR_URL"] = "http://127.0.0.1:18087/"
+	if cfg, err = Load(environ(env)); err != nil || cfg.HomeAssistant.URL != "http://127.0.0.1:18087" {
+		t.Errorf("supervisor_url: %+v, %v", cfg, err)
+	}
+	for _, bad := range []string{"supervisor", "http://supervisor/auth", "ftp://supervisor"} {
+		env["HOMEDRIVE_SUPERVISOR_URL"] = bad
+		if _, err := Load(environ(env)); err == nil {
+			t.Errorf("supervisor_url %q accepted", bad)
+		}
+	}
+}
+
 func TestPublicURL(t *testing.T) {
 	tests := []struct {
 		in, want string
