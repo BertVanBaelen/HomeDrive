@@ -70,7 +70,7 @@ func setup(t *testing.T) *env {
 func (e *env) put(t *testing.T, parent, name, content string) files.Node {
 	t.Helper()
 	ctx := context.Background()
-	up, err := e.files.CreateUpload(ctx, e.userID, parent, name, int64(len(content)))
+	up, err := e.files.CreateUpload(ctx, e.userID, parent, name, int64(len(content)), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,13 @@ func TestBackupAndExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.put(t, docs.ID, "Tax: 2026?.pdf", "%PDF tax")
+	tax := e.put(t, docs.ID, "Tax: 2026?.pdf", "%PDF tax")
+	if _, err := e.files.SetDescription(ctx, e.userID, tax.ID, "Sent in May.\nRefund expected."); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.files.SetDescription(ctx, e.userID, docs.ID, "Papers"); err != nil {
+		t.Fatal(err)
+	}
 	e.put(t, e.family, "Shopping list.md", "- milk")
 	old := e.put(t, e.rootID, "old.txt", "old")
 	if err := e.files.Trash(ctx, e.userID, old.ID); err != nil {
@@ -125,6 +131,14 @@ func TestBackupAndExport(t *testing.T) {
 	got, err := os.ReadFile(filepath.Join(target, "My Files - Anna", "Documents", "Tax_ 2026_.pdf"))
 	if err != nil || string(got) != "%PDF tax" {
 		t.Fatalf("exported tax file: %q, %v", got, err)
+	}
+	// Descriptions go next to their items.
+	got, err = os.ReadFile(filepath.Join(target, "My Files - Anna", "Documents", "Tax_ 2026_.pdf.description.txt"))
+	if err != nil || string(got) != "Sent in May.\nRefund expected.\n" {
+		t.Fatalf("exported description: %q, %v", got, err)
+	}
+	if got, err := os.ReadFile(filepath.Join(target, "My Files - Anna", "Documents.description.txt")); err != nil || string(got) != "Papers\n" {
+		t.Fatalf("exported folder description: %q, %v", got, err)
 	}
 	if _, err := os.Stat(filepath.Join(target, "Family", "Shopping list.md")); err != nil {
 		t.Fatal(err)

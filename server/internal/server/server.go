@@ -15,6 +15,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/config"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/ratelimit"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 )
 
 type Server struct {
@@ -41,6 +42,11 @@ type Server struct {
 	linkPassTotal *ratelimit.Limiter
 	// zips counts zip downloads in progress.
 	zips *gate
+
+	// previews asks oEmbed providers about saved links; thumbs caches
+	// their thumbnails.
+	previews *savedlink.Client
+	thumbs   *savedlink.Thumbs
 }
 
 // Deps are the services the HTTP layer serves.
@@ -48,6 +54,8 @@ type Deps struct {
 	Accounts *accounts.Service
 	Files    *files.Service
 	Backup   *backup.Service
+	// Previews is nil except in tests, which keep requests local.
+	Previews *savedlink.Client
 }
 
 func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
@@ -59,6 +67,10 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if err != nil {
 		web.Close()
 		return nil, err
+	}
+	previews := deps.Previews
+	if previews == nil {
+		previews = savedlink.NewClient(nil)
 	}
 	return &Server{
 		cfg:           cfg,
@@ -76,6 +88,8 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		linkPassLimit: ratelimit.New(5, 15*time.Minute),
 		linkPassTotal: ratelimit.New(50, time.Hour),
 		zips:          newGate(),
+		previews:      previews,
+		thumbs:        savedlink.NewThumbs(cfg.StateDir),
 	}, nil
 }
 
@@ -95,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	s.driveRoutes(mux)
 	s.shareRoutes(mux)
 	s.linkRoutes(mux)
+	s.savedLinkRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

@@ -92,12 +92,16 @@ func (s *Service) located(ctx context.Context, userID string, ids []string, limi
 	return out, nil
 }
 
-// decorate adds what depends on who is asking, and folder previews.
+// decorate adds what depends on who is asking, where saved links go, and
+// folder previews.
 func (s *Service) decorate(ctx context.Context, userID string, nodes []Node) error {
 	if err := s.markStars(ctx, userID, nodes); err != nil {
 		return err
 	}
 	if err := s.markShared(ctx, userID, nodes); err != nil {
+		return err
+	}
+	if err := s.addLinks(ctx, nodes); err != nil {
 		return err
 	}
 	return s.addPreviews(ctx, nodes)
@@ -261,7 +265,7 @@ func (s *Service) Recent(ctx context.Context, userID string) ([]Located, error) 
 	return s.locate(ctx, userID, `n.kind = 'file' AND n.trashed_at IS NULL`, nil, `n.modified_at DESC`, 50, false)
 }
 
-// Search finds items whose name contains q, ignoring case.
+// Search finds items whose name or description contains q, ignoring case.
 func (s *Service) Search(ctx context.Context, userID, q string) ([]Located, error) {
 	q = strings.TrimSpace(q)
 	if q == "" {
@@ -272,6 +276,7 @@ func (s *Service) Search(ctx context.Context, userID, q string) ([]Located, erro
 	}
 	pattern := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(nameKey(q)) + "%"
 	return s.locate(ctx, userID,
-		`n.parent_id IS NOT NULL AND n.trashed_at IS NULL AND n.name_key LIKE ?2 ESCAPE '\'`, []any{pattern},
+		`n.parent_id IS NOT NULL AND n.trashed_at IS NULL
+			AND (n.name_key LIKE ?2 ESCAPE '\' OR n.description_key LIKE ?2 ESCAPE '\')`, []any{pattern},
 		`n.kind = 'file', n.name_key`, 100, false)
 }

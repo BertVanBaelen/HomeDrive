@@ -37,6 +37,8 @@ var fileTypes = map[string]fileType{
 	".css": {"code", "text/css"}, ".js": {"code", "text/javascript"}, ".ts": {"code", "text/plain"},
 	".py": {"code", "text/x-python"}, ".go": {"code", "text/plain"}, ".sh": {"code", "text/plain"},
 	".ini": {"code", "text/plain"}, ".toml": {"code", "text/plain"}, ".log": {"text", "text/plain"},
+	// Saved links are shown as cards and never served inline.
+	".url": {"link", "application/x-mswinurl"},
 }
 
 func lookupType(name string) (fileType, bool) {

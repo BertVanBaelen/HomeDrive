@@ -310,7 +310,8 @@ func (s *Service) linked(ctx context.Context, v Visit, nodeID string) (Node, []C
 }
 
 // PublicNode is what link visitors see of an item: nothing about its
-// drive, its folders above the linked item or the people involved.
+// drive, its folders above the linked item, the people involved or its
+// description.
 type PublicNode struct {
 	ID         string    `json:"id"`
 	Kind       string    `json:"kind"`
@@ -321,11 +322,13 @@ type PublicNode struct {
 	ModifiedAt time.Time `json:"modifiedAt"`
 	ChildCount *int      `json:"childCount,omitempty"`
 	Preview    []Mini    `json:"preview,omitempty"`
+	Version    string    `json:"version,omitempty"`
+	Link       *LinkInfo `json:"link,omitempty"`
 }
 
 func publicNode(n Node) PublicNode {
 	return PublicNode{ID: n.ID, Kind: n.Kind, Type: n.Type, Name: n.Name, Size: n.Size, Mime: n.Mime,
-		ModifiedAt: n.ModifiedAt, ChildCount: n.ChildCount, Preview: n.Preview}
+		ModifiedAt: n.ModifiedAt, ChildCount: n.ChildCount, Preview: n.Preview, Version: n.Version, Link: n.Link}
 }
 
 // LinkPage is an item on a link page, with a folder's contents.
@@ -343,7 +346,13 @@ func (s *Service) LinkPage(ctx context.Context, v Visit, nodeID string) (LinkPag
 		return LinkPage{}, err
 	}
 	page := LinkPage{Path: nonNil(path)}
-	if n.IsFolder() {
+	if !n.IsFolder() {
+		one := []Node{n}
+		if err := s.addLinks(ctx, one); err != nil {
+			return LinkPage{}, err
+		}
+		n = one[0]
+	} else {
 		kids, err := s.children(ctx, n.ID)
 		if err != nil {
 			return LinkPage{}, err
@@ -353,6 +362,9 @@ func (s *Service) LinkPage(ctx context.Context, v Visit, nodeID string) (LinkPag
 		n.ChildCount = &c
 		all := append([]Node{n}, kids...)
 		if err := s.addPreviews(ctx, all); err != nil {
+			return LinkPage{}, err
+		}
+		if err := s.addLinks(ctx, all); err != nil {
 			return LinkPage{}, err
 		}
 		n = all[0]

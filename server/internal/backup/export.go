@@ -111,17 +111,17 @@ func (e *exporter) folder(ctx context.Context, id, dir, display string) error {
 		return err
 	}
 	e.sum.Folders++
-	rows, err := e.conn.QueryContext(ctx, `SELECT n.id, n.kind, n.name, n.modified_at, coalesce(v.object_id, '')
+	rows, err := e.conn.QueryContext(ctx, `SELECT n.id, n.kind, n.name, n.modified_at, coalesce(v.object_id, ''), n.description
 		FROM nodes n LEFT JOIN versions v ON v.id = n.current_version_id
 		WHERE n.parent_id = ? AND n.trashed_at IS NULL ORDER BY n.kind DESC, n.name_key`, id)
 	if err != nil {
 		return err
 	}
-	type child struct{ id, kind, name, modified, object string }
+	type child struct{ id, kind, name, modified, object, description string }
 	var kids []child
 	for rows.Next() {
 		var c child
-		if err := rows.Scan(&c.id, &c.kind, &c.name, &c.modified, &c.object); err != nil {
+		if err := rows.Scan(&c.id, &c.kind, &c.name, &c.modified, &c.object, &c.description); err != nil {
 			rows.Close()
 			return err
 		}
@@ -136,6 +136,13 @@ func (e *exporter) folder(ctx context.Context, id, dir, display string) error {
 	for _, c := range kids {
 		path := filepath.Join(dir, used.take(safeName(c.name)))
 		shown := display + "/" + c.name
+		// A description goes next to its item, so it survives without the app.
+		if c.description != "" {
+			note := filepath.Join(dir, used.take(filepath.Base(path)+".description.txt"))
+			if err := os.WriteFile(note, []byte(c.description+"\n"), 0o640); err != nil {
+				return fmt.Errorf("writing %s: %w", note, err)
+			}
+		}
 		if c.kind == "folder" {
 			if err := e.folder(ctx, c.id, path, shown); err != nil {
 				return err

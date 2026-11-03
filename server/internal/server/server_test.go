@@ -20,6 +20,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/db"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	hdmail "github.com/BertVanBaelen/HomeDrive/server/internal/mail"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/storage"
 )
 
@@ -42,6 +43,9 @@ type testEnv struct {
 	accounts *accounts.Service
 	conn     *sql.DB
 	data     string // data_path
+	state    string // state_dir
+	// web stands in for the oEmbed providers.
+	web *fakeProviders
 }
 
 // logBuffer keeps what the server logs.
@@ -147,12 +151,14 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Cleanup(func() { store.Close() })
 	fm := &fakeMail{}
 	acc := accounts.New(conn, fm, log, cfg.Origin())
-	srv, err := New(cfg, log, Deps{Accounts: acc, Files: files.New(conn, store, log)})
+	providers := &fakeProviders{}
+	srv, err := New(cfg, log, Deps{Accounts: acc, Files: files.New(conn, store, log), Previews: savedlink.NewClient(providers)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath}
+	return &testEnv{h: srv.Handler(), mail: fm, logs: logs, accounts: acc, conn: conn, data: cfg.DataPath,
+		state: cfg.StateDir, web: providers}
 }
 
 func do(h http.Handler, method, target string, header map[string]string) *httptest.ResponseRecorder {
