@@ -47,6 +47,8 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
   - ffmpeg gets a demuxer allowlist (MP4/MOV, Matroska/WebM, AVI, MPEG, MP3, AAC, FLAC, Ogg, WAV) and may only open its input, so playlists such as HLS or concat inside an upload can't read other files or reach the network.
   - `pdftoppm` renders only the first page at a fixed size.
   - Parsers inside the server are pure Go: excelize for `.xlsx` (files up to 20 MB, with its unzip size limits against zip bombs), `archive/zip` for listing (the central directory only, up to 4 MB of it) and `encoding/csv` for snippets (the first 2 KB).
+- Saved links (v2) are `.url` files, never served inline. Their address must be `http` or `https`, at most 2,048 characters, without user info; the web app only puts it in an `href` with `rel="noopener noreferrer"`. Descriptions are plain text, rendered as text only.
+- Outbound requests for saved links (v2) go only to the fixed oEmbed endpoints of YouTube and TikTok, with the user's address as a query parameter: 5 s timeout, 64 KB answer, no redirects, 30 lookups per user per minute. A thumbnail is fetched only from that provider's image hosts, over HTTPS without a port, at most 2 MB, and kept only when its first bytes are JPEG, PNG, GIF or WebP. Link visitors never cause a lookup; they get cached thumbnails only.
 - Zip downloads (v2) take names from the tree. Names never contain `/`, `\` or control characters and are never `.` or `..`, so entries can't escape the folder they are extracted to. No compression, at most 2 zips per user at a time.
 - Disk-full guard and per-upload size limits; uploads verified by SHA-256.
 
@@ -105,12 +107,13 @@ v2 is not released until the v1 checks are repeated on the new surface and these
 
 1. **Automated**
    - The v1 tools, plus an image scan with the new packages (libvips, ffmpeg and poppler often get CVEs: Alpine stays current through Dependabot).
-   - Go fuzz tests for the spreadsheet formula grammar, link token parsing, zip entry names and the `.xlsx` ↔ grid conversion.
+   - Go fuzz tests for the spreadsheet formula grammar, link token parsing, zip entry names, `.url` files and the `.xlsx` ↔ grid conversion.
    - The thumbnail pipeline run against a set of broken and hostile images, videos, audio files and PDFs.
 2. **Manual**
    - Access control matrix over every new endpoint for: viewer, editor, manager, *Can view* and *Can edit* recipients, an admin who isn't a member, and a stranger. Moving items out of shares, restoring from the trash, folder names leaking through paths, search, Recent, Starred, Trash or zips.
    - Public links: guessing and timing, password brute force, forged or reused grant cookies (also after a password change), node IDs outside the linked item, trashed items, expiry edges, very large zips, headers, logs.
    - Hostile files: ffmpeg playlists (HLS, concat) pointing at local files or URLs, image and PDF decompression bombs, odd HEIC files, `.xlsx` zip bombs, Markdown XSS (`javascript:` links, raw HTML, images).
+   - Saved links: addresses that try to reach other hosts through the oEmbed lookup (user info, odd hosts, encoded schemes, redirects from the provider), thumbnail URLs off the provider's hosts, `javascript:` and `data:` addresses in uploaded `.url` files, very long descriptions.
    - Edit locks and versions: two editors racing, *Replace* during an edit, restore, deleting old versions.
    - Home Assistant login: rate limits through the Supervisor path, unlinked and disabled accounts, the add-on's security rating with `auth_api`.
 

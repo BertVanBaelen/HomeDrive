@@ -2,6 +2,16 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.4.0
+
+**Descriptions and saved links**
+
+- Files and folders can have a description, written in the info panel by anyone who can edit them. Search finds words in descriptions too, and `homedrive export` puts each description next to its item as a `.description.txt` file.
+- Text shared together with files from the Android share menu becomes their description instead of being dropped. The iPhone Shortcut can send a description too.
+- Links shared to Homedrive are saved as `.url` files and shown as cards. YouTube and TikTok links get their picture, title and channel; other sites show their name. Tapping the card opens the video in its app or the site in the browser.
+- Homedrive asks only YouTube's and TikTok's own preview services, never the linked site, and your browser never loads anything from them.
+- The iPhone Shortcut instructions now also cover links. Existing Shortcuts keep working for files.
+
 ## 2.3.0
 
 **Storage page**

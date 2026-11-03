@@ -47,7 +47,7 @@ Always use the public URL, also at home. Homedrive refuses requests addressed to
 
 - A WAF rate-limiting rule on `/api/auth/` (for example 20 requests per minute per IP).
 - Optionally restrict access to the countries you live in.
-- Optionally put Cloudflare Access in front, with a *Bypass* policy for `/s/*` (share links, from v2) and `/api/inbox` (the iPhone Shortcut).
+- Optionally put Cloudflare Access in front, with a *Bypass* policy for `/s/*` (share links, from v2) and `/api/inbox` and `/api/inbox/link` (the iPhone Shortcut).
 
 ## First start
 
@@ -59,8 +59,8 @@ Everyone has their own **My Files**, which only they see. Shared drives, such as
 
 ## Phones
 
-- **Android:** open the public URL in Chrome and choose *Install app*. Homedrive then appears in the share menu of other apps: shared files go to a *Save to Homedrive* screen where you pick the folder.
-- **iPhone and iPad:** open the public URL in Safari, *Share → Add to Home Screen*. iOS doesn't let web apps appear in the share menu, so use an Apple Shortcut instead: *Account Settings → iPhone and iPad → Set Up a Shortcut* creates a key for that device and shows how to build the Shortcut. Shared files land in the *Inbox* folder of your My Files. A key can only add files to your Inbox, and you can remove it there at any time.
+- **Android:** open the public URL in Chrome and choose *Install app*. Homedrive then appears in the share menu of other apps: shared files go to a *Save to Homedrive* screen where you pick the folder. Text shared with files becomes their description, and a shared link becomes a saved link, shown as a card (with the picture, title and channel for YouTube and TikTok) that opens the video in its app.
+- **iPhone and iPad:** open the public URL in Safari, *Share → Add to Home Screen*. iOS doesn't let web apps appear in the share menu, so use an Apple Shortcut instead: *Account Settings → iPhone and iPad → Set Up a Shortcut* creates a key for that device and shows how to build the Shortcut. Shared files and links land in the *Inbox* folder of your My Files. A key can only add to your Inbox, and you can remove it there at any time.
 
 ## Your files and backups
 
