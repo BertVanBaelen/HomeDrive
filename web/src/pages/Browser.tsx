@@ -178,6 +178,7 @@ function infoActions(actions: ItemActions, n: Node, onOpen: () => void, unselect
     },
     onStar: () => actions.star(n),
     onShare: () => actions.share(n),
+    onDescribe: (text) => actions.describe(n, text),
   }
 }
 

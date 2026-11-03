@@ -124,6 +124,33 @@
   font-size: 12px;
   color: var(--gray-500);
 }
+/* Multi-line text, like descriptions: the mockup's editor box. */
+.textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-800);
+  background: #fff;
+  resize: vertical;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.textarea:disabled {
+  background: var(--gray-50);
+}
+/* Descriptions are plain text: line breaks kept, never markup. */
+.description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* ---------- select ----------
    A button with the choice and an up/down chevron; the list floats under
@@ -825,6 +852,28 @@
   background: rgba(255, 255, 255, 0.9);
   color: var(--gray-900);
 }
+/* Saved links: the site instead of an extension, a play mark on videos. */
+.thumb__badge--site {
+  left: 8px;
+  right: auto;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+}
+.thumb__play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(rgba(17, 24, 39, 0) 55%, rgba(17, 24, 39, 0.45));
+  pointer-events: none;
+}
+.thumb__play svg {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
 .thumb__minis {
   position: absolute;
   inset: 0;
@@ -1228,6 +1277,30 @@
   margin: 0;
   word-break: break-word;
 }
+.info dd a {
+  overflow-wrap: anywhere;
+}
+.info__desc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.info__desc-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.info__desc p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-800);
+}
+.info__desc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* ---------- mobile: tab bar + FAB ---------- */
 .tabbar,
@@ -1548,6 +1621,76 @@
 }
 .viewer__content audio {
   width: min(480px, 80vw);
+}
+/* A saved link: the whole card opens it. */
+.link-card {
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-dialog);
+  background: #fff;
+  color: var(--gray-800);
+  text-decoration: none;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+.link-card:hover {
+  color: var(--gray-800);
+}
+.link-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.link-card__media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background: #111827;
+}
+.viewer__content .link-card__media img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 0;
+}
+.link-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px 20px;
+}
+.link-card__body strong {
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+.link-card__byline {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary-700);
+}
+.link-card__text {
+  max-height: 7.5em;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.link-card__url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+.link-card .btn {
+  margin-top: 8px;
+  align-self: flex-start;
 }
 .viewer__text {
   width: min(820px, 100%);

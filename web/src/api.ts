@@ -1,7 +1,8 @@
 // Typed access to Homedrive's JSON API (server/internal/server). Errors carry
 // the server's stable error code, which the UI translates.
 
-export type FileType = 'folder' | 'text' | 'sheet' | 'doc' | 'pdf' | 'image' | 'video' | 'audio' | 'archive' | 'code'
+export type FileType =
+  | 'folder' | 'text' | 'sheet' | 'doc' | 'pdf' | 'image' | 'video' | 'audio' | 'archive' | 'code' | 'link'
 
 export interface User {
   id: string
@@ -69,6 +70,28 @@ export interface Node {
   shared?: boolean
   // A folder's first items, for its thumbnail.
   preview?: Mini[]
+  // Plain text its editors wrote about it.
+  description?: string
+  // The file's current version, so thumbnail addresses change with it.
+  version?: string
+  // Where a saved link (a .url file) goes.
+  link?: LinkInfo
+}
+
+// LinkInfo is where a saved link goes. site is the provider (YouTube,
+// TikTok) or the host; author is known only from a provider.
+export interface LinkInfo {
+  url: string
+  site: string
+  author?: string
+}
+
+// LinkPreview is what the Save page shows before a link is saved.
+export interface LinkPreview {
+  url: string
+  site: string
+  title?: string
+  author?: string
 }
 
 export interface Mini {
@@ -148,6 +171,8 @@ export interface PublicNode {
   modifiedAt: string
   childCount?: number
   preview?: Mini[]
+  version?: string
+  link?: LinkInfo
 }
 
 export interface LinkPage {
@@ -348,6 +373,9 @@ export const api = {
   rename: (id: string, name: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { name }),
   move: (id: string, parentId: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { parentId }),
   star: (id: string, starred: boolean) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { starred }),
+  describe: (id: string, description: string) =>
+    request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { description }),
+  linkPreview: (url: string) => request<LinkPreview>('GET', `/api/link-preview?url=${encodeURIComponent(url)}`),
   trash: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}`),
   restore: (id: string) => request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/restore`),
   trashList: () => request<Located[]>('GET', '/api/trash'),
@@ -407,8 +435,8 @@ export const api = {
   welcomeFinish: (token: string, password: string) =>
     request<User>('POST', '/api/welcome/finish', { token, password }),
 
-  createUpload: (parentId: string, name: string, size: number) =>
-    request<Upload>('POST', '/api/uploads', { parentId, name, size }),
+  createUpload: (parentId: string, name: string, size: number, description = '') =>
+    request<Upload>('POST', '/api/uploads', { parentId, name, size, description }),
   uploadStatus: (id: string) => request<Upload>('GET', `/api/uploads/${encodeURIComponent(id)}`),
   completeUpload: (id: string) => request<Node>('POST', `/api/uploads/${encodeURIComponent(id)}/complete`),
   cancelUpload: (id: string) => request<void>('DELETE', `/api/uploads/${encodeURIComponent(id)}`),
@@ -423,6 +451,18 @@ export const contentUrl: ContentUrl = (id, download = false) =>
 
 export function zipUrl(id: string): string {
   return `/api/nodes/${encodeURIComponent(id)}/zip`
+}
+
+// ThumbUrl gives the address of a saved link's thumbnail; the version
+// makes a new one load when the link changes.
+export type ThumbUrl = (id: string, version?: string) => string
+
+export const thumbUrl: ThumbUrl = (id, version) =>
+  `/api/nodes/${encodeURIComponent(id)}/thumb${version ? `?v=${encodeURIComponent(version)}` : ''}`
+
+export function linkThumb(token: string): ThumbUrl {
+  const base = `/api/s/${encodeURIComponent(token)}/nodes/`
+  return (id, version) => `${base}${encodeURIComponent(id)}/thumb${version ? `?v=${encodeURIComponent(version)}` : ''}`
 }
 
 export function linkContent(token: string): ContentUrl {

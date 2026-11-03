@@ -2,13 +2,15 @@ import { useState } from 'react'
 import type { Mini, Node } from '../api'
 import { useContentUrl } from './content'
 import { fileTypes, Icon } from './Icon'
+import { LinkThumb } from './LinkCard'
 
 // Images that browsers can show; others (HEIC, TIFF, SVG) get the icon.
 const showable = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
 
 // Thumbnails show the file's content in the design. Server-side previews of
 // documents come in v2; until then photos show themselves, folders their
-// first four items, and other types a styled placeholder in their colours.
+// first four items, saved links their video or site, and other types a
+// styled placeholder in their colours.
 // data-thumb and data-mini let the folder zoom find where things are.
 export function Thumb({ node }: { node: Node }) {
   const contentUrl = useContentUrl()
@@ -27,6 +29,7 @@ export function Thumb({ node }: { node: Node }) {
       </span>
     )
   }
+  if (node.type === 'link') return <LinkThumb node={node} />
   if (node.type === 'image' && showable.test(node.name) && !failed) {
     return (
       <span className="thumb" data-thumb>

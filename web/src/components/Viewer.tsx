@@ -4,6 +4,7 @@ import { displayName, formatDateTime, formatSize } from '../format'
 import { useLocale, useT, type MessageKey } from '../i18n'
 import { useContentUrl } from './content'
 import { fileTypes, Icon, icons } from './Icon'
+import { LinkCard } from './LinkCard'
 import { Logo } from './Logo'
 
 // pdf.js is large; load it the first time a PDF is opened.
@@ -19,7 +20,8 @@ export function canPreview(n: Node): boolean {
     (n.type === 'video' && playableVideo.test(n.name)) ||
     n.type === 'audio' ||
     (n.type === 'pdf' && /\.pdf$/i.test(n.name)) ||
-    ((n.type === 'text' || n.type === 'code') && n.size <= maxTextBytes)
+    ((n.type === 'text' || n.type === 'code') && n.size <= maxTextBytes) ||
+    (n.type === 'link' && !!n.link)
   )
 }
 
@@ -118,6 +120,12 @@ export function Viewer({
               <dd>{formatDateTime(n.modifiedAt, locale)}</dd>
               <dt>{t('info.location')}</dt>
               <dd>{location}</dd>
+              {n.description && (
+                <>
+                  <dt>{t('info.description')}</dt>
+                  <dd className="description">{n.description}</dd>
+                </>
+              )}
             </dl>
           </aside>
         )}
@@ -150,6 +158,8 @@ function Preview({ node }: { node: Node }) {
       return <video src={contentUrl(node.id)} controls autoPlay playsInline />
     case 'audio':
       return <audio src={contentUrl(node.id)} controls autoPlay />
+    case 'link':
+      return <LinkCard node={node} />
     case 'pdf':
       return (
         <Suspense fallback={<p className="pdf__loading">{t('loading')}</p>}>

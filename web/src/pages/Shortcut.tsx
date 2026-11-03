@@ -133,8 +133,9 @@ function Copyable({ label, value }: { label: string; value: string }) {
   )
 }
 
-// Instructions walks through building the Shortcut, with the address and
-// the key to copy. The key is shown only here.
+// Instructions walks through building the Shortcut: links go to
+// /api/inbox/link, everything else file by file to /api/inbox. The key is
+// shown only here.
 function Instructions({ token, onClose }: { token: string; onClose: () => void }) {
   const t = useT()
   return (
@@ -145,14 +146,17 @@ function Instructions({ token, onClose }: { token: string; onClose: () => void }
         <li>{t('shortcut.step3')}</li>
         <li>
           {t('shortcut.step4')}
-          <Copyable label="URL" value={`${location.origin}/api/inbox?name=`} />
+          <Copyable label="URL" value={`${location.origin}/api/inbox/link`} />
+          <Copyable label={t('shortcut.header')} value={`Bearer ${token}`} />
         </li>
         <li>
           {t('shortcut.step5')}
-          <Copyable label={t('shortcut.header')} value={`Bearer ${token}`} />
+          <Copyable label="URL" value={`${location.origin}/api/inbox?name=`} />
         </li>
         <li>{t('shortcut.step6')}</li>
+        <li>{t('shortcut.step7')}</li>
       </ol>
+      <p className="panel__body">{t('shortcut.descriptionTip')}</p>
       <div className="modal__foot">
         <button type="button" className="btn btn--primary" onClick={onClose}>{t('shortcut.done')}</button>
       </div>

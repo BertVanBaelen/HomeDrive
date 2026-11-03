@@ -13,6 +13,8 @@ export interface UploadItem {
   type: FileType
   folderId: string
   folderName: string
+  // description is text shared with the file.
+  description: string
   sent: number
   state: 'queued' | 'uploading' | 'done' | 'failed'
   error?: string
@@ -57,9 +59,15 @@ export function onBatchDone(fn: (n: number) => void): () => void {
 // settled holds, per upload, who waits for it to finish or fail.
 const settled = new Map<number, (ok: boolean) => void>()
 
-// addUploads queues files for a folder. The promise resolves once each of
-// them has finished or failed (a later retry doesn't count).
-export function addUploads(files: Iterable<File>, folderId: string, folderName: string): Promise<{ done: number; failed: number }> {
+// addUploads queues files for a folder, each with the description if one
+// is given. The promise resolves once each of them has finished or failed
+// (a later retry doesn't count).
+export function addUploads(
+  files: Iterable<File>,
+  folderId: string,
+  folderName: string,
+  description = '',
+): Promise<{ done: number; failed: number }> {
   const waits: Promise<boolean>[] = []
   for (const file of files) {
     const key = nextKey++
@@ -70,6 +78,7 @@ export function addUploads(files: Iterable<File>, folderId: string, folderName: 
       type: typeFromName(file.name),
       folderId,
       folderName,
+      description,
       sent: 0,
       state: 'queued',
     })
@@ -128,7 +137,7 @@ function finish() {
 }
 
 async function run(it: UploadItem): Promise<Node> {
-  const up = await api.createUpload(it.folderId, it.name, it.file.size)
+  const up = await api.createUpload(it.folderId, it.name, it.file.size, it.description)
   let received = 0
   let retries = 0
   while (received < it.file.size) {
@@ -188,6 +197,7 @@ const extTypes: Record<string, FileType> = {
   zip: 'archive', '7z': 'archive', tar: 'archive', gz: 'archive', tgz: 'archive', rar: 'archive',
   json: 'code', yaml: 'code', yml: 'code', xml: 'code', html: 'code', htm: 'code', css: 'code', js: 'code',
   ts: 'code', py: 'code', go: 'code', sh: 'code', ini: 'code', toml: 'code',
+  url: 'link',
 }
 
 // Mirrors the server's mapping (server/internal/files/types.go) for files
