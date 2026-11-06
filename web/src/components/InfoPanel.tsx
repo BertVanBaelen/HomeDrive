@@ -1,10 +1,13 @@
 import { useEffect, useId, useState } from 'react'
 import { useContentUrl } from './content'
-import { zipUrl, type Drive, type Node } from '../api'
+import { api, versionUrl, zipUrl, type Drive, type Node, type Version } from '../api'
+import { notifyChanged } from '../events'
 import { displayName, formatDateTime, formatDuration, formatSize } from '../format'
 import { plural, useLocale, useT, type MessageKey } from '../i18n'
+import { errorText } from './Dialogs'
 import { fileTypes, Icon, icons } from './Icon'
 import { Thumb } from './Thumb'
+import { showToast } from './Toast'
 
 export interface InfoActions {
   onOpen: () => void
@@ -178,8 +181,89 @@ export function InfoPanel({
             </>
           )}
         </dl>
+        {node.kind === 'file' && node.canEdit && !readOnly && !node.trashedAt && <Versions key={node.id} node={node} />}
       </aside>
     </>
+  )
+}
+
+// Versions lists a file's saved versions for those who may edit it, the
+// current one first. An earlier one can be downloaded, or restored: its
+// content becomes a new current version, so nothing is lost.
+function Versions({ node }: { node: Node }) {
+  const t = useT()
+  const locale = useLocale()
+  const id = useId()
+  const [list, setList] = useState<Version[] | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const [busy, setBusy] = useState(false)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    let live = true
+    api.versions(node.id).then(
+      (l) => {
+        if (!live) return
+        setList(Array.isArray(l) ? l : [])
+        setError(null)
+      },
+      (err) => live && setError(err ?? 'internal'),
+    )
+    return () => {
+      live = false
+    }
+  }, [node.id, node.version, tick])
+
+  async function restore(v: Version) {
+    setBusy(true)
+    try {
+      await api.restoreVersion(node.id, v.id)
+      showToast(t('versions.restored'))
+      setTick((n) => n + 1)
+      if (node.parentId) notifyChanged(node.parentId)
+    } catch (err) {
+      showToast(errorText(t, err), { error: true })
+    }
+    setBusy(false)
+  }
+
+  return (
+    <section className="versions" aria-labelledby={id}>
+      <span id={id} className="info__desc-label">{t('versions.title')}</span>
+      {error ? (
+        <p>{errorText(t, error)}</p>
+      ) : !list ? (
+        <p>{t('loading')}</p>
+      ) : (
+        <ol>
+          {list.map((v) => {
+            const when = formatDateTime(v.createdAt, locale)
+            return (
+              <li key={v.id}>
+                <div>
+                  <strong>{when}</strong>
+                  <span>{[v.by, formatSize(v.size, locale)].filter(Boolean).join(' · ')}</span>
+                </div>
+                {v.current ? (
+                  <span className="versions__current">{t('versions.current')}</span>
+                ) : (
+                  <>
+                    <a className="icon-btn" href={versionUrl(node.id, v.id)} download
+                      aria-label={t('versions.download', { when })} title={t('versions.download', { when })}>
+                      <Icon d={icons.download} size={18} />
+                    </a>
+                    <button type="button" className="icon-btn" disabled={busy} onClick={() => restore(v)}
+                      aria-label={t('versions.restore', { when })} title={t('versions.restore', { when })}>
+                      <Icon d={icons.restore} size={18} />
+                    </button>
+                  </>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      {!error && list && list.length < 2 && <p>{t('versions.none')}</p>}
+    </section>
   )
 }
 

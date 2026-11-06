@@ -2,6 +2,17 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.7.0
+
+**Editors, versions and edit locks**
+
+- Open a file and press *Edit*. Markdown files have a page editor with a source view, `.txt` and code files a plain text editor, and `.xlsx` files a spreadsheet grid. Changes are saved as you type. *+ New* can start a Markdown, text or spreadsheet file.
+- One person edits a file at a time. Others see who is editing and can't press *Edit* until they stop (or their lock runs out after 2 minutes without activity). If a file changed meanwhile, you can *Reload* or *Save as a copy*.
+- Spreadsheets handle one sheet of up to 1,000 rows and 52 columns, with arithmetic, `SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT`. Styles, column widths and number formats stay. Anything more complex opens read-only, with its values and a *Download* button.
+- The info panel of a file lists its *Versions* for people who can edit it. Open or download an old version and *Restore* it. Old versions are kept for `backup_retention_days` (30 by default).
+- Uploading a file with the name of an existing one asks *Replace*, *Keep both* or *Skip*, with *Do this for all*. *Replace* adds a new version and keeps the file's shares, link and stars.
+- The security review of v2 is in `docs/security-review-v2.md`.
+
 ## 2.6.0
 
 **Log in with Home Assistant** (add-on only, off by default)

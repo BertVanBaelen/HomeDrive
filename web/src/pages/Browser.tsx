@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useId,
@@ -40,6 +42,9 @@ import { drivePath, folderPath, navigate, type ListName, type Route } from '../r
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
 import { StorageView } from './Storage'
+
+// The editor (with TipTap) loads the first time a new file is made.
+const Editor = lazy(() => import('../editor/Editor'))
 
 export function Browser({ user, route, onSignOut }: { user: User; route: Route; onSignOut: () => void }) {
   const t = useT()
@@ -324,6 +329,8 @@ function FolderView({
   const [selected, setSelected] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [zoomed, setZoomed] = useState(false)
+  const [editing, setEditing] = useState<{ node: Node; lockId: string } | null>(null)
+  const creating = useRef(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const filesRef = useRef<HTMLElement>(null)
   const motionPlayed = useRef(false)
@@ -510,7 +517,30 @@ function FolderView({
             load()
             showToast(t('toast.folderCreated'))
           }}
+          onNewFile={async (kind) => {
+            if (creating.current) return
+            creating.current = true
+            try {
+              const made = await api.createFile(folderId, t(kind === 'sheet' ? 'editor.newSheet' : 'editor.newDoc'))
+              setAddOpen(false)
+              load()
+              setEditing(made)
+            } catch (err) {
+              showToast(errorText(t, err), { error: true })
+            }
+            creating.current = false
+          }}
         />
+      )}
+      {editing && (
+        <Suspense fallback={null}>
+          <Editor node={editing.node} lockId={editing.lockId}
+            onClose={() => {
+              setEditing(null)
+              load()
+              notifyChanged('storage')
+            }} />
+        </Suspense>
       )}
       {actions.elements}
     </>

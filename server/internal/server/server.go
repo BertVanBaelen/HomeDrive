@@ -44,6 +44,8 @@ type Server struct {
 	linkPassTotal *ratelimit.Limiter
 	// zips counts zip downloads in progress.
 	zips *gate
+	// editLimit counts a user's lock, save and restore requests.
+	editLimit *ratelimit.Limiter
 
 	// previews asks oEmbed providers about saved links.
 	previews *savedlink.Client
@@ -106,6 +108,7 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		linkPassLimit: ratelimit.New(5, 15*time.Minute),
 		linkPassTotal: ratelimit.New(50, time.Hour),
 		zips:          newGate(),
+		editLimit:     ratelimit.New(300, time.Minute),
 		previews:      previews,
 		thumbs:        th,
 		ha:            ha,

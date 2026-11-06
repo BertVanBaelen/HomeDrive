@@ -70,7 +70,7 @@ func setup(t *testing.T) *env {
 func (e *env) put(t *testing.T, parent, name, content string) files.Node {
 	t.Helper()
 	ctx := context.Background()
-	up, err := e.files.CreateUpload(ctx, e.userID, parent, name, int64(len(content)), "")
+	up, err := e.files.CreateUpload(ctx, e.userID, parent, name, int64(len(content)), "", files.ConflictKeep)
 	if err != nil {
 		t.Fatal(err)
 	}

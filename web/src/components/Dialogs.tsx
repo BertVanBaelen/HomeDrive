@@ -5,11 +5,14 @@ import { useT, type MessageKey, type Translate } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
 import { driveLabel } from './Items'
 
-// errorText turns an API error into a sentence for the user.
+// errorText turns an API error into a sentence for the user, with the
+// error's text details (such as who holds a lock) filled in.
 export function errorText(t: Translate, err: unknown): string {
   const code = err instanceof ApiError ? err.code : 'internal'
   const key = `error.${code}` as MessageKey
-  return t(key) === key ? t('error.internal') : t(key)
+  const vars: Record<string, string> = {}
+  if (err instanceof ApiError) for (const [k, v] of Object.entries(err.body)) if (typeof v === 'string') vars[k] = v
+  return t(key) === key ? t('error.internal') : t(key, vars)
 }
 
 const focusable = 'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
@@ -124,17 +127,20 @@ export function ConfirmDialog({
   )
 }
 
-// AddDialog offers what can be added to a folder: in v1 a folder or files.
+// AddDialog offers what can be added to a folder: a folder, files and,
+// with onNewFile, a new document or spreadsheet to edit.
 export function AddDialog({
   folderName,
   onClose,
   onCreateFolder,
   onUpload,
+  onNewFile,
 }: {
   folderName: string
   onClose: () => void
   onCreateFolder: (name: string) => Promise<void>
   onUpload: () => void
+  onNewFile?: (kind: 'markdown' | 'sheet') => void
 }) {
   const t = useT()
   const [step, setStep] = useState<'pick' | 'folder'>('pick')
@@ -156,6 +162,12 @@ export function AddDialog({
   const tiles = [
     { label: t('add.folder'), desc: t('add.folderDesc'), icon: icons.folderAdd, color: '#a16207', tint: '#fef9c3', go: () => setStep('folder') },
     { label: t('add.upload'), desc: t('add.uploadDesc'), icon: icons.upload, color: '#374151', tint: '#f3f4f6', go: onUpload },
+    ...(onNewFile
+      ? [
+          { label: t('editor.addDoc'), desc: t('editor.addDocDesc'), icon: fileTypes.text.d, color: '#0369a1', tint: '#e0f2fe', go: () => onNewFile('markdown') },
+          { label: t('editor.addSheet'), desc: t('editor.addSheetDesc'), icon: fileTypes.sheet.d, color: '#15803d', tint: '#dcfce7', go: () => onNewFile('sheet') },
+        ]
+      : []),
   ]
   return (
     <Modal title={t('add.title')} subtitle={t('add.in', { folder: folderName })} onClose={onClose}>

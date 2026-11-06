@@ -131,6 +131,7 @@ func run() error {
 	}
 
 	fs := files.New(conn, store, log)
+	fs.SetVersionRetention(time.Duration(cfg.BackupRetentionDays) * 24 * time.Hour)
 	th := thumbs.New(cfg.StateDir, fs, log)
 	fs.SetThumbnails(th)
 	go th.Start(ctx)
@@ -217,7 +218,8 @@ func housekeeping(ctx context.Context, log *slog.Logger, fs *files.Service, acc 
 		if res, err := fs.Cleanup(ctx); err != nil {
 			log.Warn("cleaning up files", "error", err)
 		} else if res != (files.CleanupResult{}) {
-			log.Info("cleaned up", "expired_uploads", res.Uploads, "temp_files", res.TempFiles, "orphan_objects", res.Objects)
+			log.Info("cleaned up", "expired_uploads", res.Uploads, "temp_files", res.TempFiles, "orphan_objects", res.Objects,
+				"old_versions", res.Versions, "edit_locks", res.Locks)
 		}
 		if err := acc.Cleanup(ctx); err != nil {
 			log.Warn("cleaning up accounts", "error", err)

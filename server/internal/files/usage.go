@@ -318,6 +318,13 @@ func largestFirst(a, b Usage, aName, bName string) int {
 // and the bytes that freed. The backup keeps them for the retention
 // period.
 func (s *Service) DeleteOldVersions(ctx context.Context, userID string) (int, int64, error) {
+	return s.removeVersions(ctx, editableDrives, userID)
+}
+
+// removeVersions deletes the replaced versions that match the condition
+// (on v, n and d: the version, its file and the drive), with their
+// objects, and returns how many went and how many bytes that freed.
+func (s *Service) removeVersions(ctx context.Context, where string, args ...any) (int, int64, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, 0, err
@@ -325,7 +332,7 @@ func (s *Service) DeleteOldVersions(ctx context.Context, userID string) (int, in
 	defer tx.Rollback()
 	rows, err := tx.QueryContext(ctx, `SELECT v.id, v.object_id, v.size FROM versions v
 		JOIN nodes n ON n.id = v.node_id JOIN drives d ON d.id = n.drive_id
-		WHERE v.superseded_at IS NOT NULL AND `+editableDrives, userID)
+		WHERE v.superseded_at IS NOT NULL AND `+where, args...)
 	if err != nil {
 		return 0, 0, err
 	}

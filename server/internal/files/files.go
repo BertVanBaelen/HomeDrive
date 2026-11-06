@@ -50,12 +50,24 @@ type Service struct {
 	// thumbs is the thumbnail pipeline, or nil.
 	thumbs Thumbnails
 
+	// versionRetention is how long replaced versions are kept.
+	versionRetention time.Duration
+
 	uploadMu    sync.Mutex
 	uploadLocks map[string]*sync.Mutex
 }
 
 func New(conn *sql.DB, store *storage.Store, log *slog.Logger) *Service {
-	return &Service{db: conn, store: store, log: log, now: time.Now, uploadLocks: map[string]*sync.Mutex{}}
+	return &Service{db: conn, store: store, log: log, now: time.Now, versionRetention: 30 * 24 * time.Hour,
+		uploadLocks: map[string]*sync.Mutex{}}
+}
+
+// SetVersionRetention sets how long versions that newer contents replaced
+// are kept before the hourly cleanup removes them.
+func (s *Service) SetVersionRetention(d time.Duration) {
+	if d > 0 {
+		s.versionRetention = d
+	}
 }
 
 // querier is satisfied by *sql.DB and *sql.Tx.
@@ -115,6 +127,11 @@ type Node struct {
 	Thumb string `json:"thumb,omitempty"`
 	// DurationMs is the length of a video or audio file, once known.
 	DurationMs int64 `json:"durationMs,omitempty"`
+	// CanEdit is set on files the user may change the contents of, and
+	// Editor on those the app can edit for them: "markdown", "text" or
+	// "sheet". Neither is ever told to link visitors.
+	CanEdit bool   `json:"canEdit,omitempty"`
+	Editor  string `json:"editor,omitempty"`
 
 	versionID string
 }
@@ -138,6 +155,13 @@ type Located struct {
 }
 
 func (n Node) IsFolder() bool { return n.Kind == "folder" }
+
+// markEditable sets CanEdit and Editor on a file the user may change.
+func (n *Node) markEditable() {
+	if n.CanEdit = n.Kind == "file"; n.CanEdit {
+		n.Editor = EditorOf(n.Name, n.Size)
+	}
+}
 
 // Crumb is one step of the path from a drive's top folder to an item.
 type Crumb struct {
@@ -364,6 +388,9 @@ func (s *Service) lookup(ctx context.Context, q querier, userID, nodeID string, 
 	}
 	if !it.live && !trashedOK {
 		return item{}, ErrNotFound
+	}
+	if it.live && it.canEdit() {
+		it.markEditable()
 	}
 	return it, nil
 }

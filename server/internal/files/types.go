@@ -57,6 +57,33 @@ func TypeOf(n Node) string {
 	return "doc"
 }
 
+// The most the app edits of one file: text in the browser's editors, a
+// workbook through the server's spreadsheet code.
+const (
+	MaxTextFile  = 1 << 20
+	MaxSheetFile = 5 << 20
+)
+
+// EditorOf says which editor the app has for a file: "markdown", "text",
+// "sheet", or "" when there is none or the file is too big for it. It is
+// the one place that decides what can be edited.
+func EditorOf(name string, size int64) string {
+	ext, editor, limit := strings.ToLower(path.Ext(name)), "text", int64(MaxTextFile)
+	switch kind := fileTypes[ext].kind; {
+	case ext == ".xlsx":
+		editor, limit = "sheet", MaxSheetFile
+	case ext == ".md":
+		editor = "markdown"
+	case ext == ".csv", kind == "text", kind == "code":
+	default:
+		return ""
+	}
+	if size > limit {
+		return ""
+	}
+	return editor
+}
+
 // MimeOf is the MIME type for a file name, application/octet-stream if
 // unknown.
 func MimeOf(name string) string {

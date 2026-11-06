@@ -64,14 +64,14 @@ func TestCleanup(t *testing.T) {
 	ctx := context.Background()
 
 	// An upload that was never finished and has expired.
-	up, err := s.CreateUpload(ctx, uid, root, "half.bin", 10, "")
+	up, err := s.CreateUpload(ctx, uid, root, "half.bin", 10, "", ConflictKeep)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.WriteChunk(ctx, uid, up.ID, 0, 5, strings.NewReader("01234"))
 	s.db.Exec(`UPDATE uploads SET expires_at = '2000-01-01T00:00:00.000Z' WHERE id = ?`, up.ID)
 	// An upload still going on, and one just started without a row yet.
-	live, _ := s.CreateUpload(ctx, uid, root, "live.bin", 10, "")
+	live, _ := s.CreateUpload(ctx, uid, root, "live.bin", 10, "", ConflictKeep)
 	os.WriteFile(filepath.Join(data, "uploads", ".put-fresh"), []byte("x"), 0o640)
 	// An old temporary file from an interrupted write.
 	tmp := filepath.Join(data, "uploads", ".copy-old")
@@ -106,7 +106,7 @@ func TestCleanup(t *testing.T) {
 func (s *Service) mustUpload(t *testing.T, uid, parent, name, content string) Node {
 	t.Helper()
 	ctx := context.Background()
-	up, err := s.CreateUpload(ctx, uid, parent, name, int64(len(content)), "")
+	up, err := s.CreateUpload(ctx, uid, parent, name, int64(len(content)), "", ConflictKeep)
 	if err != nil {
 		t.Fatal(err)
 	}

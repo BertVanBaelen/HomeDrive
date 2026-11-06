@@ -127,11 +127,11 @@ nodes           (id, drive_id, parent_id, kind folder|file, name, current_versio
                  description, description_key)                              description: v2
                  UNIQUE (drive_id, parent_id, lower(name)) WHERE trashed_at IS NULL
 versions        (id, node_id, object_id, size, sha256, created_by, created_at, superseded_at,
-                 edit_lock_id NULL)                                         edit_lock_id: v2
+                 edit_lock NULL)                                            edit_lock: v2, hash of the editing session's lock ID
 uploads         (id, user_id, parent_id, name, size, received, created_at, expires_at,
                  replace_node_id NULL)                                      replace_node_id: v2
 media           (version_id, duration_ms)                                   v2, video and audio length
-edit_locks      (node_id, lock_id, user_id, acquired_at, expires_at)        v2
+edit_locks      (node_id, user_id, lock_hash, expires_at)                   v2, one row per file; lock_hash is the SHA-256 of the lock ID
 link_previews   (node_id, url, site, author, fetched_at)                    v2, saved links
 stars           (user_id, node_id)
 recents         (user_id, node_id, at)
@@ -238,7 +238,7 @@ Thumbnails show the file's contents, not an icon (mockup §4). The server makes 
 | Audio | the embedded cover art through ffmpeg, else the mockup's title-and-waveform card; plus the length |
 | PDF | the first page through `pdftoppm` (poppler), then libvips |
 | Text, Markdown, code | *snippet*: the first 12 lines (at most 2 KB), drawn as a page, or as a dark code block for code |
-| Spreadsheets (`.xlsx`, `.csv`) | *snippet*: the first 6 rows × 4 columns as Excel shows them (`.xlsx` through excelize, from the cached results) |
+| Spreadsheets (`.xlsx`, `.csv`) | *snippet*: the first 6 rows × 4 columns as Excel shows them (`.xlsx` through the capped reader of `internal/sheet`, from the cached results) |
 | Zip archives | *snippet*: the first 8 entry names and the total, read from the archive's directory only |
 | Saved links | the oEmbed thumbnail (above), else the site's icon |
 | Folders | 2×2 of the first four items' thumbnails (v1's minis, now with thumbnails) |
@@ -274,13 +274,15 @@ Left out from the mockup: disk health and RAID (a container can't read them reli
 
 ### Editors, versions and edit locks (v2)
 
-Editors open for people who can edit the file: the owner of My Files, editors and managers of its drive, and people it is shared with to edit. Everyone else gets the read-only view.
+Editing is for people who can edit the file: the owner of My Files, editors and managers of its drive, and people it is shared with to edit. Everyone else only has the viewer.
 
-**New files.** *+ New* → *Text document* makes `Untitled document.md` ("Naamloos document.md") and *Spreadsheet* `Untitled spreadsheet.xlsx` ("Naamloos rekenblad.xlsx") in the current folder (`POST /api/files`), with `(2)` when the name is taken, and opens the editor.
+**Opening and editing.** Clicking a file opens the viewer, as for every other type. For editable files (`.md`, `.txt`, `.log`, `.csv`, the code types, `.xlsx`) people who can edit see an *Edit* button in the viewer; it opens the editor and takes the edit lock. Looking at a file never locks it. While someone else holds the lock the button is disabled and says "Anna is editing". When you hold it yourself in another window or device, the button says *Edit here* and takes it over (see Edit locks). People who can't edit never see the button or who is editing.
+
+**New files.** *+ New* → *Text document* makes `Untitled document.md` ("Naamloos document.md") and *Spreadsheet* `Untitled spreadsheet.xlsx` ("Naamloos rekenblad.xlsx") in the current folder (`POST /api/files {parentId, name}`; the name is localized by the app, only editable types are accepted and a taken name gets `(2)`), and opens the editor with the lock already taken.
 
 **Markdown (`.md`).**
 
-- TipTap with `tiptap-markdown`: a WYSIWYG page with the mockup's toolbar (Undo, Redo, H1, H2, Normal, Bold, Italic, bullets, numbers, quote) plus *Link*, and the *.md* toggle to edit the Markdown source. The file name is edited in the title field.
+- TipTap with its official `@tiptap/markdown` (the community `tiptap-markdown` was left out: more dependencies, one maintainer): a WYSIWYG page with the mockup's toolbar (Undo, Redo, H1, H2, Normal, Bold, Italic, bullets, numbers, quote) plus *Link*, and the *.md* toggle to edit the Markdown source. The file name is edited in the title field; the extension stays fixed. TipTap's own injected stylesheet is turned off (`injectCSS: false`) because the content security policy forbids inline styles; the editor's CSS ships with the app.
 - Supported: headings 1–3, paragraphs, bold, italic, inline code, code blocks, bullet and numbered lists (nested), quotes, links (`http`, `https`, `mailto`), horizontal rules and line breaks. Raw HTML is never rendered; it stays visible as text.
 - The editor never rewrites what it doesn't understand: on opening, the file is read and written back in memory. If that changes it (tables, footnotes, front matter, other spacing — line endings and the final newline aside), the file opens in source mode with a note, and stays there.
 - People who can't edit see the same rendering, read-only.
@@ -289,34 +291,36 @@ Editors open for people who can edit the file: the owner of My Files, editors an
 
 **Spreadsheets (`.xlsx`).**
 
-- A grid like the mockup: A1 references, a formula bar (cell and its raw value or formula), *Add row* and *Add column*.
+- A grid like the mockup: A1 references, a formula bar (cell and its raw value or formula), *Add row* and *Add column*, keyboard and mouse selection, copy and paste of ranges. A formula that doesn't pass the grammar can't be committed and is never sent. Limits of this first version: pasting doesn't adjust references, copy takes the values shown, and columns can't be resized.
 - Formulas: arithmetic (`+ - * /`, brackets) with numbers and cell references, and `SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` over cells and ranges. Errors and circular references show `#ERR`. The engine is a small TypeScript module that recalculates as you type.
-- The server converts with excelize: `GET /api/nodes/{id}/sheet` gives the grid as JSON (values as Excel shows them, raw values, formulas). `PUT` writes the changed cells into the original workbook, so styles, column widths and number formats stay. It stores each formula with its result as calculated by the browser, so previews and other apps show values, and marks the workbook to be recalculated when Excel opens it.
-- Editable only with one sheet, no merged cells, at most 1,000 rows and 52 columns, and only the formulas above (the server checks with the same grammar). Anything else opens read-only with a note: the values of each sheet with sheet tabs, and *Download*.
+- The server converts in package `internal/sheet` (pure functions on bytes). Uploaded workbooks are never opened with excelize: the package has its own reader (a streaming XML parser with hard caps: 4,096 zip entries, 16 MB per part, 64 MB unzipped) and a writer that splices changed cells into the original XML, so styles, column widths and number formats stay. excelize only makes the blank workbook and the number-format reference in tests. `GET /api/nodes/{id}/sheet` answers `{version, editable, grid?: {rows, cols, cells: {"A1": {raw, v}}}, reason?, sheets?: [{name, rows, cols, cells: {"A1": value}}]}`: editors of a supported workbook get the `grid` (raw text and the value as Excel shows it), everyone else `sheets` with the values and a `reason`. `PUT` takes `{rows, cols, cells}` with only the changed cells (`""` clears one) and answers the node like a text save. The server never trusts a value from the browser: it checks every formula against the grammar below, stores it, and calculates its result itself with its own evaluator, so previews and other apps show values; the browser's engine is only for showing results while typing. A shared set of test cases (`server/internal/sheet/testdata/formulas.json`) is run by both engines so they agree. The workbook is marked to be recalculated when Excel opens it. A bad formula answers `400 invalid_sheet`.
+- Editable only with one sheet, no merged cells, a file of at most 5 MB, at most 1,000 rows and 52 columns (a grid is always shown at 20 × 8 at least), and only the formulas above. Anything else opens read-only with a note (`reason`: `too_big`, `multiple_sheets`, `merged_cells`, `formula`, `too_large_grid`, `invalid`, or `read_only` for people who can't edit): the values of each sheet (up to 20) with sheet tabs, and *Download*. At most two workbooks are read or written at a time in the whole server, because they are handled in memory. The snippet reader for thumbnails (`.xlsx` first rows) uses the same capped reader, so a workbook over 5 MB gets no snippet.
 - `.xls`, `.ods` and `.csv` aren't opened in the grid (`.csv` opens as text).
 
 **Edit locks.** One person edits a file at a time.
 
-- Opening the editor takes a lock: `POST /api/nodes/{id}/lock` returns a `lockId`. The editor renews it every 30 s (`PUT`) and gives it back on close (`DELETE`, sent with `keepalive`). A lock expires 2 minutes after its last renewal.
-- When someone else holds it, the file opens read-only with "Anna is editing" and checks every 30 s whether the lock is free. When you hold it yourself in another window or device, *Edit here* takes it over; the other window turns read-only with a note.
-- A lock only blocks content changes: saves from other editors and *Replace* uploads. Rename, move and trash still work.
+- *Edit* takes a lock: `POST /api/nodes/{id}/lock` returns a `lockId` (128 random bits, only the holder ever sees it; the server stores only its SHA-256 and compares in constant time). The editor renews it every 30 s (`PUT {lockId}`) and gives it back on close (`DELETE`, with the lock ID in `X-Lock-Id`, sent with `keepalive`). A lock expires 2 minutes after its last renewal, but keeps serving its holder until someone else takes the file, so a laptop that slept can carry on; the hourly cleanup deletes lock rows a day after they expired.
+- `GET /api/nodes/{id}/lock` (people who can edit) says who holds the lock: `{holder: {id, name}, mine: bool}` or `null`. The viewer asks when it opens and every 30 s, to enable or disable the *Edit* button.
+- When someone else holds it, `POST` answers `locked` (409) with `holder` (the name). When you hold it yourself in another window or device, `POST` answers `locked_self`; `POST …?takeover=1` takes it over (audited as `edit.lock_takeover`) and the other window finds out on its next renewal or save (`lock_lost`) and turns read-only with a note.
+- A lock only blocks content changes: saves from other editors, *Replace* uploads and *Restore*. Rename, move and trash still work, and a save to a file that was trashed meanwhile is refused as not found.
+- Lock, save, create and restore requests are limited to 300 a minute per user.
 
 **Saving and conflicts.**
 
-- Autosave 700 ms after the last change, one request at a time, "Saving…" → "Saved"; also on close. Text and Markdown go to `PUT /api/nodes/{id}/content`, spreadsheets to `PUT /api/nodes/{id}/sheet`. Each save carries the lock ID and the version it started from (`If-Match`).
-- When the file changed in the meantime (the lock lapsed while offline, or someone uploaded with *Replace* before the lock was taken), the save is refused with `edit_conflict`. The editor says who changed it and when, and offers *Reload* (drop your changes) or *Save as a copy* (`<name> (copy).md` next to it, or in My Files if the folder is gone).
+- Autosave 700 ms after the last change, one request at a time, "Saving…" → "Saved"; also on close. Text and Markdown go to `PUT /api/nodes/{id}/content` (a `text/plain; charset=utf-8` body of at most 1 MB, valid UTF-8 without NUL), spreadsheets to `PUT /api/nodes/{id}/sheet` (JSON of at most 4 MB). Each save carries the lock ID (`X-Lock-Id`) and the version it started from (`If-Match: "<version-id>"`), and answers with the node, whose `version` is the new `If-Match`. A custom header can't be sent cross-site without a CORS preflight, and Homedrive answers none.
+- `lock_lost` (409): the lock lapsed or was taken over, so the save didn't happen. `edit_conflict` (412, with `{by, at}` of the current version): the file changed in the meantime (the lock lapsed while offline, or someone uploaded with *Replace* before the lock was taken). The editor says who changed it and when, and offers *Reload* (drop your changes) or *Save as a copy* (`<name> (copy).md` next to it, through the normal upload route; the folder is the file's own, or My Files if it is gone). A spreadsheet's copy is a `.csv` of the values shown, because the browser can't write `.xlsx`; cells that start with `=`, `+`, `-` or `@` get a leading `'` so the copy runs nothing when opened.
 
 **Versions.**
 
-- Every saved content is a version: an upload with *Replace*, an editing session, a restore. Autosaves within one editing session (one lock) update that session's version (`versions.edit_lock_id`): each save writes a new object, and the one it replaces is deleted.
+- Every saved content is a version: an upload with *Replace*, an editing session, a restore. Autosaves within one editing session (one lock) replace that session's version (`versions.edit_lock`): each save adds a new version row with a new object and removes the previous row of the same lock with its object. Because the version ID changes with every save, thumbnails and `If-Match` follow without special cases.
 - A replaced version gets `superseded_at`. It stays for `backup_retention_days`, then the hourly cleanup deletes it with its object. *Delete old versions* on the Storage page does this early.
-- The info panel of a file has *Versions*: the current one first, then older ones with date, who saved it and size. Anyone who can open the file can open an old version in the viewer (`GET /api/nodes/{id}/versions/{version-id}/content`) or download it. Editors can *Restore*: the old contents are copied into a new current version, so nothing is lost and objects are never shared between versions.
+- The info panel of a file has *Versions*, for **people who can edit the file only** (the `canEdit` and `editor` fields of a node are set only for them, never for link visitors): someone with *Can view* access, a drive viewer or a link visitor could otherwise read content an editor deliberately replaced. It lists the current version first, then older ones with date, who saved it and size. Editors can download an old version (`GET /api/nodes/{id}/versions/{version-id}/content`, always an attachment, in the sandbox like any file) and *Restore*: the old contents are copied into a new current version, so nothing is lost and objects are never shared between versions. *Restore* is refused while the file is locked, audited as `version.restore`, and does nothing for the current version.
 
-**Replace or keep both.** When an upload has the name of a file already in the folder (ignoring case), the app asks *Replace* or *Keep both*, with *Do this for all* when several files collide.
+**Replace or keep both.** When an upload has the name of a file already in the folder (ignoring case), the app asks *Replace*, *Keep both* or *Skip*, with *Do this for all* when several files collide. *Skip* exists only in the app: nothing is sent.
 
-- *Replace* makes the upload a new version of that file: it keeps its name, ID, description, shares, link and stars. It needs edit rights and is refused while someone else holds the edit lock.
+- *Replace* makes the upload a new version of that file: it keeps its name, ID, description, shares, link and stars. It needs edit rights and is refused (`locked`) while someone else holds the edit lock; your own lock doesn't stop it, and your editor then finds the file changed (`edit_conflict`). If the file was renamed, moved or trashed while the upload ran, the upload becomes a new file instead, so nothing is overwritten that the user didn't choose.
 - *Keep both* adds `name (2)` as in v1. A folder with that name only allows *Keep both*.
-- `POST /api/uploads` takes `conflict: "ask" | "replace" | "keep"`. With `ask`, a taken name answers `name_taken` with the existing item before any bytes are sent. *Replace* records `uploads.replace_node_id` and is checked again on completion.
+- `POST /api/uploads` takes `conflict: "ask" | "replace" | "keep"` (absent means keep). With `ask`, a taken name answers `name_taken` with `existing` (the node) before any bytes are sent. *Replace* records `uploads.replace_node_id`, is checked again on completion, and is audited as `upload.replace`.
 - The Save page (Android share target) asks the same. iPhone Shortcut uploads always keep both.
 
 ### Email and push notifications (v3)
@@ -410,12 +414,13 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   GET    /api/nodes/{id}/link, PUT …, DELETE …  public link {expiry, password}          can share
   GET    /api/nodes/{id}/zip                    folder as .zip                          can open
   GET    /api/nodes/{id}/thumb, /snippet, /preview
-  GET    /api/nodes/{id}/versions, GET …/versions/{version-id}/content
-  POST   /api/nodes/{id}/versions/{version-id}/restore
-  POST   /api/nodes/{id}/lock, PUT …, DELETE …  edit lock
-  PUT    /api/nodes/{id}/content                text and Markdown (If-Match, lock)
-  GET    /api/nodes/{id}/sheet, PUT …           spreadsheet grid (If-Match, lock)
-  POST   /api/files                             {parentId, type: text|sheet}
+  GET    /api/nodes/{id}/versions, GET …/versions/{version-id}/content                   can edit
+  POST   /api/nodes/{id}/versions/{version-id}/restore                                   can edit
+  GET    /api/nodes/{id}/lock                   who is editing                          can edit
+  POST   /api/nodes/{id}/lock[?takeover=1]      → {lockId}; PUT {lockId} renews; DELETE (X-Lock-Id) releases   can edit
+  PUT    /api/nodes/{id}/content                text and Markdown (If-Match, X-Lock-Id) can edit
+  GET    /api/nodes/{id}/sheet, PUT …           spreadsheet grid (If-Match, X-Lock-Id)  can open / can edit
+  POST   /api/files                             {parentId, name} → empty .md/.txt/code file or blank .xlsx   can edit
   GET    /api/storage, GET /api/storage/meter, GET /api/admin/storage, DELETE /api/old-versions
   GET    /api/link-preview?url=…, POST /api/inbox/link                                   saved links
   GET    /api/s/{token}                         link page: the item (folder: its contents)
@@ -472,6 +477,6 @@ docker-compose.example.yml
 docs/                  architecture, security, roadmap
 ```
 
-Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), excelize on the server for `.xlsx` with a small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails.
+Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), a capped `.xlsx` reader/writer and formula evaluator on the server (`internal/sheet`, excelize only for blank workbooks) with the same small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails.
 
 UI languages: English and Dutch, chosen from the browser language, switchable per user.

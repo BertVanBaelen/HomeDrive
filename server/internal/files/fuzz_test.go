@@ -90,7 +90,7 @@ func FuzzUploadChunks(f *testing.F) {
 			return
 		}
 		ctx := context.Background()
-		up, err := s.CreateUpload(ctx, uid, root, "fuzz.bin", size, "")
+		up, err := s.CreateUpload(ctx, uid, root, "fuzz.bin", size, "", ConflictKeep)
 		if err != nil {
 			t.Fatal(err)
 		}

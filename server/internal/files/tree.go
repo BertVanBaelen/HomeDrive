@@ -118,6 +118,11 @@ func (s *Service) Children(ctx context.Context, userID, folderID string, sortBy 
 		return nil, err
 	}
 	SortNodes(out, sortBy, desc)
+	if it.canEdit() {
+		for i := range out {
+			out[i].markEditable()
+		}
+	}
 	return out, s.decorate(ctx, userID, out)
 }
 
@@ -291,6 +296,12 @@ func (s *Service) node(ctx context.Context, userID, id string) (Node, error) {
 	}
 	nodes := []Node{n}
 	err = s.decorate(ctx, userID, nodes)
+	if err == nil && !n.IsFolder() {
+		// Best effort: a trashed or unreachable node simply has no editor.
+		if it, lerr := s.lookup(ctx, s.db, userID, id, false); lerr == nil {
+			nodes[0].CanEdit, nodes[0].Editor = it.CanEdit, it.Editor
+		}
+	}
 	return nodes[0], err
 }
 
