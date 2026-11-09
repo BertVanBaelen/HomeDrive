@@ -37,15 +37,31 @@ func (s *Service) checkSpace(size int64) error {
 
 // CleanupResult counts what one cleanup removed.
 type CleanupResult struct {
-	Uploads, TempFiles, Objects int
+	Uploads, TempFiles, Objects, Versions, Locks int
 }
 
+// lockGrace is how long an edit lock that ran out is kept: until then its
+// holder, back from a sleeping laptop, can carry on saving.
+const lockGrace = 24 * time.Hour
+
 // Cleanup removes leftovers: uploads that expired unfinished, temporary
-// files of interrupted writes, and objects no version uses (after a crash
-// between storing a file and recording it). It is safe to run at any time.
+// files of interrupted writes, replaced versions past their retention, old
+// edit locks, and objects no version uses (after a crash between storing a
+// file and recording it). It is safe to run at any time.
 func (s *Service) Cleanup(ctx context.Context) (CleanupResult, error) {
 	var res CleanupResult
 	now := s.now()
+
+	var err error
+	if res.Versions, _, err = s.removeVersions(ctx, `v.superseded_at <= ?1`, db.FormatTime(now.Add(-s.versionRetention))); err != nil {
+		return res, err
+	}
+	locks, err := s.db.ExecContext(ctx, `DELETE FROM edit_locks WHERE expires_at <= ?`, db.FormatTime(now.Add(-lockGrace)))
+	if err != nil {
+		return res, err
+	}
+	n, _ := locks.RowsAffected()
+	res.Locks = int(n)
 
 	rows, err := s.db.QueryContext(ctx, `SELECT id FROM uploads WHERE expires_at <= ?`, db.FormatTime(now))
 	if err != nil {

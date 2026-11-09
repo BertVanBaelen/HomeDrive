@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"mime"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/BertVanBaelen/HomeDrive/server/internal/auth"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/files"
 	"github.com/BertVanBaelen/HomeDrive/server/internal/savedlink"
+	"github.com/BertVanBaelen/HomeDrive/server/internal/sheet"
 )
 
 const sessionCookie = "__Host-hd_session"
@@ -20,16 +22,21 @@ const sessionCookie = "__Host-hd_session"
 // maxJSONBody is plenty for every JSON request the API takes.
 const maxJSONBody = 64 << 10
 
-// readJSON decodes a JSON request body into v. Only application/json is
-// accepted: together with the Origin check it keeps plain HTML forms from
-// other sites out.
+// readJSON decodes a JSON request body of at most maxJSONBody into v. Only
+// application/json is accepted: together with the Origin check it keeps
+// plain HTML forms from other sites out.
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return readJSONMax(w, r, v, maxJSONBody)
+}
+
+// readJSONMax is readJSON for the few requests that carry more.
+func readJSONMax(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
 	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mt != "application/json" {
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type")
 		return false
 	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	if err := dec.Decode(v); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
@@ -152,6 +159,14 @@ var apiErrors = []struct {
 	{files.ErrInvalidExpiry, http.StatusBadRequest, "bad_request"},
 	{files.ErrLinkPassword, http.StatusBadRequest, "link_password"},
 	{files.ErrInvalidDescription, http.StatusBadRequest, "invalid_description"},
+	{files.ErrLocked, http.StatusConflict, "locked"},
+	{files.ErrLockedSelf, http.StatusConflict, "locked_self"},
+	{files.ErrLockLost, http.StatusConflict, "lock_lost"},
+	{files.ErrEditConflict, http.StatusPreconditionFailed, "edit_conflict"},
+	{files.ErrNotEditable, http.StatusBadRequest, "not_editable"},
+	{files.ErrInvalidConflict, http.StatusBadRequest, "bad_request"},
+	{errInvalidText, http.StatusBadRequest, "invalid_text"},
+	{sheet.ErrInvalid, http.StatusBadRequest, "invalid_sheet"},
 	{savedlink.ErrInvalidURL, http.StatusBadRequest, "invalid_url"},
 	{accounts.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{accounts.ErrInvalidCode, http.StatusUnauthorized, "invalid_code"},
@@ -182,7 +197,12 @@ var apiErrors = []struct {
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	for _, e := range apiErrors {
 		if errors.Is(err, e.err) {
-			writeError(w, e.status, e.code)
+			body := map[string]any{"error": e.code}
+			var x interface{ Extra() map[string]any }
+			if errors.As(err, &x) {
+				maps.Copy(body, x.Extra())
+			}
+			writeJSON(w, e.status, body)
 			return
 		}
 	}

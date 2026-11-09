@@ -80,6 +80,42 @@ export interface Node {
   thumb?: ThumbKind
   // The length of a video or audio file, once known.
   durationMs?: number
+  // The user may change its content: edit it, see and restore its versions.
+  canEdit?: boolean
+  // Which of the app's editors opens it, for those who can edit it.
+  editor?: EditorKind
+}
+
+export type EditorKind = 'markdown' | 'text' | 'sheet'
+
+// EditLock is who is editing a file; mine: the user, in another window.
+export interface EditLock {
+  holder: { id: string; name: string }
+  mine: boolean
+}
+
+// SheetView is a spreadsheet as the sheet editor reads it: the grid to edit
+// (inputs and the values they show, by cell like "B3"), or when it can't be
+// edited here (reason) the values of its sheets.
+export interface SheetView {
+  version: string
+  editable: boolean
+  reason?: string
+  grid?: SheetGrid
+  sheets?: { name: string; rows: number; cols: number; cells: Record<string, string> }[]
+}
+
+export interface SheetGrid {
+  rows: number
+  cols: number
+  cells: Record<string, { raw: string; v: string }>
+}
+
+// SheetEdit saves a sheet: its size and the cells changed ("" clears).
+export interface SheetEdit {
+  rows: number
+  cols: number
+  cells: Record<string, string>
 }
 
 export type ThumbKind = 'image' | 'snippet'
@@ -302,6 +338,21 @@ export interface Upload {
   chunkSize: number
 }
 
+// UploadConflict is what an upload does when its name is taken: ask (the
+// server answers name_taken with the existing item), replace that file with
+// a new version, or keep both (the default: "name (2)").
+export type UploadConflict = 'ask' | 'replace' | 'keep'
+
+// Version is a saved content of a file, for those who can edit it, newest
+// first. by is who saved it ("" when unknown).
+export interface Version {
+  id: string
+  current: boolean
+  size: number
+  createdAt: string
+  by: string
+}
+
 export type SortKey = 'name' | 'modified' | 'size'
 
 export class ApiError extends Error {
@@ -332,18 +383,19 @@ export function setReauthHandler(fn: () => Promise<boolean>) {
 // Requests that need the password at the same time share one prompt.
 let reauthPrompt: Promise<boolean> | null = null
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+// init overrides the JSON defaults, such as a text body with its headers.
+async function request<T>(method: string, path: string, body?: unknown, init?: RequestInit): Promise<T> {
   try {
-    return await send<T>(method, path, body)
+    return await send<T>(method, path, body, init)
   } catch (err) {
     if (!(err instanceof ApiError && err.code === 'reauth_required')) throw err
     reauthPrompt ??= onReauth().finally(() => (reauthPrompt = null))
     if (!(await reauthPrompt)) throw err
-    return send<T>(method, path, body)
+    return send<T>(method, path, body, init)
   }
 }
 
-async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function send<T>(method: string, path: string, body?: unknown, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(path, {
@@ -351,6 +403,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
       headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'same-origin',
+      ...init,
     })
   } catch {
     throw new ApiError(0, 'network')
@@ -415,6 +468,9 @@ export const api = {
   storage: () => request<StoragePage>('GET', '/api/storage'),
   storageMeter: () => request<StorageMeter>('GET', '/api/storage/meter'),
   deleteOldVersions: () => request<{ deleted: number; freed: number }>('DELETE', '/api/old-versions'),
+  versions: (id: string) => request<Version[]>('GET', `/api/nodes/${encodeURIComponent(id)}/versions`),
+  restoreVersion: (id: string, versionId: string) =>
+    request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`),
 
   sharedWithMe: () => request<SharedItem[]>('GET', '/api/shared'),
   sharing: (id: string) => request<Sharing>('GET', `/api/nodes/${encodeURIComponent(id)}/shares`),
@@ -467,11 +523,49 @@ export const api = {
   welcomeFinish: (token: string, password: string) =>
     request<User>('POST', '/api/welcome/finish', { token, password }),
 
-  createUpload: (parentId: string, name: string, size: number, description = '') =>
-    request<Upload>('POST', '/api/uploads', { parentId, name, size, description }),
+  createUpload: (parentId: string, name: string, size: number, description = '', conflict?: UploadConflict) =>
+    request<Upload>('POST', '/api/uploads', { parentId, name, size, description, conflict }),
   uploadStatus: (id: string) => request<Upload>('GET', `/api/uploads/${encodeURIComponent(id)}`),
   completeUpload: (id: string) => request<Node>('POST', `/api/uploads/${encodeURIComponent(id)}/complete`),
+  // uploadChunk sends a chunk without progress (uploads.ts reports it).
+  uploadChunk: (id: string, offset: number, chunk: Blob) =>
+    request<{ received: number }>('PUT', `/api/uploads/${encodeURIComponent(id)}?offset=${offset}`, undefined, {
+      body: chunk,
+      headers: { 'Content-Type': 'application/octet-stream' },
+    }),
   cancelUpload: (id: string) => request<void>('DELETE', `/api/uploads/${encodeURIComponent(id)}`),
+
+  // Editing: a new file comes with its edit lock; saves need the lock and
+  // the version they started from.
+  createFile: (parentId: string, name: string) =>
+    request<{ node: Node; lockId: string }>('POST', '/api/files', { parentId, name }),
+  lockStatus: (id: string) =>
+    request<EditLock | null>('GET', `/api/nodes/${encodeURIComponent(id)}/lock`, undefined, { cache: 'no-store' }),
+  takeLock: (id: string, takeover = false) =>
+    request<{ lockId: string }>('POST', `/api/nodes/${encodeURIComponent(id)}/lock${takeover ? '?takeover=1' : ''}`),
+  renewLock: (id: string, lockId: string) => request<void>('PUT', `/api/nodes/${encodeURIComponent(id)}/lock`, { lockId }),
+  // releaseLock also works while the page unloads, and never fails. The
+  // lock ID goes in a header, like on saves, so it stays out of URLs and logs.
+  releaseLock: (id: string, lockId: string) => {
+    fetch(`/api/nodes/${encodeURIComponent(id)}/lock`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'X-Lock-Id': lockId },
+      keepalive: true,
+    }).catch(() => {})
+  },
+  saveText: (id: string, lockId: string, version: string, text: string) =>
+    request<Node>('PUT', `/api/nodes/${encodeURIComponent(id)}/content`, undefined, {
+      body: text,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-Lock-Id': lockId, 'If-Match': `"${version}"` },
+    }),
+  getSheet: (id: string) =>
+    request<SheetView>('GET', `/api/nodes/${encodeURIComponent(id)}/sheet`, undefined, { cache: 'no-store' }),
+  saveSheet: (id: string, lockId: string, version: string, edit: SheetEdit) =>
+    request<Node>('PUT', `/api/nodes/${encodeURIComponent(id)}/sheet`, undefined, {
+      body: JSON.stringify(edit),
+      headers: { 'Content-Type': 'application/json', 'X-Lock-Id': lockId, 'If-Match': `"${version}"` },
+    }),
 }
 
 // ContentUrl gives the address of a file's content (download: as an
@@ -483,6 +577,12 @@ export const contentUrl: ContentUrl = (id, download = false) =>
 
 export function zipUrl(id: string): string {
   return `/api/nodes/${encodeURIComponent(id)}/zip`
+}
+
+// versionUrl gives the address of an earlier version's content, which is
+// always downloaded.
+export function versionUrl(id: string, versionId: string): string {
+  return `/api/nodes/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/content?download=1`
 }
 
 // ThumbUrl gives the address of a file's thumbnail (grid or list size),

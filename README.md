@@ -21,7 +21,7 @@ Details and designs are in the [full roadmap](docs/roadmap.md).
 | Phase | Status | Contents |
 |---|---|---|
 | v1 | Built, release security check open | Accounts, files, viewers, PWA and share target, backup, design, English and Dutch |
-| v2 | Released up to 2.6.0, editors to do | Built: shared drives, sharing and public links, descriptions and saved links, thumbnails, Storage page, Home Assistant login. To do: Markdown, text and spreadsheet editors with versions and edit locks, then the v2 security check |
+| v2 | Built up to 2.7.0, release security check open | Shared drives, sharing and public links, descriptions and saved links, thumbnails, Storage page, Home Assistant login, Markdown, text and spreadsheet editors with versions and edit locks. Open: the [v2 security check](docs/security-review-v2.md) |
 | v3 | Planned | `homedrive restore`, custom app name, HTML emails, email and push notifications |
 | VX | Not decided | Real-time co-editing, approve link for sign-in, forgot password |
 | Later | Ideas | Word preview, passkeys and authenticator apps, custom AppArmor profile |

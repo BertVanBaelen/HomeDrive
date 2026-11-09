@@ -1,14 +1,18 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import type { Node } from '../api'
+import { api, type EditLock, type Node } from '../api'
 import { displayName, formatDateTime, formatDuration, formatSize } from '../format'
 import { useLocale, useT, type MessageKey } from '../i18n'
 import { useContentUrl, useThumbUrl } from './content'
+import { errorText } from './Dialogs'
 import { fileTypes, Icon, icons } from './Icon'
 import { LinkCard } from './LinkCard'
 import { Logo } from './Logo'
+import { showToast } from './Toast'
 
-// pdf.js is large; load it the first time a PDF is opened.
+// pdf.js is large; load it the first time a PDF is opened. So is the
+// editor, for the first file edited.
 const PdfView = lazy(() => import('./PdfView'))
+const Editor = lazy(() => import('../editor/Editor'))
 
 const showableImage = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
 // Photos browsers can't show open through the server's preview (WebP).
@@ -34,12 +38,15 @@ const isDoc = (n: Node) => canPreview(n) && (n.type === 'text' || n.type === 'co
 // Viewer shows one file full screen on dark, with previous/next through the
 // folder's files. Without onClose (a link to one file) the logo takes the
 // place of the close button; showInfo hides the info drawer for visitors.
+// With onSaved, files the user may edit in the app get an Edit button;
+// onSaved gets such a file as saved when its editor closes.
 export function Viewer({
   files,
   index,
   location,
   onIndex,
   onClose,
+  onSaved,
   showInfo = true,
 }: {
   files: Node[]
@@ -47,16 +54,19 @@ export function Viewer({
   location: string
   onIndex: (i: number) => void
   onClose?: () => void
+  onSaved?: (n: Node) => void
   showInfo?: boolean
 }) {
   const t = useT()
   const locale = useLocale()
   const contentUrl = useContentUrl()
   const [info, setInfo] = useState(false)
+  const [editing, setEditing] = useState<{ node: Node; lockId: string } | null>(null)
   const n = files[index]
   const type = fileTypes[n.type]
 
   useEffect(() => {
+    if (editing) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose?.()
       else if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1)
@@ -64,7 +74,7 @@ export function Viewer({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [index, files.length, onClose, onIndex])
+  }, [index, files.length, onClose, onIndex, editing])
 
   const sizeLabel = formatSize(n.size, locale)
   return (
@@ -84,6 +94,9 @@ export function Viewer({
           <strong>{displayName(n)}</strong>
           <span>{t(`short.${n.type}` as MessageKey)} · {sizeLabel}</span>
         </div>
+        {onSaved && n.editor && (
+          <EditButton key={n.id} node={n} editing={!!editing} onEdit={(lockId) => setEditing({ node: n, lockId })} />
+        )}
         <a className="dark-btn" aria-label={t('viewer.download')} href={contentUrl(n.id, true)} download
           autoFocus={!onClose}>
           <Icon d={icons.download} size={18} />
@@ -96,7 +109,7 @@ export function Viewer({
       </div>
       <div className="viewer__main">
         <div className="viewer__stage">
-          <div key={n.id}
+          <div key={n.id + n.version}
             className={'viewer__content' + (isDoc(n) ? ' viewer__content--doc' : '')}>
             <Preview node={n} />
           </div>
@@ -139,7 +152,69 @@ export function Viewer({
           </aside>
         )}
       </div>
+      {editing && onSaved && (
+        <Suspense fallback={null}>
+          <Editor node={editing.node} lockId={editing.lockId}
+            onClose={(node) => {
+              setEditing(null)
+              onSaved(node)
+            }} />
+        </Suspense>
+      )}
     </div>
+  )
+}
+
+// EditButton takes the file's edit lock and opens the editor. Until then it
+// shows who else is editing the file, checked every 30 s while the page
+// shows; looking at a file never locks it.
+function EditButton({ node, editing, onEdit }: { node: Node; editing: boolean; onEdit: (lockId: string) => void }) {
+  const t = useT()
+  const [lock, setLock] = useState<EditLock | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [tick, setTick] = useState(0)
+  // After editing, give the editor's lock a moment to be let go.
+  const [delay, setDelay] = useState(0)
+
+  useEffect(() => {
+    if (editing) return
+    let live = true
+    const check = () => {
+      if (document.visibilityState === 'visible') api.lockStatus(node.id).then((l) => live && setLock(l), () => {})
+    }
+    const first = setTimeout(check, delay)
+    const timer = setInterval(check, 30_000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      live = false
+      clearTimeout(first)
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [node.id, editing, tick, delay])
+
+  async function edit() {
+    setBusy(true)
+    try {
+      const { lockId } = await api.takeLock(node.id, !!lock?.mine)
+      setLock(null)
+      setDelay(1500)
+      onEdit(lockId)
+    } catch (err) {
+      // Someone took it meanwhile: say so, and show who.
+      showToast(errorText(t, err), { error: true })
+      setTick((n) => n + 1)
+    }
+    setBusy(false)
+  }
+
+  const other = lock && !lock.mine ? t('editor.editingBy', { name: lock.holder.name }) : ''
+  return (
+    <button type="button" className="dark-btn dark-btn--label" disabled={busy || !!other}
+      title={other || (lock ? t('editor.editHereHint') : undefined)} onClick={edit}>
+      <Icon d={icons.pencil} size={18} />
+      <span>{other || t(lock ? 'editor.editHere' : 'editor.edit')}</span>
+    </button>
   )
 }
 

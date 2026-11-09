@@ -109,7 +109,7 @@ func (s *Server) handleLinkContent(w http.ResponseWriter, r *http.Request, v fil
 		return
 	}
 	defer f.Close()
-	serveContent(w, r, f, n)
+	serveContent(w, r, f, n, false)
 }
 
 func (s *Server) handleLinkZip(w http.ResponseWriter, r *http.Request, v files.Visit) {

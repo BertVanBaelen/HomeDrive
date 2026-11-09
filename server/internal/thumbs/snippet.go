@@ -3,17 +3,19 @@ package thumbs
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/xuri/excelize/v2"
+	sheetpkg "github.com/BertVanBaelen/HomeDrive/server/internal/sheet"
 )
 
 // Snippet is the start of a document, laid out by the web app as a page,
@@ -40,8 +42,6 @@ const (
 	cellChars    = 40
 	zipEntries   = 8
 	nameChars    = 80
-	// maxXLSX is the largest spreadsheet that is opened.
-	maxXLSX = 20 << 20
 	// maxZipDirectory is the most of a zip's central directory read.
 	maxZipDirectory = 4 << 20
 )
@@ -181,37 +181,25 @@ func row(cells []string) []string {
 }
 
 // xlsxSnippet reads the first sheet's top left corner as Excel shows it:
-// formatted, with formulas as their results cached in the file.
+// formatted, with formulas as their results cached in the file. It uses the
+// same capped reader as the editor; larger workbooks get no snippet.
 func xlsxSnippet(f *os.File) (Snippet, error) {
-	info, err := f.Stat()
+	data, err := io.ReadAll(io.LimitReader(f, sheetpkg.MaxFileBytes+1))
 	if err != nil {
 		return Snippet{}, err
 	}
-	if info.Size() > maxXLSX {
-		return Snippet{}, errors.New("spreadsheet too large for a snippet")
-	}
-	x, err := excelize.OpenReader(f, excelize.Options{
-		UnzipSizeLimit:    256 << 20,
-		UnzipXMLSizeLimit: 32 << 20,
-	})
+	sheets, err := sheetpkg.ReadOnly(context.Background(), data)
 	if err != nil {
 		return Snippet{}, err
 	}
-	defer x.Close()
-	sheets := x.GetSheetList()
-	if len(sheets) == 0 {
-		return Snippet{}, errors.New("no sheets")
-	}
-	rows, err := x.Rows(sheets[x.GetActiveSheetIndex()%len(sheets)])
-	if err != nil {
-		return Snippet{}, err
-	}
-	defer rows.Close()
 	sn := Snippet{Kind: "sheet", Rows: [][]string{}}
-	for len(sn.Rows) < sheetRows && rows.Next() {
-		cells, err := rows.Columns()
-		if err != nil {
-			return Snippet{}, err
+	for r := 1; r <= sheetRows; r++ {
+		var cells []string
+		for c := 0; c < sheetCols; c++ {
+			cells = append(cells, sheets[0].Cells[string(rune('A'+c))+strconv.Itoa(r)])
+		}
+		for len(cells) > 0 && cells[len(cells)-1] == "" {
+			cells = cells[:len(cells)-1]
 		}
 		sn.Rows = append(sn.Rows, row(cells))
 	}
@@ -219,7 +207,7 @@ func xlsxSnippet(f *os.File) (Snippet, error) {
 	for len(sn.Rows) > 0 && len(strings.Join(sn.Rows[len(sn.Rows)-1], "")) == 0 {
 		sn.Rows = sn.Rows[:len(sn.Rows)-1]
 	}
-	return sn, rows.Error()
+	return sn, nil
 }
 
 // zipSnippet lists what is at the top of a zip archive from its central
@@ -233,7 +221,7 @@ func zipSnippet(f *os.File) (Snippet, error) {
 	if err != nil {
 		return Snippet{}, err
 	}
-	if size > maxZipDirectory {
+	if size < 0 || size > maxZipDirectory {
 		return Snippet{}, errors.New("zip directory too large")
 	}
 	zr, err := zip.NewReader(f, info.Size())

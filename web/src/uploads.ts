@@ -1,13 +1,18 @@
 import { useSyncExternalStore } from 'react'
-import { api, ApiError, type FileType, type Node } from './api'
+import { api, ApiError, type FileType, type Node, type Upload } from './api'
 import { notifyChanged } from './events'
+import { Choices, type Choice } from './uploadChoice'
 
 // Uploads run in the background while the user keeps browsing. Each file is
 // sent in chunks (the server's chunkSize, under Cloudflare's body limit); a
-// dropped connection resumes from what the server has.
+// dropped connection resumes from what the server has. When a file's name
+// is taken, the upload waits (asking) until the user chooses Replace, Keep
+// both or Skip; the upload panel asks about one file at a time.
 
 export interface UploadItem {
   key: number
+  // batch is the files added together, which "Do this for all" applies to.
+  batch: number
   file: File
   name: string
   type: FileType
@@ -16,8 +21,12 @@ export interface UploadItem {
   // description is text shared with the file.
   description: string
   sent: number
-  state: 'queued' | 'uploading' | 'done' | 'failed'
-  error?: string
+  state: 'queued' | 'uploading' | 'asking' | 'done' | 'failed'
+  // existing is the file with the name, while asking.
+  existing?: Node
+  // conflict is the choice made, kept when the upload is tried again.
+  conflict?: Exclude<Choice, 'skip'>
+  error?: unknown
 }
 
 type Listener = () => void
@@ -27,6 +36,8 @@ const maxRetries = 5
 
 let items: UploadItem[] = []
 let nextKey = 1
+let nextBatch = 1
+const choices = new Choices()
 const listeners = new Set<Listener>()
 const doneListeners = new Set<(n: number) => void>()
 
@@ -56,23 +67,26 @@ export function onBatchDone(fn: (n: number) => void): () => void {
   return () => doneListeners.delete(fn)
 }
 
-// settled holds, per upload, who waits for it to finish or fail.
-const settled = new Map<number, (ok: boolean) => void>()
+// settled holds, per upload, who waits for it to finish, fail or be skipped.
+type Outcome = 'done' | 'failed' | 'skipped'
+const settled = new Map<number, (o: Outcome) => void>()
 
 // addUploads queues files for a folder, each with the description if one
-// is given. The promise resolves once each of them has finished or failed
-// (a later retry doesn't count).
+// is given. The promise resolves once each of them has finished, failed or
+// was skipped (a later retry doesn't count).
 export function addUploads(
   files: Iterable<File>,
   folderId: string,
   folderName: string,
   description = '',
 ): Promise<{ done: number; failed: number }> {
-  const waits: Promise<boolean>[] = []
+  const waits: Promise<Outcome>[] = []
+  const batch = nextBatch++
   for (const file of files) {
     const key = nextKey++
     items.push({
       key,
+      batch,
       file,
       name: file.name,
       type: typeFromName(file.name),
@@ -86,11 +100,14 @@ export function addUploads(
   }
   emit()
   pump()
-  return Promise.all(waits).then((oks) => ({ done: oks.filter(Boolean).length, failed: oks.filter((ok) => !ok).length }))
+  return Promise.all(waits).then((all) => ({
+    done: all.filter((o) => o === 'done').length,
+    failed: all.filter((o) => o === 'failed').length,
+  }))
 }
 
-function settle(key: number, ok: boolean) {
-  settled.get(key)?.(ok)
+function settle(key: number, o: Outcome) {
+  settled.get(key)?.(o)
   settled.delete(key)
 }
 
@@ -104,6 +121,19 @@ export function dismissUpload(key: number) {
   emit()
 }
 
+// answerUpload applies the user's choice to the upload asked about and,
+// with all, to the rest of its batch.
+export function answerUpload(key: number, choice: Choice, all: boolean) {
+  for (const it of choices.answer(items, key, choice, all)) decide(it.key, choice)
+  finish()
+}
+
+function decide(key: number, choice: Choice) {
+  if (choice !== 'skip') return update(key, { state: 'queued', conflict: choice, existing: undefined })
+  dismissUpload(key)
+  settle(key, 'skipped')
+}
+
 function pump() {
   const running = items.filter((it) => it.state === 'uploading').length
   const next = items.filter((it) => it.state === 'queued').slice(0, Math.max(0, parallel - running))
@@ -113,12 +143,17 @@ function pump() {
       () => {
         update(it.key, { state: 'done', sent: it.file.size })
         notifyChanged(it.folderId)
-        settle(it.key, true)
+        settle(it.key, 'done')
         finish()
       },
       (err) => {
-        update(it.key, { state: 'failed', error: err instanceof ApiError ? err.code : 'internal' })
-        settle(it.key, false)
+        const choice = err instanceof Taken && choices.remembered(it.batch)
+        if (choice) decide(it.key, choice)
+        else if (err instanceof Taken) update(it.key, { state: 'asking', existing: err.existing })
+        else {
+          update(it.key, { state: 'failed', error: err })
+          settle(it.key, 'failed')
+        }
         finish()
       },
     )
@@ -127,7 +162,7 @@ function pump() {
 
 function finish() {
   pump()
-  if (items.some((it) => it.state === 'queued' || it.state === 'uploading')) return
+  if (items.some((it) => it.state === 'queued' || it.state === 'uploading' || it.state === 'asking')) return
   const done = items.filter((it) => it.state === 'done')
   if (done.length) {
     doneListeners.forEach((fn) => fn(done.length))
@@ -136,8 +171,31 @@ function finish() {
   }
 }
 
+// Taken is a name taken by a file in the folder: the user chooses.
+class Taken {
+  constructor(readonly existing: Node) {}
+}
+
+// create starts an upload. The first time it asks the server to refuse a
+// taken name; a folder with that name only allows keeping both, and a file
+// that vanished before it could be replaced is uploaded as a new one.
+// Keeping both is the server's default, so it isn't sent.
+async function create(it: UploadItem): Promise<Upload> {
+  const conflict = it.conflict === 'keep' ? undefined : (it.conflict ?? 'ask')
+  try {
+    return await api.createUpload(it.folderId, it.name, it.file.size, it.description, conflict)
+  } catch (err) {
+    if (!(err instanceof ApiError)) throw err
+    const existing = err.code === 'name_taken' && !it.conflict ? (err.body.existing as Node | undefined) : undefined
+    if (existing?.kind === 'file' && typeof existing.name === 'string') throw new Taken(existing)
+    if (!existing && !(err.code === 'not_found' && it.conflict === 'replace')) throw err
+    update(it.key, { conflict: 'keep' })
+    return create({ ...it, conflict: 'keep' })
+  }
+}
+
 async function run(it: UploadItem): Promise<Node> {
-  const up = await api.createUpload(it.folderId, it.name, it.file.size, it.description)
+  const up = await create(it)
   let received = 0
   let retries = 0
   while (received < it.file.size) {

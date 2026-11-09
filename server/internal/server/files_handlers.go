@@ -36,6 +36,7 @@ func (s *Server) fileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/uploads/{id}", s.authed(s.handleUploadChunk))
 	mux.HandleFunc("POST /api/uploads/{id}/complete", s.authed(s.handleCompleteUpload))
 	mux.HandleFunc("DELETE /api/uploads/{id}", s.authed(s.handleCancelUpload))
+	s.editingRoutes(mux)
 }
 
 func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
@@ -203,14 +204,24 @@ func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 		Name        string `json:"name"`
 		Size        int64  `json:"size"`
 		Description string `json:"description"`
+		// Conflict says what to do when the name is taken: keep both
+		// (default), ask, or replace the file's contents.
+		Conflict string `json:"conflict"`
 	}
 	if !readJSON(w, r, &req) {
 		return
 	}
-	u, err := s.files.CreateUpload(r.Context(), currentUser(r.Context()).ID, req.ParentID, req.Name, req.Size, req.Description)
+	conflict := files.Conflict(req.Conflict)
+	if req.Conflict == "keep" {
+		conflict = files.ConflictKeep
+	}
+	u, err := s.files.CreateUpload(r.Context(), currentUser(r.Context()).ID, req.ParentID, req.Name, req.Size, req.Description, conflict)
 	if err != nil {
 		s.fail(w, r, err)
 		return
+	}
+	if u.Replaces != "" {
+		s.audit(r, "upload.replace", u.Replaces)
 	}
 	writeJSON(w, http.StatusCreated, u)
 }
@@ -314,14 +325,15 @@ func (s *Server) handleContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	serveContent(w, r, f, n)
+	serveContent(w, r, f, n, false)
 }
 
 // serveContent sends an open file, for signed-in users and link visitors.
-func serveContent(w http.ResponseWriter, r *http.Request, f io.ReadSeeker, n files.Node) {
+// attach forces a download, which is how old versions are served.
+func serveContent(w http.ResponseWriter, r *http.Request, f io.ReadSeeker, n files.Node, attach bool) {
 	ctype, inline := servingType(n.Name)
 	disposition := "inline"
-	if !inline || r.URL.Query().Get("download") == "1" {
+	if !inline || attach || r.URL.Query().Get("download") == "1" {
 		disposition = "attachment"
 	}
 	h := w.Header()

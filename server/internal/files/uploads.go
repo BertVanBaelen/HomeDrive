@@ -30,13 +30,30 @@ type Upload struct {
 	Size      int64  `json:"size"`
 	Received  int64  `json:"received"`
 	ChunkSize int64  `json:"chunkSize"`
+	// Replaces is the file the upload becomes a new version of.
+	Replaces string `json:"replaces,omitempty"`
 
 	description string
 }
 
+// Conflict says what an upload does when its name is taken by a file in
+// the folder: keep both (the new one gets a number), replace the file with
+// a new version, or ask (refuse, naming the file, before any bytes). Folders
+// never ask: the upload is kept next to them.
+type Conflict string
+
+const (
+	ConflictKeep    Conflict = ""
+	ConflictAsk     Conflict = "ask"
+	ConflictReplace Conflict = "replace"
+)
+
+// ErrInvalidConflict is for a conflict choice that doesn't exist.
+var ErrInvalidConflict = errors.New("invalid conflict choice")
+
 // CreateUpload starts a chunked upload of a new file into a folder, with
 // the description it gets once complete.
-func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name string, size int64, description string) (Upload, error) {
+func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name string, size int64, description string, conflict Conflict) (Upload, error) {
 	name, err := ValidateName(name)
 	if err != nil {
 		return Upload{}, err
@@ -47,24 +64,56 @@ func (s *Service) CreateUpload(ctx context.Context, userID, parentID, name strin
 	if size < 0 || size > MaxFileSize {
 		return Upload{}, ErrTooLarge
 	}
+	if conflict != ConflictKeep && conflict != ConflictAsk && conflict != ConflictReplace {
+		return Upload{}, ErrInvalidConflict
+	}
 	if _, err := s.editableFolder(ctx, s.db, userID, parentID); err != nil {
 		return Upload{}, err
+	}
+	var replaces string
+	if conflict != ConflictKeep {
+		if replaces, err = s.resolveConflict(ctx, userID, parentID, name, conflict); err != nil {
+			return Upload{}, err
+		}
 	}
 	if err := s.checkSpace(size); err != nil {
 		return Upload{}, err
 	}
-	u := Upload{ID: db.NewID(), ParentID: parentID, Name: name, Size: size, ChunkSize: ChunkSize}
+	u := Upload{ID: db.NewID(), ParentID: parentID, Name: name, Size: size, ChunkSize: ChunkSize, Replaces: replaces}
 	if err := s.store.CreateUpload(u.ID); err != nil {
 		return Upload{}, err
 	}
 	now := s.now()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO uploads (id, user_id, parent_id, name, size, description, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, userID, parentID, name, size, description, db.FormatTime(now), db.FormatTime(now.Add(uploadTimeout))); err != nil {
+		`INSERT INTO uploads (id, user_id, parent_id, name, size, description, replace_node_id, created_at, expires_at)
+		 VALUES (?, ?, ?, ?, ?, ?, nullif(?, ''), ?, ?)`,
+		u.ID, userID, parentID, name, size, description, replaces, db.FormatTime(now), db.FormatTime(now.Add(uploadTimeout))); err != nil {
 		s.store.RemoveUpload(u.ID)
 		return Upload{}, err
 	}
 	return u, nil
+}
+
+// resolveConflict handles a taken name: it returns the file to replace, ""
+// to add a new file, or NameTakenError to ask.
+func (s *Service) resolveConflict(ctx context.Context, userID, parentID, name string, conflict Conflict) (string, error) {
+	var id, kind string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, kind FROM nodes WHERE parent_id = ? AND name_key = ? AND trashed_at IS NULL`, parentID, nameKey(name)).Scan(&id, &kind)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && kind == "folder" {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if conflict == ConflictAsk {
+		existing, err := s.node(ctx, userID, id)
+		if err != nil {
+			return "", err
+		}
+		return "", &NameTakenError{Existing: existing}
+	}
+	return id, s.idle(ctx, s.db, id, userID, true)
 }
 
 // upload loads one of the user's own uploads that hasn't expired.
@@ -74,8 +123,8 @@ func (s *Service) upload(ctx context.Context, userID, id string) (Upload, error)
 	}
 	u := Upload{ID: id, ChunkSize: ChunkSize}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT parent_id, name, size, received, description FROM uploads WHERE id = ? AND user_id = ? AND expires_at > ?`,
-		id, userID, s.stamp()).Scan(&u.ParentID, &u.Name, &u.Size, &u.Received, &u.description)
+		`SELECT parent_id, name, size, received, description, coalesce(replace_node_id, '') FROM uploads WHERE id = ? AND user_id = ? AND expires_at > ?`,
+		id, userID, s.stamp()).Scan(&u.ParentID, &u.Name, &u.Size, &u.Received, &u.description, &u.Replaces)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Upload{}, ErrNotFound
 	}
@@ -148,14 +197,33 @@ func (s *Service) CompleteUpload(ctx context.Context, userID, id string) (Node, 
 	if _, err := s.editableFolder(ctx, s.db, userID, u.ParentID); err != nil {
 		return Node{}, err
 	}
+	target := s.replaceTarget(ctx, userID, u)
+	if target != "" {
+		// Checked before the upload is consumed, so it can be retried.
+		if err := s.idle(ctx, s.db, target, userID, true); err != nil {
+			return Node{}, err
+		}
+	}
 	objectID, sum, err := s.store.FinishUpload(id, u.Size)
 	if err != nil {
 		return Node{}, err
 	}
-	nodeID, err := s.addFile(ctx, userID, u.ParentID, u.Name, u.description, objectID, sum, u.Size)
+	nodeID := target
+	if target != "" {
+		_, err = s.swap(ctx, userID, target, stored{objectID, sum, u.Size, ""}, func(q querier, it item) error {
+			return s.idle(ctx, q, it.ID, userID, true)
+		})
+	} else {
+		nodeID, err = s.addFile(ctx, userID, u.ParentID, u.Name, u.description, objectID, sum, u.Size)
+	}
 	if err != nil {
 		// The object is unreferenced now; retention cleanup removes it.
 		s.log.Warn("upload completed but file not added", "upload", id, "object", objectID, "error", err)
+		if target != "" {
+			// The bytes are gone with the failed swap, so it can't be retried.
+			s.db.ExecContext(ctx, `DELETE FROM uploads WHERE id = ?`, id)
+			s.forgetUploadLock(id)
+		}
 		return Node{}, err
 	}
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM uploads WHERE id = ?`, id); err != nil {

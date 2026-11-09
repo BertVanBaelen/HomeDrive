@@ -1,0 +1,60 @@
+/* versions in the info panel, for those who may edit a file */
+.versions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.versions ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.versions li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+}
+.versions li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.versions strong {
+  font-weight: 500;
+  color: var(--gray-800);
+}
+.versions li span,
+.versions p {
+  margin: 0;
+  color: var(--gray-500);
+  overflow-wrap: anywhere;
+}
+.versions .versions__current {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--primary-50);
+  color: var(--primary-900);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* an upload's error, and the question when its name is taken */
+.upload__error {
+  font-size: 12px;
+  color: var(--danger-strong);
+}
+.replace__body {
+  overflow-wrap: anywhere;
+}
+.replace__foot {
+  flex-wrap: wrap;
+}

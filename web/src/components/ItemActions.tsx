@@ -126,6 +126,11 @@ export function useItemActions({ drives, me, reload }: { drives: Drive[]; me: Us
           location={viewer.location(viewer.files[viewer.index])}
           onIndex={(index) => setViewer({ ...viewer, index })}
           onClose={() => setViewer(null)}
+          onSaved={(node) => {
+            setViewer((v) => v && { ...v, files: v.files.map((f) => (f.id === node.id ? { ...f, ...node } : f)) })
+            reload()
+            notifyChanged('storage')
+          }}
         />
       )}
     </>

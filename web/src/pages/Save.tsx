@@ -208,6 +208,8 @@ export function Save() {
       showToast(t('save.someFailed'), { error: true })
       return
     }
+    // All skipped because their names were taken: the share stays.
+    if (files.length && !r.done) return
     await deleteShare(share.id).catch(() => {})
     rememberFolder(target)
     setShares((s) => s?.filter((x) => x.id !== share.id) ?? null)
