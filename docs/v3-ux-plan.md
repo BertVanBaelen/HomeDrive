@@ -1,6 +1,6 @@
 # v3 usability: work plan
 
-The eight "easier to use" items of the [v3 roadmap](roadmap.md#v3), as they were chosen on 2026-11-13 from the options in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html). What to build is described in [`architecture.md`](architecture.md); this file is the order to build it in, what each step touches and when it is done. Work happens on `v3/development`.
+The nine "easier to use" items of the [v3 roadmap](roadmap.md#v3), as they were chosen on 2026-11-13 from the options in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html). What to build is described in [`architecture.md`](architecture.md); this file is the order to build it in, what each step touches and when it is done. Work happens on `v3/development`.
 
 | # | Item | Chosen | Design |
 |---|---|---|---|
@@ -13,6 +13,10 @@ The eight "easier to use" items of the [v3 roadmap](roadmap.md#v3), as they were
 | 6 | Zoom in the viewer | B: gestures and a zoom bar | [Viewer zoom](architecture.md#viewer-zoom-v3) |
 | 7 | Back button in the installed app | A: ask in a sheet | [Back button and history](architecture.md#back-button-and-history-v3) |
 | 8 | Right-click menu | A: classic list with shortcuts | [Right-click menu](architecture.md#right-click-menu-v3) |
+| 9a | Filling in a PDF | A: toolbar, tap to place | [Fill in and sign PDFs](architecture.md#fill-in-and-sign-pdfs-v3) |
+| 9b | Making the signature | B: draw or type | same |
+| 9c | Keeping the signature | A: with the account | same |
+| 9d | Saving a filled-in PDF | A: new version of the file | same |
 
 ## Order
 
@@ -26,12 +30,14 @@ graph LR
   WP5 --> WP6[6 Right-click menu]
   WP7[7 Viewer zoom] --> R
   WP2 --> WP8[8 Back animations]
+  WP7 --> WP9[9 Fill in and sign PDFs]
   WP4 --> R[v3 UX done]
   WP6 --> R
   WP8 --> R
+  WP9 --> R
 ```
 
-WP1, WP2, WP3 and WP7 don't depend on each other. WP2 comes early because WP4, WP5 and WP8 build on it. Each work package is one feature release (`3.Y.0`, see *Releasing* in the [README](../README.md)), with its changelog entry; how they interleave with the other v3 items (restore, app name, emails, notifications) is open.
+WP1, WP2, WP3 and WP7 don't depend on each other. WP2 comes early because WP4, WP5 and WP8 build on it; WP9 reuses WP7's page view and zoom. Each work package is one feature release (`3.Y.0`, see *Releasing* in the [README](../README.md)), with its changelog entry; how they interleave with the other v3 items (restore, app name, emails, notifications) is open.
 
 The empty-line bug in WP1 is in the released 2.7.0. Its fix (the first bullet of WP1) can ship alone as 2.7.1 from `main` if that is wanted before v3.
 
@@ -133,7 +139,25 @@ Web only. Needs WP2.
 - `editor/Editor.tsx`: closing slides down 40 px and fades.
 - **Done when:** the hardware back button, *← Back*, breadcrumbs and the rail all play the zoom back in grid and list view; a photo shrinks back into its card; nothing moves with reduced motion; going back never waits for the network.
 
+## WP9 · Fill in and sign PDFs
+
+Server and web. Needs WP7 (the PDF page view with zoom). Uses WP2's back layers once it is there.
+
+- **Start:** pick the PDF writer: `@cantoo/pdf-lib` (maintained fork of pdf-lib) with `@pdf-lib/fontkit`; check its license, bundle size (lazy-loaded) and that it fills and flattens the AcroForm field types and embeds an Inter subset. Pick the handwriting font (OFL, about 50 KB) and add it with its license under `web/public/fonts/`.
+- **Server**
+  - A new migration `server/internal/db/migrations/00NN_signatures.sql` (the next free number) and the handlers `GET /api/me/signatures`, `PUT /api/me/signatures/{kind}`, `DELETE …` (next to the other `/api/me` routes in `account_handlers.go`): `image/png` only, at most 256 KB, decoded with `image/png` to check it is a PNG of at most 1600 × 600, `Cache-Control: no-store`, audit events.
+  - `POST /api/uploads` (`files_handlers.go`, `files/uploads.go`): optional `replaceId` and `ifVersion` with `X-Lock-Id`; check edit rights, the lock and the version when the upload is created and again on completion; answer `lock_lost` / `edit_conflict` like `PUT /api/nodes/{id}/content`; the result is a new version of `replaceId` (the v2 *Replace* path), audited as `upload.replace`.
+  - **Tests:** signatures only for their owner, size and dimension limits, a non-PNG refused; the replace upload with a wrong lock, a stale `ifVersion`, someone else's lock, a viewer, a file trashed meanwhile.
+- **Web**
+  - New `web/src/pdf/` (lazy-loaded): `FillSign.tsx` (full screen, reusing `PdfView` and the zoom stage, an overlay for fields from `page.getAnnotations()` and for placed items, the toolbar, undo/redo, close with *Save / Discard / Keep editing*), `place.ts` (placed items in PDF points per page: add, move, resize, delete; rotation; pure and tested), `write.ts` (fill fields, draw items, embed PNGs, flatten), `SignatureSheet.tsx` (Draw pad with smoothing and speed-based width, Type with the handwriting font, both to PNG; saved signatures from the API).
+  - `components/Viewer.tsx`: *Fill & Sign* for PDFs, taking the lock for people who can edit (the existing `EditButton` logic); read-only notes for password, XFA, signed, too large.
+  - Saving: editors upload through `uploads.ts` with `replaceId`, `ifVersion` and the lock, then the viewer shows the new version; on `edit_conflict` offer *Save as a copy*. Viewers save `<name> (filled in|signed).pdf` in My Files.
+  - `pages/Account.tsx`: a *Signature* section showing the saved signature and initials, with *Replace* and *Delete*.
+  - Date in the user's language format; English and Dutch strings.
+  - **Tests:** `web/test/pdfPlace.test.ts` for coordinates (zoom, page rotation 90/180/270, resizing limits); `web/test/pdfWrite.test.ts` filling a small test PDF with text, check box and radio fields, placing items and flattening, then reading it back with pdf.js (no fields left, text present).
+- **Done when:** a government form with fields is filled in and signed on an Android phone and on a computer; a scanned PDF without fields gets text, a date and a signature placed; the signature drawn on the phone is offered on the computer; the empty form is in *Versions* after saving; a viewer of a shared PDF saves a filled-in copy in My Files; a password-protected PDF opens read-only with a note.
+
 ## When all are done
 
 - Update the [roadmap](roadmap.md#v3) status and the README table.
-- Add these surfaces to the v3 release security check when it is written: the batch endpoint and zip tokens in the access-control matrix, the Markdown preview in the XSS checks (see [`security.md`](security.md#selections-zips-and-the-markdown-preview-v3)).
+- Add these surfaces to the v3 release security check when it is written: the batch endpoint, zip tokens, signature storage and the replace upload in the access-control matrix, the Markdown preview in the XSS checks, hostile PDFs in *Fill & Sign* (see [`security.md`](security.md#selections-zips-markdown-preview-and-signatures-v3)).

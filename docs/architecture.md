@@ -366,7 +366,7 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
 
 ### Markdown preview and page editing (v3)
 
-The mockups for this and the next v3 sections are in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html) (open it in a browser). Each section there shows the options that were considered; the one marked *Chosen* is what is described here.
+The mockups for this and the next v3 sections are in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html) (open it in a browser). Each section there shows the options that were considered; the one marked *Chosen* is what is described here. Filling in and signing PDFs ([below](#fill-in-and-sign-pdfs-v3)) was added to v3 later the same day.
 
 **Preview in the viewer** (mockup 1a, option B).
 
@@ -447,6 +447,41 @@ Mockup 2, option A: the reverse of the zoom-in. At most 420 ms, transform and op
 - **Editor:** closes by sliding down 40 px while fading, the reverse of its opening.
 - **No waiting:** `motion.ts` keeps the last 10 folder views (details and items, per sort) in memory, so going back draws the parent at once; it is refreshed in the background as now.
 
+### Fill in and sign PDFs (v3)
+
+Mockup 9: 9a A (toolbar, tap to place), 9b B (draw or type), 9c A (kept with the account), 9d A (new version).
+
+**What.** Filling in PDF forms and putting a signature, initials, text, a date, ✓ or ✗ on any PDF. The signature is a picture on the page, like Adobe Fill & Sign or a scanned signature: not a cryptographic signature with eID or itsme (not planned).
+
+**Opening.** The viewer shows **Fill & Sign** (the pencil) for PDFs, for everyone signed in who can open the file. It opens full screen with the viewer's page view and zoom ([Viewer zoom](#viewer-zoom-v3)).
+
+- People who can edit the file take its edit lock, as for the other editors; someone else's lock makes the button say "Anna is editing".
+- People who can only view it fill in a copy: it is saved in My Files (see *Saving*).
+- Read-only with a note: PDFs with a password, XFA forms, and PDFs that already carry a digital signature (writing into them would break it). Larger than 50 MB or 500 pages: read-only too, because the browser does the work.
+
+**Filling in** (9a A).
+
+- Form fields (AcroForm text fields, check boxes, radio buttons, lists) are shown in light blue over the page and filled in where they are, with the keyboard pushing the page up so the field stays in view.
+- A toolbar at the bottom: **Text**, **Date**, **Tick** (✓), **Cross** (✗), **Sign**, **Initials**. Pick one and tap the page to place it. A placed item can be dragged, resized at its corner, edited (text, date) and deleted. Undo and redo for the session.
+- The date is today's, written as the user's language writes it (13/11/2026 in Dutch, 11/13/2026 in English), and can be changed.
+- Closing with unsaved changes asks *Save*, *Discard* or *Keep editing*. There is no autosave: a half-filled form shouldn't become the file.
+
+**The signature** (9b B, 9c A).
+
+- *Sign* (and *Initials*) opens a sheet with **Draw** and **Type**. Draw: a pad for finger, pen or mouse; the line is smoothed and gets thinner when drawn fast, like a pen. Type: the user's name (from the account, editable) in a handwriting font that ships with the app (OFL licensed, about 50 KB, loaded only by this sheet); initials are made from it too. Both become a PNG with a transparent background.
+- The signature and the initials are kept with the account: the next time *Sign* offers them right away, on every device. Account Settings → *Signature* shows them, can replace them and delete them.
+- Server: table `signatures` with `user_id`, `kind` (`signature` | `initials`), `png` and `updated_at`, in a new migration `00NN_signatures.sql` (the next free number). `GET /api/me/signatures` lists them (as data the app shows), `PUT /api/me/signatures/{kind}` stores one (`image/png`, at most 256 KB and 1600 × 600 pixels, checked by decoding it), `DELETE …` removes it. Only the owner ever gets them; changes are audited (`signature.saved`, `signature.deleted`). They are in the nightly database snapshot like the rest of the account.
+
+**Saving** (9d A).
+
+- *Save* writes everything **into the page** (flattened): field values, placed text, dates, marks and signature images become page content and the form fields are removed, so the result looks the same in every app and can't be changed by accident.
+- For people who can edit, the result becomes a **new version** of the file: same name, ID, description, shares, link and stars. The sheet says "The filled-in PDF becomes the file. The empty one stays in Versions for N days" (N is `backup_retention_days`). The empty form can be restored or downloaded from *Versions* until then; after that only the filled-in one is left.
+- The save goes through the chunked upload route, because a PDF can be bigger than Cloudflare's 100 MB request limit: `POST /api/uploads` gets `replaceId` and `ifVersion` and the lock in `X-Lock-Id`. It is checked when the upload is created and again on completion, with the same answers as a text save: `lock_lost` (409) and `edit_conflict` (412, with who changed it and when). On a conflict the app offers *Save as a copy* next to it.
+- People who can only view it save **a copy in My Files**: `<name> (filled in).pdf`, or `(signed)` when it has a signature; a taken name gets `(2)`.
+- Thumbnails and previews follow the new version as for any upload.
+
+**How.** pdf.js keeps showing the pages; `page.getAnnotations()` gives the fields and their places. The PDF is written in the browser with pdf-lib (its maintained fork `@cantoo/pdf-lib`, chosen at the start of the work) and `@pdf-lib/fontkit`, lazy-loaded with this editor: it fills the fields, draws the placed items (text in an embedded subset of Inter, so every character the app can show can be written), embeds the signature PNGs and flattens. Coordinates are kept in PDF points per page, so page rotation and zoom don't move anything. The server only stores the result, as for any upload; it never parses the PDF except for thumbnails, as today (poppler, sandboxed).
+
 ## 5. Authentication
 
 - **No self-registration.** The admin creates accounts; users receive an email invitation.
@@ -518,6 +553,9 @@ Mockup 2, option A: the reverse of the zoom-in. At most 420 ms, transform and op
                                                 → {done: [id], skipped: [{id, code}]}; delete needs a recent password
   POST   /api/zips                              {ids (≤ 500)} → {url}: a one-time download, valid 2 minutes
   GET    /api/zips/{token}                      the zip of those items                  the user who asked
+  POST   /api/uploads                           v2, plus replaceId and ifVersion (with X-Lock-Id) for a filled-in PDF   can edit
+  GET    /api/me/signatures                     the user's signature and initials
+  PUT    /api/me/signatures/{kind}              signature|initials, image/png ≤ 256 KB; DELETE … removes it
   ```
 - **Host check:** requests whose `Host` isn't the `public_url` host are rejected (stops DNS rebinding and direct LAN access with spoofed headers). `/healthz` is exempt.
 - **CSRF:** SameSite cookies + `Origin` must equal `public_url` for every state-changing request + API only accepts `application/json` (or the upload content type on upload routes).
@@ -591,6 +629,6 @@ docker-compose.example.yml
 docs/                  architecture, security, roadmap
 ```
 
-Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), a capped `.xlsx` reader/writer and formula evaluator on the server (`internal/sheet`, excelize only for blank workbooks) with the same small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails. v3 adds `marked` as a direct dependency (already in the bundle through TipTap) for the Markdown preview.
+Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), a capped `.xlsx` reader/writer and formula evaluator on the server (`internal/sheet`, excelize only for blank workbooks) with the same small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails. v3 adds `marked` as a direct dependency (already in the bundle through TipTap) for the Markdown preview, and for filling in and signing PDFs pdf-lib (`@cantoo/pdf-lib`), `@pdf-lib/fontkit` and a handwriting font, all loaded only by that editor.
 
 UI languages: English and Dutch, chosen from the browser language, switchable per user.

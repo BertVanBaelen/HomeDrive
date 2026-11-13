@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Homedrive v3 · UX options</title>
 <!--
-  Homedrive v3 UX options: mockups to choose from, for the eight v3 UX items
+  Homedrive v3 UX options: mockups to choose from, for the nine v3 UX items
   in docs/roadmap.md. Self-contained (no network). Open it in a browser.
   The chosen options are written up in docs/architecture.md (v3 sections).
 -->
@@ -279,8 +279,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 8px 24px 40px; }
     <i data-i="logo" data-s="44"></i>
     <div>
       <h1>Homedrive v3 · UX options</h1>
-      <p>Eight improvements for v3. For each one: what is wrong now, what every option has in common, and two or three options to pick from. Most mockups can be clicked. Pick one option per question with <b>Choose</b>; the bar at the bottom collects your choices so you can copy them.</p>
-      <p><b style="color:#fff">Chosen on 2026-11-13:</b> 1a B · 1b A · 2 A · 3 A · 4 B · 5 B · 6 B · 7 A · 8 A, marked <i>Chosen</i> below. The design as it will be built is in <code style="background:rgba(255,255,255,.15);color:#fff">docs/architecture.md</code> (the v3 sections), the work plan in <code style="background:rgba(255,255,255,.15);color:#fff">docs/v3-ux-plan.md</code>.</p>
+      <p>Nine improvements for v3. For each one: what is wrong now, what every option has in common, and two or three options to pick from. Most mockups can be clicked. Pick one option per question with <b>Choose</b>; the bar at the bottom collects your choices so you can copy them.</p>
+      <p><b style="color:#fff">Chosen on 2026-11-13:</b> 1a B · 1b A · 2 A · 3 A · 4 B · 5 B · 6 B · 7 A · 8 A · 9a A · 9b B · 9c A · 9d A, marked <i>Chosen</i> below. The design as it will be built is in <code style="background:rgba(255,255,255,.15);color:#fff">docs/architecture.md</code> (the v3 sections), the work plan in <code style="background:rgba(255,255,255,.15);color:#fff">docs/v3-ux-plan.md</code>.</p>
     </div>
   </div>
 </header>
@@ -293,6 +293,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 8px 24px 40px; }
   <a href="#f6">6 · Zoom in the viewer</a>
   <a href="#f7">7 · Back button in the app</a>
   <a href="#f8">8 · Right-click menu</a>
+  <a href="#f9">9 · Fill in and sign PDFs</a>
 </nav>
 <main>
 <section class="feature" id="f1">
@@ -928,6 +929,225 @@ Call the plumber on Friday</div>
     </article>
   </div>
 </section>
+
+<section class="feature" id="f9">
+  <h2><span class="num">9</span>Fill in and sign PDFs</h2>
+  <p class="ask">"add pdf editing also to the v3" — fill in forms and sign; a signature on the page is enough (no eID or itsme)</p>
+  <div class="now"><strong>Now:</strong> PDFs can only be looked at. To fill in a form or sign a contract you download it, use another app, and upload the result again.</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>In the viewer, a PDF gets <b>Fill &amp; Sign</b> (the pencil). It opens the PDF full screen with the same page view as the viewer, zoom included (question 6).</li>
+      <li><b>Form fields</b> in the PDF (text, check boxes, radio buttons, lists) are shown in blue and filled in where they are. On any PDF, also without fields, you can <b>place</b> text, a date, ✓ or ✗, your signature and your initials anywhere; placed items can be moved, resized and deleted.</li>
+      <li>The date is written the way your language writes it (13/11/2026 in Dutch, 11/13/2026 in English), and can be changed.</li>
+      <li>On saving, everything is written <b>into the page</b> (flattened): the result looks the same in every app and can't be changed by accident.</li>
+      <li>People who can edit the file save it in place (question 9d). People who can only view it can still fill it in and save their copy in <b>My Files</b>, for example a form that was shared with them.</li>
+      <li>The signature is a picture on the page, like Adobe Fill &amp; Sign or a scanned signature, not a digital signature with eID or itsme. PDFs with a password and XFA forms open read-only with a note.</li>
+    </ul>
+  </div>
+
+  <h3 class="sub">9a · Filling in</h3>
+  <div class="options">
+    <article class="opt" data-q="9a" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Toolbar, tap to place</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="tools"></div></div>
+          <div class="pdftools">
+            <span><b class="gl">T</b>Text</span>
+            <span class="on"><i data-i="calendar" data-s="17"></i>Date</span>
+            <span><i data-i="check" data-s="17" data-w="2.5"></i>Tick</span>
+            <span><i data-i="close" data-s="17" data-w="2.5"></i>Cross</span>
+            <span><i data-i="pencil" data-s="17"></i>Sign</span>
+            <span><b class="gl" style="font-size:12px">AB</b>Initials</span>
+          </div>
+        </div></div>
+      </div>
+      <p>Form fields are just there to tap and type in. For everything else you pick a tool at the bottom and tap the page where it goes; a placed item can then be dragged, resized at its corner or deleted. The keyboard pushes the page up so the field stays in view.</p>
+      <ul class="pros"><li>One way of working for forms and for plain PDFs.</li><li>Like Adobe Fill &amp; Sign and the iPhone's Markup.</li></ul>
+      <ul class="cons"><li>On a long form you look for the fields yourself.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="9a" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Field by field</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="guided"></div></div>
+          <div class="stepbar">
+            <span class="m-btn" style="padding:6px 8px"><i data-i="plus" data-s="14" data-w="2.5"></i></span>
+            <div class="grow"><b>Phone</b>Field 2 of 5</div>
+            <span class="m-btn" style="padding:6px 8px"><i data-i="chevronLeft" data-s="14"></i></span>
+            <span class="m-btn m-btn--p">Next<i data-i="chevronRight" data-s="13"></i></span>
+          </div>
+        </div></div>
+      </div>
+      <p>A form opens on its first empty field, zoomed in, with the keyboard up. <b>Next</b> goes to the following field, and the last one ends on the signature. The <b>+</b> places text, a date, ✓, ✗, a signature or initials, as in A. A PDF without fields opens with the tools of A.</p>
+      <ul class="pros"><li>Fast on a phone: no hunting for the next field.</li></ul>
+      <ul class="cons"><li>Two ways of working, depending on the PDF.</li><li>Some forms have their fields in an odd order.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9b · Making your signature</h3>
+  <div class="options">
+    <article class="opt" data-q="9b" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Draw it</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="plain"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet">
+            <h4>Your Signature</h4>
+            <p>Draw with your finger or the mouse.</p>
+            <canvas class="pad" data-pad style="margin-top:10px"></canvas>
+            <div class="m-btns" style="justify-content:space-between"><span class="m-btn" data-pad-clear style="cursor:pointer">Clear</span><span class="m-btn m-btn--p">Use</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Draw in the box.</span>
+      </div>
+      <p>A drawing pad in a sheet: draw, <b>Clear</b> to start again, <b>Use</b> to place it. Initials the same way. The line is smoothed and its thickness follows the speed, like a pen.</p>
+      <ul class="pros"><li>Looks like your real signature.</li></ul>
+      <ul class="cons"><li>Hard to draw neatly with a mouse.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="9b" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Draw it or type it</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="plain"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" data-sigtabs>
+            <h4>Your Signature</h4>
+            <div class="tabs2" style="cursor:pointer"><span class="on" data-t="draw">Draw</span><span data-t="type">Type</span></div>
+            <div data-t="draw"><canvas class="pad" data-pad></canvas></div>
+            <div data-t="type" hidden>
+              <div class="m-field" style="height:30px">Bert Van Baelen</div>
+              <div class="script" style="height:84px;display:grid;place-items:center;font-size:30px;color:#1e3a8a;border:1.5px dashed var(--g300);border-radius:10px;margin-top:6px;background:#fff">Bert Van Baelen</div>
+            </div>
+            <div class="m-btns" style="justify-content:space-between"><span class="m-btn" data-pad-clear style="cursor:pointer">Clear</span><span class="m-btn m-btn--p">Use</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Draw in the box, or tap <b>Type</b>.</span>
+      </div>
+      <p>The same pad, plus <b>Type</b>: your name (filled in from your account) written in a handwriting font that ships with the app. Initials are made from it too.</p>
+      <ul class="pros"><li>A neat signature from a computer without a pen or touch screen.</li></ul>
+      <ul class="cons"><li>A handwriting font to ship (about 50 KB, loaded only here).</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9c · Keeping your signature for next time</h3>
+  <div class="options">
+    <article class="opt" data-q="9c" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>With your account</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Sign</b>
+            <div class="sigtile" style="margin-top:10px"><span class="script" style="font-size:18px;color:#1e3a8a;flex:1">Bert V.B.</span><span class="ibtn"><i data-i="trash" data-s="15"></i></span></div>
+            <small style="display:block;margin-top:4px;color:var(--g500);font-size:9.5px">Saved with your account · on all your devices</small>
+            <div class="sigtile" style="margin-top:10px;justify-content:center;color:var(--p700);font-weight:700;font-size:11px"><i data-i="plus" data-s="14" data-w="2.5"></i>New signature</div>
+          </div>
+        </div></div>
+      </div>
+      <p>The signature and initials are kept on the server with your account, so the phone and the computer offer the same one. <b>Account Settings</b> shows them and can delete them.</p>
+      <ul class="pros"><li>Draw once, use everywhere.</li></ul>
+      <ul class="cons"><li>Your signature is stored on the home server, like your files.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="9c" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>On this device only</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Sign</b>
+            <div class="sigtile" style="margin-top:10px"><span class="script" style="font-size:18px;color:#1e3a8a;flex:1">Bert V.B.</span><span class="ibtn"><i data-i="trash" data-s="15"></i></span></div>
+            <small style="display:block;margin-top:4px;color:var(--g500);font-size:9.5px">Saved on this phone</small>
+            <div class="sigtile" style="margin-top:10px;justify-content:center;color:var(--p700);font-weight:700;font-size:11px"><i data-i="plus" data-s="14" data-w="2.5"></i>New signature</div>
+          </div>
+        </div></div>
+      </div>
+      <p>Kept in the browser of the device where you made it. Each phone or computer has its own; signing out removes it.</p>
+      <ul class="pros"><li>The signature never leaves the device on its own.</li></ul>
+      <ul class="cons"><li>Draw it again on every device, and after signing out.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+    <article class="opt" data-q="9c" data-o="C">
+      <div class="opt__head"><span class="opt__letter">C</span><h3>Not kept</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Your Signature</b>
+            <p style="margin:4px 0 8px;font-size:10px;color:var(--g600)">Draw with your finger or the mouse.</p>
+            <div class="pad" style="height:110px"></div>
+          </div>
+        </div></div>
+      </div>
+      <p>The pad opens every time you sign; nothing is kept anywhere except in the signed PDF.</p>
+      <ul class="pros"><li>Nothing to keep or delete.</li></ul>
+      <ul class="cons"><li>Drawing it each time, and it never looks the same twice.</li></ul>
+      <button type="button" class="pick">Choose C</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9d · Saving</h3>
+  <div class="options">
+    <article class="opt" data-q="9d" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>New version of the file</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:440px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage" style="bottom:0"><div data-tpl="pdfpage" data-v="signed"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet">
+            <h4>Save Rental Agreement?</h4>
+            <p>The filled-in PDF becomes the file. The empty one stays in Versions for 30 days.</p>
+            <div class="m-btns"><span class="m-btn">Keep Editing</span><span class="m-btn m-btn--p">Save</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p><b>Save</b> replaces the file with the filled-in PDF, as a new version: same name, shares, link and stars. It takes the edit lock like the other editors. The empty form stays in <i>Versions</i> until <code>backup_retention_days</code> have passed.</p>
+      <ul class="pros"><li>No extra files in the folder.</li></ul>
+      <ul class="cons"><li>The empty form disappears after the retention days; to fill it again, you'd need a copy.</li><li>A shared link now shows the signed PDF.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="9d" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Signed copy next to it</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone" style="height:440px"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" style="bottom:0">
+            <div class="m-crumbs"><span class="m-back"><i data-i="back" data-s="12"></i></span>My Files <i data-i="chevronRight" data-s="10"></i> <b style="color:var(--g800)">Housing</b></div>
+            <div class="m-title"><b>Housing</b><span>2 items</span></div>
+            <div class="m-grid">
+              <div class="m-card"><div class="m-thumb t-doc t-pdf"></div><div class="m-name"><i data-i="pdf" data-s="13" data-c="#b91c1c"></i><span>Rental agreement</span></div><div class="m-meta">PDF · 184 KB · 1 w ago</div><span class="m-info"><i data-i="info" data-s="14"></i></span></div>
+              <div class="m-card is-sel"><div class="m-thumb t-doc t-pdf"></div><div class="m-name"><i data-i="pdf" data-s="13" data-c="#b91c1c"></i><span>Rental agreement (signed)</span></div><div class="m-meta">PDF · 231 KB · now</div><span class="m-info"><i data-i="info" data-s="14"></i></span></div>
+            </div>
+          </div>
+          <div class="m-toast" style="bottom:12px"><i data-i="check" data-s="14" data-c="#4ade80"></i>Saved as Rental agreement (signed)<b>Open</b></div>
+        </div></div>
+      </div>
+      <p><b>Save</b> writes <i>Rental agreement (signed).pdf</i> next to the original (<i>(filled in)</i> when nothing was signed); the empty form stays as it was. Viewers save their copy in My Files instead. No edit lock is needed.</p>
+      <ul class="pros"><li>The empty form stays, to fill in again.</li><li>Nothing shared changes by accident.</li></ul>
+      <ul class="cons"><li>One more file in the folder.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
 </main>
 
 <div class="picks" role="region" aria-label="Your choices">
@@ -956,6 +1176,35 @@ Call the plumber on Friday</div>
   .m-selhead .txt { font-size: 11px; font-weight: 700; color: var(--p700); padding: 0 6px; }
   .flash { animation: flash .5s; }
   @keyframes flash { 50% { box-shadow: 0 0 0 3px var(--focus); } }
+  /* 9: fill in and sign PDFs */
+  .pdfstage { position: absolute; top: 68px; left: 0; right: 0; bottom: 52px; background: #e5e7eb; overflow: hidden; padding: 10px; }
+  .pdfpage { background: #fff; border-radius: 2px; box-shadow: 0 2px 6px rgba(0,0,0,.18); padding: 14px 14px 18px; font-size: 7.5px; line-height: 1.5; color: var(--g800); font-family: Georgia, 'Times New Roman', serif; }
+  .pdfpage h5 { margin: 0 0 2px; font-size: 11px; text-align: center; color: var(--g900); }
+  .pdfpage .pdfsub { text-align: center; color: var(--g500); margin-bottom: 8px; }
+  .pdfpage .ln { height: 3px; background: var(--g200); border-radius: 2px; margin: 4px 0; }
+  .pdfpage .lbl { margin-top: 8px; font-family: var(--font); font-size: 7px; color: var(--g600); font-weight: 600; }
+  .fld { position: relative; height: 16px; border-radius: 2px; background: #dbeafe; border-bottom: 1.5px solid #1d4ed8; font-family: var(--font); font-size: 8.5px; color: var(--g900); padding: 2px 4px; display: flex; align-items: center; }
+  .fld.done { background: #eff6ff; }
+  .fld.cur { box-shadow: 0 0 0 2px #1d4ed8; background: #fff; }
+  .chk { display: inline-grid; place-items: center; width: 11px; height: 11px; border: 1.5px solid #1d4ed8; background: #dbeafe; border-radius: 2px; vertical-align: -2px; margin-right: 4px; color: var(--g900); }
+  .placed { position: relative; outline: 1.5px dashed var(--p700); outline-offset: 2px; border-radius: 2px; }
+  .placed::after { content: ''; position: absolute; right: -6px; bottom: -6px; width: 7px; height: 7px; border-radius: 50%; background: #fff; border: 1.5px solid var(--p700); }
+  .sigline { position: relative; height: 34px; border-bottom: 1px solid var(--g500); margin-top: 2px; }
+  .sigline svg { position: absolute; left: 8px; bottom: 2px; }
+  .pdftools { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6; background: #fff; border-top: 1px solid var(--g200); display: flex; }
+  .pdftools span { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 8.5px; font-weight: 600; color: var(--g700); }
+  .pdftools span.on { color: var(--p900); background: var(--p50); }
+  .pdftools b.gl { font-size: 14px; line-height: 17px; font-family: Georgia, serif; }
+  .stepbar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6; background: #fff; border-top: 1px solid var(--g200); display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+  .stepbar .grow { flex: 1; font-size: 10px; color: var(--g600); }
+  .stepbar .grow b { display: block; font-size: 11.5px; color: var(--g900); }
+  .pad { display: block; width: 100%; height: 120px; border: 1.5px dashed var(--g300); border-radius: 10px; background: #fff; touch-action: none; cursor: crosshair; }
+  .tabs2 { display: flex; gap: 4px; margin: 8px 0; }
+  .tabs2 span { flex: 1; text-align: center; padding: 5px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--g600); background: var(--g100); }
+  .tabs2 span.on { background: var(--p100); color: var(--p900); }
+  .script { font-family: 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', cursive; }
+  .sigtile { border: 1px solid var(--g200); border-radius: 10px; padding: 8px; display: flex; align-items: center; gap: 8px; background: #fff; }
+  .sigtile small { display: block; font-size: 9.5px; color: var(--g500); }
 </style>
 <script>
 const P = {
@@ -967,6 +1216,8 @@ const P = {
   plus: 'M12 4v16m8-8H4',
   back: 'M10 19l-7-7m0 0l7-7m-7 7h18',
   chevronRight: 'M9 5l7 7-7 7',
+  chevronLeft: 'M15 19l-7-7 7-7',
+  calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
   close: 'M6 18L18 6M6 6l12 12',
   grid: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
   list: 'M4 6h16M4 12h16M4 18h16',
@@ -1049,6 +1300,25 @@ const T = {
       ? `<a class="m-tabplus"><i><i data-i="plus" data-s="20" data-w="2.25"></i></i></a>`
       : `<a class="${t[0] === el.dataset.on ? 'on' : ''}"><i data-i="${t[1]}" data-s="17"></i>${t[2]}</a>`).join('')
   },
+  pdfhead: () => `<div class="m-ehead" style="position:absolute;top:22px;left:0;right:0;height:46px"><span class="m-dbtn m-dbtn--plain" style="color:var(--g700)"><i data-i="close"></i></span><i data-i="pdf" data-c="#b91c1c"></i><div class="t"><b>Rental agreement</b><span style="color:var(--g500)">Fill &amp; Sign</span></div><span class="m-btn m-btn--p">Save</span></div>`,
+  pdfpage: (el) => {
+    const v = el.dataset.v
+    const sig = `<svg width="96" height="30" viewBox="0 0 96 30"><path d="M4 22c6-14 10-16 12-8s-2 12 4 4 8-14 10-6-4 10 2 6 10-12 14-4 2 8 8 2 8-8 12-2 4 6 10 2 10-6 14-4" fill="none" stroke="#1e3a8a" stroke-width="1.6" stroke-linecap="round"/></svg>`
+    const filled = v !== 'guided' && v !== 'plain'
+    return `<div class="pdfpage">
+      <h5>Rental Agreement</h5><div class="pdfsub">Rue de la Loi 16, Brussels · Apartment 2B</div>
+      <div class="ln"></div><div class="ln" style="width:86%"></div><div class="ln" style="width:93%"></div>
+      <div class="lbl">Tenant name</div><div class="fld done">Bert Van Baelen</div>
+      <div class="lbl">Phone</div><div class="fld${v === 'guided' ? ' cur' : filled ? ' done' : ''}">${v === 'guided' ? '+32 470 12 34 5<span class="caret"></span>' : filled ? '+32 470 12 34 56' : ''}</div>
+      <div class="lbl">Start date</div><div class="fld${filled ? ' done' : ''}">${filled ? '01/12/2026' : ''}</div>
+      <div class="ln" style="margin-top:8px"></div><div class="ln" style="width:72%"></div>
+      <div style="margin-top:8px;font-family:var(--font);font-size:7.5px"><span class="chk">${filled ? '✓' : ''}</span>I have read and agree to the terms</div>
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1"><div class="lbl">Signature</div><div class="sigline${v === 'tools' ? ' placed' : ''}">${filled ? sig : ''}</div></div>
+        <div style="width:70px"><div class="lbl">Date</div><div style="height:20px;display:flex;align-items:flex-end;border-bottom:1px solid var(--g500)">${filled ? `<span class="${v === 'tools' ? 'placed' : ''}" style="font-family:var(--font);font-size:8.5px;margin:0 0 2px 4px">13/11/2026</span>` : ''}</div></div>
+      </div>
+    </div>`
+  },
   home: () => `<div class="m-title" style="margin-top:0"><b>My Files</b><span>4 items</span></div><div class="m-grid">${items.home.map((it) => card(it, { info: true })).join('')}</div>`,
   grid: (el) => {
     const more = el.dataset.variant === 'more'
@@ -1073,9 +1343,9 @@ const T = {
 document.querySelectorAll('[data-tpl]').forEach((el) => { el.innerHTML = T[el.dataset.tpl](el) })
 
 // ---------- choices ----------
-const Q = ['1a', '1b', '2', '3', '4', '5', '6', '7', '8']
+const Q = ['1a', '1b', '2', '3', '4', '5', '6', '7', '8', '9a', '9b', '9c', '9d']
 // What was chosen on 2026-11-13 (docs/architecture.md describes these).
-const CHOSEN = { '1a': 'B', '1b': 'A', '2': 'A', '3': 'A', '4': 'B', '5': 'B', '6': 'B', '7': 'A', '8': 'A' }
+const CHOSEN = { '1a': 'B', '1b': 'A', '2': 'A', '3': 'A', '4': 'B', '5': 'B', '6': 'B', '7': 'A', '8': 'A', '9a': 'A', '9b': 'B', '9c': 'A', '9d': 'A' }
 document.querySelectorAll('.opt').forEach((o) => {
   if (CHOSEN[o.dataset.q] !== o.dataset.o) return
   const b = document.createElement('span')
@@ -1500,6 +1770,37 @@ function ctxDemo(root) {
   })
 }
 document.querySelectorAll('[data-ctx]').forEach(ctxDemo)
+
+// ---------- 9: signature pad ----------
+document.querySelectorAll('canvas[data-pad]').forEach((c) => {
+  const ctx = c.getContext('2d')
+  let last = null, w = 2
+  function size() {
+    const r = c.getBoundingClientRect(), dpr = devicePixelRatio || 1
+    c.width = r.width * dpr; c.height = r.height * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1e3a8a'
+  }
+  requestAnimationFrame(size)
+  const at = (e) => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() } }
+  c.addEventListener('pointerdown', (e) => { c.setPointerCapture(e.pointerId); last = at(e); w = 2.2 })
+  c.addEventListener('pointermove', (e) => {
+    if (!last) return
+    const p = at(e), d = Math.hypot(p.x - last.x, p.y - last.y), v = d / Math.max(1, p.t - last.t)
+    w = w * 0.7 + Math.max(0.9, Math.min(3, 3.2 - v * 1.6)) * 0.3
+    ctx.lineWidth = w
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke()
+    last = p
+  })
+  c.addEventListener('pointerup', () => (last = null))
+  c.closest('.m-sheet')?.querySelector('[data-pad-clear]')?.addEventListener('click', () => ctx.clearRect(0, 0, c.width, c.height))
+})
+document.querySelectorAll('[data-sigtabs]').forEach((s) => {
+  s.querySelectorAll('.tabs2 span').forEach((tab) => tab.addEventListener('click', () => {
+    s.querySelectorAll('.tabs2 span').forEach((x) => x.classList.toggle('on', x === tab))
+    s.querySelectorAll('div[data-t]').forEach((p) => (p.hidden = p.dataset.t !== tab.dataset.t))
+  }))
+})
 
 icons()
 renderPicks()

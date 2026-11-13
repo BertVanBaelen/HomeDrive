@@ -55,7 +55,7 @@ All data in the mockup (files, people, sizes, disks) is **sample data**.
 - Vertical breadcrumb hidden (horizontal breadcrumb scrolls sideways).
 - The layout switches automatically on window resize (`window.innerWidth < 700`).
 
-> **In v3 (chosen 2026-11-13, [`v3-options.html`](v3-options.html)):** the floating **+** moves into the middle of the tab bar (Files, Shared, +, Recent, Starred) and Trash into the account menu on phones; several items can be selected (long-press on phones, check circles and Ctrl/Shift-click on computers) with the actions in a bottom bar; computers get a right-click menu; the viewer zooms only the file, with a zoom bar. Details in [`docs/architecture.md`](../docs/architecture.md).
+> **In v3 (chosen 2026-11-13, [`v3-options.html`](v3-options.html)):** the floating **+** moves into the middle of the tab bar (Files, Shared, +, Recent, Starred) and Trash into the account menu on phones; several items can be selected (long-press on phones, check circles and Ctrl/Shift-click on computers) with the actions in a bottom bar; computers get a right-click menu; the viewer zooms only the file, with a zoom bar; PDFs can be filled in and signed (*Fill & Sign*). Details in [`docs/architecture.md`](../docs/architecture.md).
 
 ### Overlays
 - **Viewer** (dark `#111827`): back, title + meta, Share, Download, Info drawer, prev/next, media controls for audio/video.

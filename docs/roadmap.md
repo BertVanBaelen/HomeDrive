@@ -62,7 +62,7 @@ Not in v2: storage quotas, disk health and RAID status, public links that allow 
   - admins: a failed backup, or the data disk 85% or 95% full.
 
   Per user, each kind can be turned off for email and for push in Account Settings (security emails cannot). There is no daily summary: each email is sent when it happens. Push uses Web Push to the installed app; on iPhone only when Homedrive is on the home screen. Mockups without a design of their own are derived from the same parts.
-- **Easier to use** (requested 2026-11-13 after using v2 on phones; options and choices in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html), work plan in [`v3-ux-plan.md`](v3-ux-plan.md)):
+- **Easier to use** (requested 2026-11-13 after using v2 on phones, item 9 added the same day; options and choices in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html), work plan in [`v3-ux-plan.md`](v3-ux-plan.md)):
   1. **Markdown** ([design](architecture.md#markdown-preview-and-page-editing-v3)): `.md` files open in the viewer as a formatted page, with a *Page | .md* switch. Fixed: an empty line typed on the page sent a document made in Homedrive to source mode for good. *Page* now asks before tidying the formatting of a file from another app, instead of being disabled.
   2. **Back animations** ([design](architecture.md#back-animations-v3)): going back zooms out into the folder's card, in grid and list view, on every way back; a file shrinks back into its thumbnail.
   3. **New folder while saving** ([design](architecture.md#new-folder-in-the-folder-picker-v3)): *New Folder* in the folder picker of *Save to Homedrive* (and *Move*); after saving, the app goes Home with *Open* in the toast.
@@ -71,6 +71,7 @@ Not in v2: storage quotas, disk health and RAID status, public links that allow 
   6. **Zoom in the viewer** ([design](architecture.md#viewer-zoom-v3)): only the photo, PDF or text zooms, not the page; pinch, double-tap, Ctrl + wheel and a zoom bar; sharp PDFs; swipe to the next file on phones.
   7. **Back button** ([design](architecture.md#back-button-and-history-v3)): back closes what is open first, always ends on Home in the installed app, and on Home asks before closing.
   8. **Right-click menu** ([design](architecture.md#right-click-menu-v3)) on computers, with keyboard shortcuts (Enter, F2, Delete, Alt+Enter, Ctrl+A).
+  9. **Fill in and sign PDFs** ([design](architecture.md#fill-in-and-sign-pdfs-v3)): fill in a PDF's form fields, and place text, a date, ✓, ✗, a signature or initials on any PDF. The signature is drawn or typed and kept with the account for every device. Saving writes it into the page as a new version of the file (the empty form stays in *Versions* for the retention days); people who can only view the PDF save a filled-in copy in My Files. A picture on the page, not a digital signature with eID or itsme.
 
 Not in v3 (left out of the mockups): disk health (SMART) and RAID, the approximate location of a sign-in, a "weeks left" estimate, and clean-up suggestions the Storage page doesn't have.
 
