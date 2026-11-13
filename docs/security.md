@@ -78,6 +78,11 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 - `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`. `Referrer-Policy: no-referrer` keeps tokens out of `Referer` headers, and request logs show them as `…`.
 - Rate limits on unknown tokens, passwords and zips. The page shows no names of people. Creating, changing and removing links is audited.
 
+### Selections, zips and the Markdown preview (v3)
+- `POST /api/nodes/batch` adds no new way in: every item goes through the same function and permission check as its single endpoint and is audited the same, one by one. At most 500 IDs per request; *Delete forever* needs a recent password as for one item. Skipped items answer only codes the single endpoints already give, so the batch reveals nothing a request per item wouldn't.
+- Zip of several: the one-time address carries 128 random bits, kept only in memory, valid 2 minutes, usable once, and only by the session that asked for it. Request logs show it as `…`, like link tokens. Building it checks every ID as for a folder zip; the same per-user limit of 2 zips at a time applies.
+- The Markdown preview builds React elements from marked's tokens: no `innerHTML`, raw HTML shown as text, images never loaded, links limited to `http`, `https` and `mailto` with `rel="noopener noreferrer nofollow"`.
+
 ### Container and supply chain
 - Static Go binary on Alpine; no shell needed at runtime.
 - Docker: non-root, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`.

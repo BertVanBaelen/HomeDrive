@@ -284,7 +284,7 @@ Editing is for people who can edit the file: the owner of My Files, editors and 
 
 - TipTap with its official `@tiptap/markdown` (the community `tiptap-markdown` was left out: more dependencies, one maintainer): a WYSIWYG page with the mockup's toolbar (Undo, Redo, H1, H2, Normal, Bold, Italic, bullets, numbers, quote) plus *Link*, and the *.md* toggle to edit the Markdown source. The file name is edited in the title field; the extension stays fixed. TipTap's own injected stylesheet is turned off (`injectCSS: false`) because the content security policy forbids inline styles; the editor's CSS ships with the app.
 - Supported: headings 1–3, paragraphs, bold, italic, inline code, code blocks, bullet and numbered lists (nested), quotes, links (`http`, `https`, `mailto`), horizontal rules and line breaks. Raw HTML is never rendered; it stays visible as text.
-- The editor never rewrites what it doesn't understand: on opening, the file is read and written back in memory. If that changes it (tables, footnotes, front matter, other spacing — line endings and the final newline aside), the file opens in source mode with a note, and stays there.
+- The editor never rewrites what it doesn't understand: on opening, the file is read and written back in memory. If that changes it (tables, footnotes, front matter, other spacing — line endings and the final newline aside), the file opens in source mode with a note, and stays there. From v3 the user can switch to the page after a question when only the formatting would change, and an empty line typed on the page no longer sends the file to source mode ([Markdown preview and page editing](#markdown-preview-and-page-editing-v3)).
 - People who can't edit see the same rendering, read-only.
 
 **Text and code** (`.txt`, `.log`, `.csv` and the code types): a plain text editor, the source mode without the toolbar, in a monospace font. Only UTF-8 files up to 1 MB; others open in the read-only text viewer. Windows line endings stay Windows line endings.
@@ -364,6 +364,89 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
 
 **Sending.** A failed send is retried 3 times over an hour and then logged. Sign-in codes are not retried: the user asks for a new one.
 
+### Markdown preview and page editing (v3)
+
+The mockups for this and the next v3 sections are in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html) (open it in a browser). Each section there shows the options that were considered; the one marked *Chosen* is what is described here.
+
+**Preview in the viewer** (mockup 1a, option B).
+
+- `.md` files open as a formatted page: a white page on the dark viewer, with the editor's typography. A **Page | .md** switch in the viewer bar shows the source as the text viewer does today. The last choice is kept per browser (`localStorage` `hd.mdView`). On phones *Download* moves into the info drawer to make room in the bar. Link visitors get the same preview.
+- Rendering: marked's lexer (already in the bundle through `@tiptap/markdown`; it becomes a direct dependency at the same version) turns the file into tokens, and a small renderer maps them to React elements. There is no `innerHTML`, so nothing in a file can run. It renders everything the page editor supports plus GFM tables, task lists and strikethrough. Raw HTML stays visible as text. Images are not loaded: they show as their alt text with the address. Links follow the editor's rule (`http`, `https`, `mailto`, `safeUrl`) and open in a new tab with `rel="noopener noreferrer nofollow"`. The text viewer's 2 MB limit applies; bigger files only show as text.
+
+**Empty lines (bug fix).** TipTap writes an empty paragraph (Enter twice on the page) as extra blank lines, which Markdown reads back as nothing. A document made in Homedrive with an empty line therefore failed the round-trip check (`sameMarkdown`) and reopened in source mode, with *Page* disabled. The paragraph's Markdown writer now writes an empty paragraph as a line holding `&nbsp;`, which reads back as that empty paragraph (it lexes as plain text, not as HTML, so `pageUnsafe` accepts it). A property test builds documents from the supported nodes and checks that `serialize(parse(serialize(doc)))` equals `serialize(doc)` and that `pageSafe` accepts it.
+
+**Switching to the page anyway** (mockup 1b, option A).
+
+- *Page* is no longer disabled for a file whose Markdown the page editor would only write differently: another app's bullet signs, emphasis signs, numbering, blank lines or escapes. Tapping it asks *Switch To Page Editing?*: "To show this file as a page, Homedrive tidies its formatting, such as empty lines and bullet signs. Your text stays the same, and nothing is saved until you type." with *Stay In .md* and *Switch*. It asks every time, for every such file.
+- *Switch* loads the page editor. Loading never saves: the first save comes with the first change, and from then on the file holds the page editor's Markdown. Switching back to *.md* shows that tidied text.
+- Files with something the page editor would drop keep *Page* disabled, with the reason in the note and the button's tooltip: raw HTML, images, links to other schemes (`pageUnsafe` today), and from v3 also tables and any other block the page editor has no node for. That is what keeps "your text stays the same" true.
+- The note at the top of a file that opens in source mode says which of the two it is: "Switch to Page to tidy this file's formatting" or "This file has <tables / images / HTML> that the page editor can't keep".
+
+### New folder in the folder picker (v3)
+
+Mockup 3, option A.
+
+- The folder picker (*Save to Homedrive* page and the *Move* dialog) gets **New Folder** next to the folder's name, where the user can add (not as a viewer of the drive). It adds a row at the top of the list with a name field holding "New folder" ("Nieuwe map"), selected. Enter or ✓ creates it (`POST /api/folders`, a taken name gets `(2)`) and opens it in the picker, ready for *Save Here* / *Move Here*. Esc or a tap elsewhere drops the row; an error shows under the field. The folder is made at once, also when the picker is then cancelled.
+- **Back Home after saving.** When the *Save to Homedrive* page has saved its last pending share without a failure and nothing waits for *Replace / Keep both*, the app goes Home (My Files) as a top-level destination (§7, *Back button and history*) and shows the toast "Saved in Documents / Receipts" with **Open**, which opens that folder. On a failure or a pending question the page stays as it is. The toast gets a general action (`{label, run}`) next to the existing *Undo*.
+
+### Phone navigation: + in the tab bar (v3)
+
+Mockup 4, option B. On a phone the floating + covered the ⓘ of the last card on the right.
+
+- The floating + button goes away. The tab bar becomes **Files, Shared, +, Recent, Starred**; the + opens the *Add* sheet for the folder on screen. Where nothing can be added (Recent, Starred, Shared with me, a drive you only view) it is dimmed and says why when tapped ("Open a folder to add files", "You can only view this drive").
+- **Trash** moves into the account menu (the avatar), with its count, on phones. The desktop sidebar doesn't change.
+- Every list ends with room for the tab bar, a toast and the safe area, so the last row is always reachable. Toasts sit just above the tab bar.
+- Cards keep ⓘ in their bottom-right corner. While selecting (below) the tab bar is replaced by the selection's actions.
+
+### Selecting several items (v3)
+
+Mockup 5, option B.
+
+- **Computers:** a check circle shows in the top-left corner of a card (the start of a row in list view) on hover and on keyboard focus; clicking it selects. Ctrl/⌘-click adds or removes, Shift-click selects the range from the last clicked item, Ctrl/⌘+A selects all, Esc clears. Clicking the name or thumbnail still opens.
+- **Phones:** a long-press (500 ms, cancelled by moving) on an item starts selecting and selects it, with a short vibration where supported; then each tap adds or removes. Back clears the selection (§7).
+- **Bars:** at the top the count, *Select all* and ✕ (on phones in place of the header, on computers in the page head). At the bottom the actions with labels: on phones in place of the tab bar, on computers as a dark bar floating over the file area.
+- **Actions:** *Download* (one `.zip`), *Move*, *Star* (*Unstar* when all are starred), *Delete* (to the trash, one toast with *Undo*). In Trash: *Restore* and *Delete forever* (asks first, and needs a recent password like the single one). Share, Rename and Details stay one item at a time.
+- Everywhere items are listed for a signed-in user: folders, Recent, Starred, Shared with me, search results, Trash. Not on link pages. The selection is cleared when the list changes to another folder or section.
+- **Partial results:** every item is checked on its own. Items the user can't change are skipped and the toast says so: "3 moved. 2 skipped: you can only view them." Dragging a selection onto a folder is left for later.
+- **API:** `POST /api/nodes/batch {op, ids, target?}`, with `op` one of `move` (needs `target`), `trash`, `restore`, `star`, `unstar`, `delete` (forever, recent password). At most 500 IDs per request. Each item goes through the same function, rules and audit event as its single endpoint, in its own transaction; it is not all-or-nothing. The answer is `{done: [id], skipped: [{id, code}]}`. *Undo* after a delete is a `restore` of the `done` IDs. One request per action keeps the app inside the rate limits.
+- **Zip of several:** `POST /api/zips {ids}` answers `{url}`, a one-time download address (`/api/zips/<token>`, 128 random bits, kept in memory for 2 minutes), which the app then opens as a download. A download has to be a navigation to stream to disk, and the list of IDs doesn't fit a URL behind Cloudflare (16 KB). The zip holds each item at its top level (folders with their contents, trash left out); equal names get `(2)`. It is named after the folder when all items share one (`Photos.zip`), else `<app name> <date>.zip`. Same rules as the folder zip: what the user can open, 2 at a time per user. `files.Archive` grows from one root to a list of roots.
+
+### Right-click menu (v3)
+
+Mockup 8, option A.
+
+- Right-click on an item (also the context-menu key and Shift+F10) opens Homedrive's menu with what its info panel offers: *Open* (Enter), *Share…*, *Download*, *Rename…* (F2), *Move…*, *Star*, *Details* (Alt+Enter), *Delete* (Del), in groups, with the shortcut on the right. Entries the user can't use are left out, not greyed.
+- On a selection: *Download as .zip*, *Move…*, *Star*, *Delete*, headed by the count. Right-clicking an item outside the selection selects just that item first.
+- On empty space in a folder: *New folder*, *Upload files*, *New document*, *New spreadsheet* (where the user can add), then *Grid view* / *List view*. In Trash: *Restore*, *Delete forever*, *Details*. On link pages: *Open* and *Download*.
+- The shortcuts work in the file list without the menu: Enter opens, F2 renames, Delete moves to the trash (with *Undo*), Alt+Enter shows the details, Ctrl/⌘+A selects all.
+- One `ContextMenu` component: `role="menu"` with `menuitem`s, arrow keys and Home/End, Enter picks, Esc or a click elsewhere closes, flipped to stay inside the window, focus back where it was. Its entries come from the same action functions as the info panel and the selection bar, so the three stay the same.
+- In text fields, the editor and the viewer the browser's own menu stays (copy, paste, spelling). On touch screens `contextmenu` (Android fires it on long-press) is ignored: long-press selects.
+
+### Viewer zoom (v3)
+
+Mockup 6, option B.
+
+- Only the file zooms. The bar, its buttons and the rest of the page stay where they are. The page's viewport keeps allowing zoom (no `user-scalable=no`): outside the viewer, page zoom keeps working for accessibility.
+- **Phones:** pinch, double-tap (2× at that spot, again back to fit), drag to move around when zoomed. At fit, swiping left or right goes to the next or previous file (phones have no other way to do that today); zoomed in, a swipe moves the photo.
+- **Computers:** Ctrl/⌘ + wheel and trackpad pinch (which browsers send as Ctrl + wheel) zoom at the pointer, double-click as above, drag to pan, keys `+`, `−`, `0`.
+- **Zoom bar:** −, the zoom level (*Fit*, or a percentage of the fitted size), + and *Fit*, at the bottom of the stage. Always there on computers; on phones it shows after a tap and hides after 3 seconds. For PDFs it also shows the page number.
+- **Photos** up to 4× their real pixels and at least 3× fit. HEIC photos zoom their converted preview, so they get less sharp sooner.
+- **PDFs:** during a gesture the pages are scaled with CSS; 150 ms after it stops, the visible pages are drawn again sharp at the new zoom (up to 400%, at most 16 megapixels per page canvas because of iOS limits), keeping the point under the fingers in place. Zoomed pages scroll in both directions.
+- **Text, code and Markdown:** zoom changes the text size (50–300%) and the text rewraps, so no sideways scrolling. The level is kept while the viewer stays open.
+- Video and audio don't zoom.
+- One `ZoomStage` component handles the gestures with pointer events (two pointers make a pinch) and a CSS transform (`translate` and `scale`) on its content. The stage is `touch-action: none` for photos and `pan-x pan-y` for PDFs and text, so one finger still scrolls them; on iOS it also cancels `gesturestart` and `gesturechange`, which Safari uses for page zoom.
+
+### Back animations (v3)
+
+Mockup 2, option A: the reverse of the zoom-in. At most 420 ms, transform and opacity only, nothing with *reduce motion*.
+
+- **They play on every way back:** the phone's back button or gesture, *← Back*, the breadcrumb and the rail. The router tells `motion.ts` that a navigation goes back up and from which folder, instead of the 2-second time window used now. Switching tabs or sidebar sections only fades.
+- **Grid view:** the items of the folder you leave gather into the centre of its card in the parent and fade; the card grows back from 1.6× into its place, and its neighbours fade in. When that card isn't on screen, the parent just fades in.
+- **List view, both ways** (from the design handoff, §5): opening slides the folder's name into the "You are here" rail and the contents in from the right; going back slides the name from the rail back into its row. Below 1100 px, where the rail is hidden, rows only fade.
+- **Viewer:** a file opens growing from its card's thumbnail and closes shrinking back into it (shared-element FLIP). Without a visible thumbnail it keeps today's zoom-in and fades out.
+- **Editor:** closes by sliding down 40 px while fading, the reverse of its opening.
+- **No waiting:** `motion.ts` keeps the last 10 folder views (details and items, per sort) in memory, so going back draws the parent at once; it is refreshed in the background as now.
+
 ## 5. Authentication
 
 - **No self-registration.** The admin creates accounts; users receive an email invitation.
@@ -428,6 +511,14 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
   GET    /api/s/{token}/nodes/{id}/content, /zip (with thumbnails also /thumb, /snippet, /preview)
   POST   /api/s/{token}/unlock                  {password} → grant cookie
   ```
+- **v3 additions:**
+
+  ```
+  POST   /api/nodes/batch                       {op: move|trash|restore|star|unstar|delete, ids (≤ 500), target?}
+                                                → {done: [id], skipped: [{id, code}]}; delete needs a recent password
+  POST   /api/zips                              {ids (≤ 500)} → {url}: a one-time download, valid 2 minutes
+  GET    /api/zips/{token}                      the zip of those items                  the user who asked
+  ```
 - **Host check:** requests whose `Host` isn't the `public_url` host are rejected (stops DNS rebinding and direct LAN access with spoofed headers). `/healthz` is exempt.
 - **CSRF:** SameSite cookies + `Origin` must equal `public_url` for every state-changing request + API only accepts `application/json` (or the upload content type on upload routes).
 - **Uploads:** chunked and resumable, chunks ≤ 32 MiB because Cloudflare rejects request bodies over 100 MB on Free/Pro plans. Each chunk must start where the last one ended; the SHA-256 is computed on completion and stored with the version. Uploads that would leave less than 512 MB free on the data disk are refused.
@@ -443,9 +534,32 @@ The mockups are in [`homedrive-mockup/emails.html`](../homedrive-mockup/emails.h
 - The service worker caches only the **app shell** (hashed static assets, index for offline start). It never caches `/api/*` or file contents, so a lost phone holds no documents.
 - **Android share target:** the manifest's `share_target` POSTs to `/share-target`. The service worker intercepts it, stores the files in IndexedDB, and redirects to `/save`: pick a folder (last used preselected), rename, upload with progress. files survive an expired session or a lost connection and are deleted from IndexedDB after upload. If the service worker isn't active, the server answers `/share-target` with a redirect to an explanation page. From v2, a shared link without files becomes a saved link, text shared with files becomes their description (§4), and a name that is already taken asks *Replace* or *Keep both*.
 - **Push (v3):** the service worker receives Web Push messages and shows them as notifications (§4).
+- **Back button (v3):** see below.
 - **iPhone:** iOS has no Web Share Target support, so the PWA can't be in the share sheet. Homedrive provides an Apple Shortcut ("Save to Homedrive") that uploads to the user's inbox with a device token.
 - **Desktop:** normal website, drag-and-drop upload. The app never shows an install prompt on desktop (browsers may still offer install themselves).
 - **HTTPS only:** secure cookies and service workers require it, so Homedrive is always used through its public URL, also at home.
+
+### Back button and history (v3)
+
+Mockup 7, option A, with a simulator of these rules in [`v3-options.html`](../homedrive-mockup/v3-options.html#f7).
+
+**Rules.**
+
+1. Back closes the top thing first: a menu, dialog or sheet, the info sheet on phones, a selection, the viewer, the editor (which saves first).
+2. Then it goes back through the folders and pages visited. *← Back to …*, the breadcrumb and the rail do the same as the phone's back when their target is where the user came from, so the two never disagree.
+3. When the installed app opened on another page (the share sheet's *Save to Homedrive*, a link, a notification), the last step back is Home (My Files), never out of the app.
+4. On Home, back asks: a sheet "Close Homedrive? Press back again to close." with *Stay*. Back again closes the app; *Stay*, a tap outside or 4 seconds close the sheet. A web app can't close itself from a button (browsers don't allow `window.close()` for an installed app), so closing is always the second back.
+
+Rules 3 and 4 apply only to the installed app (`display-mode: standalone`, or `navigator.standalone` on iOS). In a browser tab back leaves the site as usual. iPhone home-screen apps have no back button or gesture; the in-page Back follows rule 2.
+
+**How.** `router.ts` keeps a small model of the history:
+
+- Every entry the app makes carries `history.state = {hd: {i, kind, from}}`: its position, `page`, `layer`, `root` or `guard`, and the path it came from. The list of paths by position is kept in `sessionStorage`, so a reload in the same window keeps it.
+- **Layers** (`useBackLayer(open, close)`): opening a menu, `Modal`, the info sheet on phones, a selection, the viewer or the editor pushes an entry with the same URL. Back closes the topmost layer. Closing a layer from the UI calls `history.back()` so its entry goes too. The editor closes through its own `close()`; when the user then chooses *Keep editing*, its entry is pushed again. The desktop info side panel isn't a layer.
+- **In-page Back:** when the target is the previous entry (or n entries back for a breadcrumb), it goes back that many entries; otherwise it replaces the current entry with the target, so the phone's back never leads into the folder just left.
+- **Top-level destinations** (tab bar, sidebar sections, the logo, Account, Storage, and Home after *Save to Homedrive*): the app first goes back to the Home entry, then pushes the destination unless it is Home. Back from any of them is Home, and switching tabs never grows the history.
+- **Launch (installed app):** when the first entry isn't `/`, it is replaced by `/` (`root`) with the address pushed after it. Home always has a `guard` entry above `root`; back from the guard lands on `root` and shows the sheet, without an entry of its own. Back again leaves the app; *Stay*, a tap outside or the 4 seconds push the guard again.
+- Unit tests run the rules against a fake `History`. The release check includes trying them in the installed app on Android (Chrome) and iPhone (home screen).
 
 ## 8. Backup
 
@@ -477,6 +591,6 @@ docker-compose.example.yml
 docs/                  architecture, security, roadmap
 ```
 
-Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), a capped `.xlsx` reader/writer and formula evaluator on the server (`internal/sheet`, excelize only for blank workbooks) with the same small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails.
+Stack: Go (standard library HTTP, `modernc.org/sqlite` — pure Go, so cross-compiling needs no C toolchain), React + TypeScript + Vite, self-hosted Inter font, Heroicons, pdf.js. v2 adds TipTap with `tiptap-markdown` (Markdown editor), a capped `.xlsx` reader/writer and formula evaluator on the server (`internal/sheet`, excelize only for blank workbooks) with the same small formula engine in TypeScript, and libvips, ffmpeg and poppler as sandboxed subprocesses for thumbnails. v3 adds `marked` as a direct dependency (already in the bundle through TipTap) for the Markdown preview.
 
 UI languages: English and Dutch, chosen from the browser language, switchable per user.

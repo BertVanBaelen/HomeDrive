@@ -8,6 +8,7 @@ This package is the **design handoff**: the interactive mockup source plus every
 homedrive-mockup/
 ├── README.md              ← this file
 ├── emails.html            ← the v3 email mockups (self-contained, opens in a browser)
+├── v3-options.html        ← the v3 usability options and the choices made (self-contained, clickable)
 └── design/
     ├── Main.dc.html       ← the full app mockup (desktop + responsive mobile layout, all logic)
     ├── Mobile.dc.html     ← phone frame (390×844) that mounts Main with mobile=true
@@ -53,6 +54,8 @@ All data in the mockup (files, people, sizes, disks) is **sample data**.
 - 2-column grid, 120 px thumbnails; info, share and add open as **bottom sheets**.
 - Vertical breadcrumb hidden (horizontal breadcrumb scrolls sideways).
 - The layout switches automatically on window resize (`window.innerWidth < 700`).
+
+> **In v3 (chosen 2026-11-13, [`v3-options.html`](v3-options.html)):** the floating **+** moves into the middle of the tab bar (Files, Shared, +, Recent, Starred) and Trash into the account menu on phones; several items can be selected (long-press on phones, check circles and Ctrl/Shift-click on computers) with the actions in a bottom bar; computers get a right-click menu; the viewer zooms only the file, with a zoom bar. Details in [`docs/architecture.md`](../docs/architecture.md).
 
 ### Overlays
 - **Viewer** (dark `#111827`): back, title + meta, Share, Download, Info drawer, prev/next, media controls for audio/video.
@@ -147,6 +150,8 @@ Motion is short (≤ 0.5 s), transform/opacity only, staggers capped at ~12 item
 | Hover | Cards lift 3 px; share button grows; online dot pulses |
 
 > **In the app (2026-10-28):** cards and rows fade in with a 6 px rise (≈200 ms, 15 ms stagger) instead of flipping in; the flip read as too busy in use.
+>
+> **In v3:** the *Go up* animations above play on every way back (the phone's back button included), in grid and list view, and a file closes by shrinking back into its thumbnail ([`v3-options.html`](v3-options.html) §2, option A).
 
 Implementation notes: the mockup uses a "parity" class swap to replay CSS animations, and `element.animate()` for FLIP. In React, use a small FLIP helper (or Framer Motion `layoutId` for the list→rail shared element and `AnimatePresence` for overlays).
 
