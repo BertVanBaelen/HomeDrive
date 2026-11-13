@@ -126,6 +126,46 @@ func TestSharedDrivesMigration(t *testing.T) {
 	}
 }
 
+// An account without a Homedrive password that logs in with Home Assistant
+// (ha_only) is a member and linked, whatever statement changes it.
+func TestHomeAssistantOnlyConstraint(t *testing.T) {
+	ctx := context.Background()
+	conn, err := Open(ctx, filepath.Join(t.TempDir(), "homedrive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	const at = "2025-01-01T00:00:00.000Z"
+	if _, err := conn.ExecContext(ctx, `INSERT INTO users (id, email, name, password_hash, role, locale, created_at, ha_username, ha_only)
+		VALUES ('anna', 'anna@example.com', 'Anna', '', 'member', 'en', ?, 'anna', 1)`, at); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`UPDATE users SET role = 'admin' WHERE id = 'anna'`,
+		`UPDATE users SET ha_username = NULL WHERE id = 'anna'`,
+		`UPDATE users SET password_hash = 'x' WHERE id = 'anna'`,
+		`UPDATE users SET ha_only = 2 WHERE id = 'anna'`,
+		`INSERT INTO users (id, email, name, password_hash, role, locale, created_at, ha_username, ha_only)
+			VALUES ('bob', 'bob@example.com', 'Bob', '', 'admin', 'en', '` + at + `', 'bob', 1)`,
+		`INSERT INTO users (id, email, name, password_hash, role, locale, created_at, ha_only)
+			VALUES ('carol', 'carol@example.com', 'Carol', '', 'member', 'en', '` + at + `', 1)`,
+	} {
+		if _, err := conn.ExecContext(ctx, q); err == nil || !strings.Contains(err.Error(), "CHECK") {
+			t.Errorf("%s: %v, want a CHECK failure", q, err)
+		}
+	}
+	// Choosing a password makes it a normal account, in one statement.
+	if _, err := conn.ExecContext(ctx, `UPDATE users SET password_hash = 'x', ha_only = 0 WHERE id = 'anna'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `UPDATE users SET role = 'admin', ha_username = NULL WHERE id = 'anna'`); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRefusesNewerSchema(t *testing.T) {
 	ctx := context.Background()
 	conn, err := Open(ctx, filepath.Join(t.TempDir(), "homedrive.db"))

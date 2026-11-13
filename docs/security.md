@@ -27,6 +27,7 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 - `__Host-` session cookie, Secure, HttpOnly, SameSite=Lax; token hashed at rest; sliding 30 d / absolute 90 d; revocable device list; re-authentication for sensitive actions.
 - Session ID rotated on login and privilege change; all sessions revoked on password change.
 - Audit log: logins, failures, code sends, admin actions, device token use; from v2 also shared drive and membership changes, shares and public links.
+- Home Assistant users (v2.8, add-on only, [design](architecture.md#5-authentication)): accounts without a Homedrive password that log in with their Home Assistant password through the Supervisor, always followed by the email code, so a Home Assistant password alone never opens an account. They are always members: refused by the API and by a database `CHECK`, so they can't become or count as an admin without first choosing a password. Sensitive actions are confirmed with the Home Assistant password of the account's own linked username (never one from the request), under the Home Assistant login's rate limits and audited. Email and password login fails for them like a wrong password, in the same time. They can't be unlinked while they have no password. Choosing a password goes through the emailed reset link, which they may request only while signed in and recently confirmed.
 
 ### Requests
 - Host header must match `public_url`. Origin must match on state-changing requests. JSON-only API bodies.

@@ -42,8 +42,8 @@ export function Account({ user, onUser }: { user: User; onUser: (u: User) => voi
     <div className="settings">
       <h1>{t('account.title')}</h1>
       <Profile user={user} onUser={onUser} />
-      <Password />
-      <HomeAssistantAccount />
+      <Password user={user} />
+      <HomeAssistantAccount haOnly={!!user.haOnly} />
       <Devices />
       <ShortcutDevices />
     </div>
@@ -95,12 +95,41 @@ function Profile({ user, onUser }: { user: User; onUser: (u: User) => void }) {
   )
 }
 
-function Password() {
+function Password({ user }: { user: User }) {
   const t = useT()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Without a Homedrive password there is none to change: the first one is
+  // chosen through an emailed link, as after an admin's reset.
+  if (user.haOnly) {
+    const sendLink = async () => {
+      setBusy(true)
+      setError('')
+      try {
+        await api.requestPasswordLink()
+        showToast(t('users.linkSent', { email: user.email }))
+      } catch (err) {
+        setError(errorText(t, err))
+      }
+      setBusy(false)
+    }
+    return (
+      <section className="panel" aria-labelledby="password-title">
+        <h2 id="password-title">{t('account.password')}</h2>
+        <p className="panel__body">{t('account.noPassword', { email: user.email })}</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form__foot">
+          <button type="button" className="btn btn--primary" disabled={busy} onClick={sendLink}>
+            <Icon d={icons.send} size={18} />
+            {t('account.sendLink')}
+          </button>
+        </div>
+      </section>
+    )
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault()

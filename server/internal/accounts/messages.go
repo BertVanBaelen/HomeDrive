@@ -30,8 +30,28 @@ func codeMessage(to, locale, code string) hdmail.Message {
 }
 
 // linkMessage is the email with a link to choose a password: an
-// invitation for a new account, or a reset made by an admin.
+// invitation for a new account, or a reset made by an admin. An account
+// that logs in with Home Assistant only chooses its first password with a
+// reset link, which it may also ask for itself.
 func linkMessage(u User, adminName, link, purpose string) hdmail.Message {
+	if purpose == "reset" && u.HAOnly {
+		if u.Locale == "nl" {
+			return hdmail.Message{
+				To:      u.Email,
+				Subject: "Kies een wachtwoord voor Homedrive",
+				Body: fmt.Sprintf("Hallo %s,\n\nJe meldt je bij Homedrive aan met Home Assistant. "+
+					"Met deze link kies je ook een Homedrive-wachtwoord, om je ook met je e-mailadres aan te melden:\n\n%s\n\n"+
+					"De link is 24 uur geldig en werkt één keer. Aanmelden met Home Assistant blijft werken.\n", u.Name, link),
+			}
+		}
+		return hdmail.Message{
+			To:      u.Email,
+			Subject: "Choose a password for Homedrive",
+			Body: fmt.Sprintf("Hi %s,\n\nYou log in to Homedrive with Home Assistant. "+
+				"With this link you can also choose a Homedrive password, to log in with your email address as well:\n\n%s\n\n"+
+				"The link is valid for 24 hours and works once. Logging in with Home Assistant keeps working.\n", u.Name, link),
+		}
+	}
 	if u.Locale == "nl" {
 		if purpose == "invite" {
 			return hdmail.Message{

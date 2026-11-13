@@ -120,8 +120,9 @@ export function HomeAssistantLogin({ onSignedIn }: { onSignedIn: (u: User) => vo
 // HomeAssistantAccount is the Account Settings panel where users link their
 // own Home Assistant user. Linking asks the Home Assistant password, to
 // prove the user is theirs, and the Homedrive password if it wasn't
-// entered in the last few minutes.
-export function HomeAssistantAccount() {
+// entered in the last few minutes. Someone without a Homedrive password
+// (haOnly) can't unlink: it is their only way to log in.
+export function HomeAssistantAccount({ haOnly = false }: { haOnly?: boolean }) {
   const t = useT()
   const on = useHomeAssistantLogin()
   const [linked, setLinked] = useState<string | null>(null)
@@ -168,15 +169,20 @@ export function HomeAssistantAccount() {
     <section className="panel" aria-labelledby="ha-title">
       <h2 id="ha-title">Home Assistant</h2>
       {linked ? (
-        <div className="ha-linked">
-          <HomeAssistantLogo size={28} />
-          <p>
-            {t('ha.linkedTo')} <strong>{linked}</strong>
-          </p>
-          <button type="button" className="btn btn--small" disabled={busy} onClick={unlink}>
-            {t('ha.unlink')}
-          </button>
-        </div>
+        <>
+          <div className="ha-linked">
+            <HomeAssistantLogo size={28} />
+            <p>
+              {t('ha.linkedTo')} <strong>{linked}</strong>
+            </p>
+            {!haOnly && (
+              <button type="button" className="btn btn--small" disabled={busy} onClick={unlink}>
+                {t('ha.unlink')}
+              </button>
+            )}
+          </div>
+          {haOnly && <p className="panel__body">{t('ha.onlyWay')}</p>}
+        </>
       ) : (
         <>
           <p className="panel__body">{t('ha.linkBody')}</p>
@@ -202,7 +208,8 @@ export function HomeAssistantAccount() {
 }
 
 // HomeAssistantUserDialog lets an admin set or clear the Home Assistant
-// username someone may log in with.
+// username someone may log in with. Someone without a Homedrive password
+// can't be unlinked, only linked to another user.
 export function HomeAssistantUserDialog({ user, onClose, onDone }: { user: UserInfo; onClose: () => void; onDone: () => void }) {
   const t = useT()
   const [username, setUsername] = useState(user.haUsername ?? '')
@@ -228,7 +235,8 @@ export function HomeAssistantUserDialog({ user, onClose, onDone }: { user: UserI
     <Modal title={t('ha.adminTitle')} subtitle={t('ha.adminBody', { name: user.name })} onClose={onClose}>
       <form className="form" onSubmit={save}>
         <Field label={t('ha.username')} autoComplete="off" autoCapitalize="none" spellCheck={false} autoFocus
-          maxLength={100} hint={t('ha.adminHint')} value={username} onChange={(e) => setUsername(e.target.value)} />
+          maxLength={100} required={user.haOnly} hint={t(user.haOnly ? 'ha.adminHintOnly' : 'ha.adminHint')}
+          value={username} onChange={(e) => setUsername(e.target.value)} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="modal__foot">
           <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>

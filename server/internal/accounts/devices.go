@@ -107,7 +107,7 @@ func (s *Service) DeviceUser(ctx context.Context, token string) (User, string, e
 	}
 	var id string
 	u, err := scanUserWith(s.db.QueryRowContext(ctx,
-		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, d.id
+		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, u.ha_only, d.id
 		 FROM device_tokens d JOIN users u ON u.id = d.user_id
 		 WHERE d.token_hash = ? AND d.revoked_at IS NULL AND d.scope = 'upload' AND u.disabled_at IS NULL`,
 		auth.HashToken(token)), &id)

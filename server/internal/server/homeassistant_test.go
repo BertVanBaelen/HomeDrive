@@ -16,6 +16,8 @@ type fakeSupervisor struct {
 	users map[string]string // username → password
 	calls int
 	down  bool
+	// asked is the username of the last request.
+	asked string
 }
 
 func (f *fakeSupervisor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +37,7 @@ func (f *fakeSupervisor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	f.asked = body.Username
 	// Home Assistant compares usernames ignoring case.
 	if pw, ok := f.users[strings.ToLower(body.Username)]; !ok || pw != body.Password {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -100,6 +103,8 @@ func TestHomeAssistantLoginOffByDefault(t *testing.T) {
 	var me struct{ ID string }
 	admin.get("/api/me").decode(t, &me)
 	expect(t, admin.json("PATCH", "/api/admin/users/"+me.ID, map[string]string{"haUsername": "admin"}), 400)
+	expect(t, admin.json("POST", "/api/admin/homeassistant/users", map[string]string{
+		"email": "anna@example.com", "name": "Anna", "haUsername": "anna"}), 404)
 }
 
 func TestHomeAssistantLogin(t *testing.T) {

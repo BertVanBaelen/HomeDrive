@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCheckPassword(t *testing.T) {
@@ -53,6 +55,27 @@ func TestHashAndVerify(t *testing.T) {
 		if got, err := h.Verify(ctx, tc.enc, tc.pw); got != tc.want || err != nil {
 			t.Errorf("Verify(%q, %q) = %v, %v", tc.enc, tc.pw, got, err)
 		}
+	}
+}
+
+// An account without a password (an empty hash: an open invitation, or a
+// Home Assistant user) never matches, not even an empty password, and costs
+// a full hash like any other account, so the answer takes as long.
+func TestVerifyEmptyHash(t *testing.T) {
+	h := NewHasher()
+	ctx := context.Background()
+	for _, pw := range []string{"", " ", "tulips in the rain"} {
+		if ok, err := h.Verify(ctx, "", pw); ok || err != nil {
+			t.Errorf("Verify(\"\", %q) = %v, %v", pw, ok, err)
+		}
+	}
+	// With every hashing slot taken it waits for one: it does hash.
+	h.slots <- struct{}{}
+	h.slots <- struct{}{}
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer cancel()
+	if _, err := h.Verify(ctx, "", "tulips in the rain"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Verify of an empty hash didn't wait to hash: %v", err)
 	}
 }
 
