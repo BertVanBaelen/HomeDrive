@@ -50,7 +50,8 @@ configuration:
     description: >-
       Laat mensen zich aanmelden met hun gebruikersnaam en wachtwoord van Home
       Assistant zodra hun Homedrive-account eraan gekoppeld is. De code per
-      e-mail volgt nog steeds.
+      e-mail volgt nog steeds. Beheerders kunnen dan ook iemand toevoegen met
+      alleen een gebruikersnaam van Home Assistant, zonder Homedrive-wachtwoord.
 network:
   8080/tcp: >-
     Webinterface. Leeg laten wanneer de Cloudflared-add-on met Homedrive verbindt;

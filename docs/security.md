@@ -27,6 +27,7 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 - `__Host-` session cookie, Secure, HttpOnly, SameSite=Lax; token hashed at rest; sliding 30 d / absolute 90 d; revocable device list; re-authentication for sensitive actions.
 - Session ID rotated on login and privilege change; all sessions revoked on password change.
 - Audit log: logins, failures, code sends, admin actions, device token use; from v2 also shared drive and membership changes, shares and public links.
+- Home Assistant users (v2.8, add-on only, [design](architecture.md#5-authentication)): accounts without a Homedrive password that log in with their Home Assistant password through the Supervisor, always followed by the email code, so a Home Assistant password alone never opens an account. They are always members: refused by the API and by a database `CHECK`, so they can't become or count as an admin without first choosing a password. Sensitive actions are confirmed with the Home Assistant password of the account's own linked username (never one from the request), under the Home Assistant login's rate limits and audited. Email and password login fails for them like a wrong password, in the same time. They can't be unlinked while they have no password. Choosing a password goes through the emailed reset link, which they may request only while signed in and recently confirmed.
 
 ### Requests
 - Host header must match `public_url`. Origin must match on state-changing requests. JSON-only API bodies.
@@ -77,6 +78,13 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 - Unknown, expired, switched-off and trashed links get the same answer.
 - `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`. `Referrer-Policy: no-referrer` keeps tokens out of `Referer` headers, and request logs show them as `…`.
 - Rate limits on unknown tokens, passwords and zips. The page shows no names of people. Creating, changing and removing links is audited.
+
+### Selections, zips, Markdown preview and signatures (v3)
+- `POST /api/nodes/batch` adds no new way in: every item goes through the same function and permission check as its single endpoint and is audited the same, one by one. At most 500 IDs per request; *Delete forever* needs a recent password as for one item. Skipped items answer only codes the single endpoints already give, so the batch reveals nothing a request per item wouldn't.
+- Zip of several: the one-time address carries 128 random bits, kept only in memory, valid 2 minutes, usable once, and only by the session that asked for it. Request logs show it as `…`, like link tokens. Building it checks every ID as for a folder zip; the same per-user limit of 2 zips at a time applies.
+- The Markdown preview builds React elements from marked's tokens: no `innerHTML`, raw HTML shown as text, images never loaded, links limited to `http`, `https` and `mailto` with `rel="noopener noreferrer nofollow"`.
+- Filled-in PDFs are written in the browser; the server stores the result like any upload (same sandbox for serving, poppler only for thumbnails) and never trusts or parses its contents otherwise. Saving in place needs edit rights, the edit lock and the version it started from, checked on creation and again on completion of the upload; people who can only view save a copy in their own My Files.
+- Signatures and initials are PNGs of at most 256 KB and 1600 × 600 pixels, decoded on upload to check them, returned only to their owner (`Cache-Control: no-store`), deletable in Account Settings, and changes are audited. They are a picture, not a cryptographic signature, and the app says so.
 
 ### Container and supply chain
 - Static Go binary on Alpine; no shell needed at runtime.

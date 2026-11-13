@@ -54,7 +54,7 @@ Always use the public URL, also at home. Homedrive refuses requests addressed to
 
 1. Start the add-on and open its **Log** tab. It shows a one-time link: `https://drive.example.com/setup#…`, valid for one hour. A restart gives a new one.
 2. Open the link, fill in your name, email address and a password. You get a code by email; entering it creates the administrator account. That also proves the mail settings work.
-3. Invite the rest of the household: avatar menu → *Manage Users* → *Invite Someone*. They get an email with a link to choose their password. There is no sign-up page.
+3. Invite the rest of the household: avatar menu → *Manage Users* → *Invite Someone*. They get an email with a link to choose their password. There is no sign-up page. With Home Assistant login on, you can also add them as [Home Assistant users](#home-assistant-users), without a Homedrive password.
 
 Everyone has their own **My Files**, which only they see. Shared drives, such as **Family**, hold what the household shares: anyone can create one and choose who joins it.
 
@@ -68,6 +68,18 @@ With *Log in with Home Assistant* turned on, the sign-in page has a *Log In with
 - Wrong passwords count against the same limits as the normal sign-in, and every attempt is in the audit log as `login.homeassistant`.
 
 Home Assistant and its logo are trademarks of the Open Home Foundation. Homedrive is not made or endorsed by the Open Home Foundation; the logo is only there to show which username and password the page asks for.
+
+### Home Assistant users
+
+Instead of inviting someone, an administrator can add them as a Home Assistant user: *Manage Users* → *Add Home Assistant User*, with their name, email address, Home Assistant username and the shared drives they join. No email is sent and they don't need a Homedrive password: they log in on the *Log In with Home Assistant* page with their Home Assistant username and password, and the code still goes to their email address. So that address must be theirs: someone else who knows the Home Assistant password still can't get in without that mailbox.
+
+- Type the username exactly as it is in Home Assistant (*Settings → People*, the person's *Username*, not their display name). Homedrive can't list Home Assistant's users: that needs far more access to the Supervisor than the add-on asks for.
+- They are members. To make one an administrator, they first choose a Homedrive password.
+- Actions that ask for your password again, such as creating an iPhone key or deleting for good, ask them for their Home Assistant password, checked for their own linked user.
+- They can't be unlinked from Home Assistant while they have no Homedrive password: it is their only way in.
+- **A Homedrive password later.** In *Account Settings → Password*, *Email Me a Link* sends them a link to choose one; an administrator can also send it with *Send Password Link*. After that they also log in with their email address and password, and Home Assistant login keeps working.
+- **If you turn Home Assistant login off,** Home Assistant users can't log in. Send each of them a password link from *Manage Users* so they can choose a Homedrive password.
+- In the audit log: `homeassistant_user_added`, and `reauth.homeassistant` for each confirmation with a Home Assistant password.
 
 ## Phones
 
@@ -108,5 +120,5 @@ Home Assistant offers an update when a new version is released; the add-on's *Ch
 
 ## Locked out
 
-- **Forgot your password?** Ask an administrator: on *Manage Users* they can send you a link to choose a new one. There is no "forgot password" link on the sign-in page on purpose: your email already receives the second factor, so a reset by email would make sign-in depend on email alone.
+- **Forgot your password?** Ask an administrator: on *Manage Users* they can send you a link to choose a new one. There is no "forgot password" link on the sign-in page on purpose: your email already receives the second factor, so a reset by email would make sign-in depend on email alone. The same link lets a Home Assistant user choose a first Homedrive password, for example when Home Assistant login is off.
 - **The only administrator forgot their password:** turn on *Admin recovery* in the add-on options and restart. The log shows a one-time link, valid for one hour. On that page, enter the administrator's email address and a new password, and confirm with the code sent to that address. Turn *Admin recovery* off again afterwards.

@@ -33,14 +33,16 @@ const (
 // UserInfo is a user as the admin page shows them.
 type UserInfo struct {
 	User
+	// An account that logs in with Home Assistant only (HAOnly) is active,
+	// not invited, although it has no password either.
 	Status     string     `json:"status"` // active | invited | disabled
 	HAUsername string     `json:"haUsername,omitempty"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
 }
 
 const userInfoQuery = `SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at,
-	u.password_hash = '', u.disabled_at IS NOT NULL,
-	(SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id), coalesce(u.ha_username, '')
+	u.password_hash = '' AND u.ha_only = 0, u.disabled_at IS NOT NULL,
+	(SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id), coalesce(u.ha_username, ''), u.ha_only
 	FROM users u`
 
 func scanUserInfo(row interface{ Scan(...any) error }) (UserInfo, error) {
@@ -50,7 +52,7 @@ func scanUserInfo(row interface{ Scan(...any) error }) (UserInfo, error) {
 		invited, disabled bool
 		seen              sql.NullString
 	)
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &invited, &disabled, &seen, &u.HAUsername); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &invited, &disabled, &seen, &u.HAUsername, &u.HAOnly); err != nil {
 		return UserInfo{}, err
 	}
 	u.CreatedAt, _ = db.ParseTime(created)
@@ -192,7 +194,9 @@ func (s *Service) newLink(ctx context.Context, tx *sql.Tx, userID, purpose, crea
 }
 
 // SendPasswordLink emails a user a new link: the invitation again if they
-// never accepted it, otherwise a password reset.
+// never accepted it, otherwise a password reset. An account that logs in
+// with Home Assistant only gets a reset too: it was never invited, and the
+// link lets it choose a first password.
 func (s *Service) SendPasswordLink(ctx context.Context, admin User, userID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -235,6 +239,8 @@ type UserPatch struct {
 // UpdateUser changes a user's name, role, Home Assistant username or
 // whether they can sign in.
 // Admins can't lock themselves out, and one active admin always remains.
+// An account without a Homedrive password that logs in with Home Assistant
+// can't become an admin or be unlinked until its owner chose a password.
 func (s *Service) UpdateUser(ctx context.Context, admin User, userID string, p UserPatch) (UserInfo, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -261,6 +267,9 @@ func (s *Service) UpdateUser(ctx context.Context, admin User, userID string, p U
 	if p.Role != nil {
 		if *p.Role != "admin" && *p.Role != "member" {
 			return UserInfo{}, ErrInvalidRole
+		}
+		if *p.Role == "admin" && info.HAOnly {
+			return UserInfo{}, ErrHAOnlyAdmin
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, *p.Role, info.ID); err != nil {
 			return UserInfo{}, err
@@ -316,7 +325,7 @@ func (s *Service) openLink(ctx context.Context, q rowQuerier, token string) (Use
 	}
 	var purpose string
 	u, err := scanUserWith(q.QueryRowContext(ctx,
-		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, i.purpose
+		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, u.ha_only, i.purpose
 		 FROM invitations i JOIN users u ON u.id = i.user_id
 		 WHERE i.token_hash = ? AND i.used_at IS NULL AND i.expires_at > ? AND u.disabled_at IS NULL`,
 		auth.HashToken(token), db.FormatTime(s.now())), &purpose)
@@ -337,7 +346,8 @@ func (s *Service) CheckLink(ctx context.Context, token string) (Link, error) {
 
 // AcceptLink sets the password chosen on a welcome page. Opening the
 // emailed link proves the address, so the caller may sign the user in
-// directly. Every other session of the user ends.
+// directly. Every other session of the user ends. An account that logged in
+// with Home Assistant only becomes a normal one; it stays linked.
 func (s *Service) AcceptLink(ctx context.Context, token, password string) (User, error) {
 	u, _, err := s.openLink(ctx, s.db, token)
 	if err != nil {
@@ -365,7 +375,7 @@ func (s *Service) AcceptLink(ctx context.Context, token, password string) (User,
 		sql  string
 		args []any
 	}{
-		{`UPDATE users SET password_hash = ? WHERE id = ?`, []any{hash, u.ID}},
+		{`UPDATE users SET password_hash = ?, ha_only = 0 WHERE id = ?`, []any{hash, u.ID}},
 		{`UPDATE invitations SET used_at = ? WHERE user_id = ? AND used_at IS NULL`, []any{now, u.ID}},
 		{`DELETE FROM sessions WHERE user_id = ?`, []any{u.ID}},
 	} {
@@ -373,5 +383,6 @@ func (s *Service) AcceptLink(ctx context.Context, token, password string) (User,
 			return User{}, err
 		}
 	}
+	u.HAOnly = false
 	return u, tx.Commit()
 }

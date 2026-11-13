@@ -49,6 +49,9 @@ type User struct {
 	Role      string    `json:"role"`
 	Locale    string    `json:"locale"`
 	CreatedAt time.Time `json:"createdAt"`
+	// HAOnly: the account has no Homedrive password and logs in with Home
+	// Assistant; sensitive actions are confirmed with that password.
+	HAOnly bool `json:"haOnly,omitempty"`
 }
 
 func (u User) IsAdmin() bool { return u.Role == "admin" }
@@ -121,12 +124,12 @@ func (s *Service) CountUsers(ctx context.Context) (int, error) {
 	return n, err
 }
 
-const userColumns = `id, email, name, role, locale, created_at`
+const userColumns = `id, email, name, role, locale, created_at, ha_only`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var created string
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &u.HAOnly); err != nil {
 		return User{}, err
 	}
 	u.CreatedAt, _ = db.ParseTime(created)
@@ -203,8 +206,9 @@ func (s *Service) CreateUser(ctx context.Context, email, name, password, role, l
 }
 
 // Authenticate checks an email address and password. Unknown addresses,
-// disabled accounts and wrong passwords all give ErrInvalidCredentials and
-// take the same time.
+// disabled accounts, accounts without a password (an open invitation, or
+// Home Assistant only) and wrong passwords all give ErrInvalidCredentials
+// and take the same time.
 func (s *Service) Authenticate(ctx context.Context, email, password string) (User, error) {
 	email, _ = NormalizeEmail(email)
 	var hash string
@@ -227,7 +231,7 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (Use
 func scanUserWith(row *sql.Row, extra ...any) (User, error) {
 	var u User
 	var created string
-	dest := append([]any{&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created}, extra...)
+	dest := append([]any{&u.ID, &u.Email, &u.Name, &u.Role, &u.Locale, &created, &u.HAOnly}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return User{}, err
 	}
@@ -335,7 +339,7 @@ func (s *Service) SessionUser(ctx context.Context, token string) (User, Session,
 	hash := auth.HashToken(token)
 	var created, lastSeen, expires, recent string
 	u, err := scanUserWith(s.db.QueryRowContext(ctx,
-		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, s.created_at, s.last_seen_at, s.expires_at, s.recent_auth_at
+		`SELECT u.id, u.email, u.name, u.role, u.locale, u.created_at, u.ha_only, s.created_at, s.last_seen_at, s.expires_at, s.recent_auth_at
 		 FROM sessions s JOIN users u ON u.id = s.user_id
 		 WHERE s.id_hash = ? AND u.disabled_at IS NULL`, hash), &created, &lastSeen, &expires, &recent)
 	if errors.Is(err, sql.ErrNoRows) {

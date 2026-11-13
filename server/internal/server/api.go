@@ -79,7 +79,8 @@ func (s *Server) admin(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // recentAuth answers 403 reauth_required unless the password was entered in
-// the last few minutes; the app then asks for it and retries.
+// the last few minutes; the app then asks for it and retries. Accounts
+// without a Homedrive password confirm with their Home Assistant password.
 func recentAuth(w http.ResponseWriter, r *http.Request) bool {
 	if !currentSession(r.Context()).RecentlyAuthenticated(time.Now()) {
 		writeError(w, http.StatusForbidden, "reauth_required")
@@ -187,6 +188,9 @@ var apiErrors = []struct {
 	{accounts.ErrTooManyDevices, http.StatusConflict, "too_many_devices"},
 	{accounts.ErrInvalidHAUsername, http.StatusBadRequest, "invalid_ha_username"},
 	{accounts.ErrHAUsernameTaken, http.StatusConflict, "ha_username_taken"},
+	{accounts.ErrHAOnlyAdmin, http.StatusConflict, "ha_only_admin"},
+	{accounts.ErrHAOnlyUnlink, http.StatusConflict, "ha_only_unlink"},
+	{accounts.ErrNoPassword, http.StatusConflict, "no_password"},
 	{auth.ErrPasswordTooShort, http.StatusBadRequest, "password_too_short"},
 	{auth.ErrPasswordTooLong, http.StatusBadRequest, "password_too_long"},
 	{auth.ErrPasswordCommon, http.StatusBadRequest, "password_common"},

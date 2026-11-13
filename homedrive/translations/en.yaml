@@ -50,6 +50,8 @@ configuration:
     description: >-
       Lets people log in with their Home Assistant username and password once
       their Homedrive account is linked to it. The email code still follows.
+      Admins can then also add people with just a Home Assistant username,
+      without a Homedrive password.
 network:
   8080/tcp: >-
     Web interface. Leave empty when the Cloudflared add-on connects to Homedrive;

@@ -10,6 +10,9 @@ export interface User {
   name: string
   role: 'admin' | 'member'
   locale: string
+  // No Homedrive password: logs in with Home Assistant, and confirms
+  // sensitive actions with the Home Assistant password.
+  haOnly?: boolean
 }
 
 // Drive is where an item lives. Kind 'share' is an item someone shared with
@@ -492,6 +495,8 @@ export const api = {
   updateMe: (p: { name?: string; locale?: string }) => request<User>('PATCH', '/api/me', p),
   changePassword: (current: string, password: string) =>
     request<void>('POST', '/api/me/password', { current, password }),
+  // Emails a user without a Homedrive password a link to choose one.
+  requestPasswordLink: () => request<void>('POST', '/api/me/password-link'),
   sessions: () => request<SessionInfo[]>('GET', '/api/me/sessions'),
   revokeSession: (id: string) => request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`),
   deviceTokens: () => request<DeviceToken[]>('GET', '/api/me/devices'),
@@ -505,6 +510,9 @@ export const api = {
   users: () => request<UserInfo[]>('GET', '/api/admin/users'),
   inviteUser: (p: { email: string; name: string; role: string; locale: string; driveIds?: string[] }) =>
     request<{ user: UserInfo; error?: string }>('POST', '/api/admin/users', p),
+  // A Home Assistant user: no invitation, no Homedrive password, a member.
+  addHomeAssistantUser: (p: { email: string; name: string; haUsername: string; locale: string; driveIds?: string[] }) =>
+    request<{ user: UserInfo }>('POST', '/api/admin/homeassistant/users', p),
   updateUser: (id: string, p: { name?: string; role?: string; disabled?: boolean; haUsername?: string }) =>
     request<UserInfo>('PATCH', `/api/admin/users/${encodeURIComponent(id)}`, p),
   sendLink: (id: string) => request<void>('POST', `/api/admin/users/${encodeURIComponent(id)}/link`),

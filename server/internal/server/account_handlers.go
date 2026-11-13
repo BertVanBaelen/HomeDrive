@@ -12,6 +12,7 @@ func (s *Server) accountRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/reauth", s.authed(s.handleReauth))
 	mux.HandleFunc("PATCH /api/me", s.authed(s.handleUpdateMe))
 	mux.HandleFunc("POST /api/me/password", s.authed(s.handleChangePassword))
+	mux.HandleFunc("POST /api/me/password-link", s.authed(s.handleOwnPasswordLink))
 	mux.HandleFunc("GET /api/me/sessions", s.authed(s.handleSessions))
 	mux.HandleFunc("DELETE /api/me/sessions/{id}", s.authed(s.handleRevokeSession))
 
@@ -53,6 +54,10 @@ func (s *Server) handleReauth(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
+	if currentUser(r.Context()).HAOnly {
+		s.reauthHomeAssistant(w, r, req.Password)
+		return
+	}
 	if err := s.accounts.Reauth(r.Context(), currentSession(r.Context()), req.Password); err != nil {
 		s.checkPasswordAttempt(r, err)
 		s.fail(w, r, err)
@@ -92,6 +97,28 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.accounts.Audit(ctx, u.ID, ClientIP(ctx).String(), "password_changed", "")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleOwnPasswordLink emails a user without a Homedrive password (one who
+// logs in with Home Assistant) a link to choose one, the same link an admin
+// would send. It needs a recent confirmation and goes to their own address,
+// so it proves the mailbox again; signed out, there is still no way to ask
+// for a link.
+func (s *Server) handleOwnPasswordLink(w http.ResponseWriter, r *http.Request) {
+	if !recentAuth(w, r) || !s.limitIP(w, r) {
+		return
+	}
+	ctx, u := r.Context(), currentUser(r.Context())
+	if !u.HAOnly {
+		writeError(w, http.StatusConflict, "has_password")
+		return
+	}
+	if err := s.accounts.SendPasswordLink(ctx, u, u.ID); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.accounts.Audit(ctx, u.ID, ClientIP(ctx).String(), "password_link_sent", u.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

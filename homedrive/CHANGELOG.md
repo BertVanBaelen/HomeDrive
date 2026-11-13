@@ -2,6 +2,16 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.8.0
+
+**Home Assistant users** (add-on only, with `homeassistant_login` on)
+
+- *Manage Users* → *Add Home Assistant User* adds someone with their name, email address and Home Assistant username instead of an invitation. No email is sent and they need no Homedrive password: they log in on the *Log In with Home Assistant* page, and the code still goes to their email address.
+- Home Assistant users are members. Actions that ask for your password again ask them for their Home Assistant password, checked for their own linked user. They can't be unlinked or made administrator until they have a Homedrive password.
+- They can choose a Homedrive password later with *Account Settings → Password → Email Me a Link*, or the administrator's *Send Password Link*. Home Assistant login keeps working afterwards.
+- Turning `homeassistant_login` off again locks Home Assistant users out until an administrator sends them a password link.
+- The database gets a new column; going back to 2.7.0 means restoring the backup made before the update.
+
 ## 2.7.0
 
 **Editors, versions and edit locks**

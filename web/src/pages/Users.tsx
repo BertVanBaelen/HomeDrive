@@ -11,13 +11,14 @@ import { plural, useLocale, useT } from '../i18n'
 import { HomeAssistantUserDialog, useHomeAssistantLogin } from './HomeAssistant'
 import { Field } from './Login'
 
-// Users is the admin page: invite people, send password links, change
-// roles, disable accounts, and manage who is in each shared drive.
+// Users is the admin page: invite people, add Home Assistant users, send
+// password links, change roles, disable accounts, and manage who is in each
+// shared drive.
 export function Users({ me }: { me: User }) {
   const t = useT()
   const locale = useLocale()
   const [users, setUsers] = useState<UserInfo[] | null>(null)
-  const [inviting, setInviting] = useState(false)
+  const [inviting, setInviting] = useState<'email' | 'homeassistant' | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const homeAssistant = useHomeAssistantLogin()
   const [linking, setLinking] = useState<UserInfo | null>(null)
@@ -46,10 +47,18 @@ export function Users({ me }: { me: User }) {
           <h1>{t('users.title')}</h1>
           {users && <span>{plural(t, 'count.people', users.length)}</span>}
         </div>
-        <button type="button" className="btn btn--primary" onClick={() => setInviting(true)}>
-          <Icon d={icons.userAdd} size={18} />
-          {t('users.invite')}
-        </button>
+        <div className="settings__actions">
+          {homeAssistant && (
+            <button type="button" className="btn" onClick={() => setInviting('homeassistant')}>
+              <Icon d={icons.link} size={18} />
+              {t('users.haAdd')}
+            </button>
+          )}
+          <button type="button" className="btn btn--primary" onClick={() => setInviting('email')}>
+            <Icon d={icons.userAdd} size={18} />
+            {t('users.invite')}
+          </button>
+        </div>
       </div>
 
       <ul className="people">
@@ -70,8 +79,10 @@ export function Users({ me }: { me: User }) {
                     {t(u.role === 'admin' ? 'role.admin' : 'role.member')}
                   </span>
                   <span className={'badge badge--' + u.status}>{t(`status.${u.status}`)}</span>
-                  {homeAssistant && u.haUsername && (
-                    <span className="badge">{t('ha.badge', { username: u.haUsername })}</span>
+                  {u.haOnly ? (
+                    <span className="badge">{t('users.haOnly', { username: u.haUsername ?? '' })}</span>
+                  ) : (
+                    homeAssistant && u.haUsername && <span className="badge">{t('ha.badge', { username: u.haUsername })}</span>
                   )}
                   <span>
                     {u.lastSeenAt ? t('account.lastActive', { when: formatWhen(u.lastSeenAt, t, locale) }) : t('users.never')}
@@ -119,7 +130,7 @@ export function Users({ me }: { me: User }) {
       {linking && <HomeAssistantUserDialog user={linking} onClose={() => setLinking(null)} onDone={load} />}
 
       {inviting && (
-        <InviteDialog onClose={() => setInviting(false)}
+        <InviteDialog homeAssistant={inviting === 'homeassistant'} onClose={() => setInviting(null)}
           onDone={() => {
             load()
             // The invitee joined drives, so their member lists changed.
@@ -206,13 +217,17 @@ function AdminDrives({ me }: { me: User }) {
   )
 }
 
-function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+// InviteDialog invites someone by email to choose a password. With
+// homeAssistant it adds a Home Assistant user instead: no email and no
+// Homedrive password, always a member.
+function InviteDialog({ homeAssistant = false, onClose, onDone }: { homeAssistant?: boolean; onClose: () => void; onDone: () => void }) {
   const t = useT()
   const locale = useLocale()
   const drivesId = useId()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('member')
+  const [haUsername, setHaUsername] = useState('')
   const [lang, setLang] = useState<string>(locale)
   const [drives, setDrives] = useState<AdminDrive[]>([])
   // undefined until the drives load: the server then picks the default ones.
@@ -238,6 +253,13 @@ function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
     setBusy(true)
     setError('')
     try {
+      if (homeAssistant) {
+        const r = await api.addHomeAssistantUser({ name, email, haUsername, locale: lang, driveIds: picked })
+        onDone()
+        onClose()
+        showToast(t('users.haAdded', { name: r.user.name }))
+        return
+      }
       const r = await api.inviteUser({ name, email, role, locale: lang, driveIds: picked })
       onDone()
       if (r.error) {
@@ -255,13 +277,20 @@ function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
   }
 
   return (
-    <Modal title={t('users.inviteTitle')} subtitle={t('users.inviteBody')} onClose={onClose}>
+    <Modal title={t(homeAssistant ? 'users.haAddTitle' : 'users.inviteTitle')}
+      subtitle={t(homeAssistant ? 'users.haAddBody' : 'users.inviteBody')} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <Field label={t('account.name')} required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-        <Field label={t('login.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field label={t('login.email')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+          hint={homeAssistant ? t('users.haEmailHint') : undefined} />
         <div className="form__row">
-          <SelectField label={t('users.role')} value={role} onChange={setRole}
-            options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`), hint: t(`role.${r}.hint`) }))} />
+          {homeAssistant ? (
+            <Field label={t('ha.username')} autoComplete="off" autoCapitalize="none" spellCheck={false} required
+              maxLength={100} value={haUsername} onChange={(e) => setHaUsername(e.target.value)} />
+          ) : (
+            <SelectField label={t('users.role')} value={role} onChange={setRole}
+              options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`), hint: t(`role.${r}.hint`) }))} />
+          )}
           <SelectField label={t('users.language')} value={lang} onChange={setLang}
             options={[
               { value: 'en', label: 'English' },
@@ -285,8 +314,8 @@ function InviteDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
         <div className="modal__foot">
           <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" className="btn btn--primary" disabled={busy}>
-            <Icon d={icons.send} size={18} />
-            {t('users.send')}
+            <Icon d={homeAssistant ? icons.userAdd : icons.send} size={18} />
+            {t(homeAssistant ? 'users.haAddSubmit' : 'users.send')}
           </button>
         </div>
       </form>

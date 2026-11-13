@@ -37,7 +37,8 @@ func (s *Service) checkPassword(ctx context.Context, userID, password string) er
 }
 
 // Reauth confirms the password for the current session, which allows
-// sensitive actions for the next few minutes.
+// sensitive actions for the next few minutes. Accounts without a Homedrive
+// password use ReauthHomeAssistant instead.
 func (s *Service) Reauth(ctx context.Context, sess Session, password string) error {
 	if err := s.checkPassword(ctx, sess.UserID, password); err != nil {
 		return err
@@ -66,8 +67,13 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, name, locale
 }
 
 // ChangePassword sets a new password after checking the current one. All
-// other sessions of the user end; this one stays.
+// other sessions of the user end; this one stays. An account without a
+// password chooses its first one through an emailed link instead, which
+// proves the address again (ErrNoPassword).
 func (s *Service) ChangePassword(ctx context.Context, u User, sess Session, current, next string) error {
+	if u.HAOnly {
+		return ErrNoPassword
+	}
 	if err := s.checkPassword(ctx, u.ID, current); err != nil {
 		return err
 	}

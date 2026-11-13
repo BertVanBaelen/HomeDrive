@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homedrive v3 · UX options</title>
+<!--
+  Homedrive v3 UX options: mockups to choose from, for the nine v3 UX items
+  in docs/roadmap.md. Self-contained (no network). Open it in a browser.
+  The chosen options are written up in docs/architecture.md (v3 sections).
+-->
+<style>
+:root {
+  --p900: #166534; --p700: #15803d; --p400: #4ade80; --p100: #dcfce7; --p50: #f0fdf4; --focus: #22c55e;
+  --g50: #f9fafb; --g100: #f3f4f6; --g200: #e5e7eb; --g300: #d1d5db; --g400: #9ca3af; --g500: #6b7280;
+  --g600: #4b5563; --g700: #374151; --g800: #1f2937; --g900: #111827;
+  --danger: #dc2626; --star: #f59e0b; --amber50: #fffbeb; --amber700: #b45309;
+  --font: Inter, 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--font); color: var(--g800); background: var(--g50); font-size: 15px; line-height: 1.5; padding-bottom: 96px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+svg { display: block; flex: none; }
+h1, h2, h3, h4 { color: var(--g900); margin: 0; line-height: 1.25; }
+code { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.9em; background: var(--g100); padding: 1px 5px; border-radius: 4px; }
+
+/* ---------- page ---------- */
+.top { background: var(--p900); color: #fff; }
+.top__inner { max-width: 1240px; margin: 0 auto; padding: 28px 24px 24px; display: flex; gap: 16px; align-items: flex-start; }
+.top h1 { color: #fff; font-size: 28px; }
+.top p { margin: 6px 0 0; color: #d1fae5; max-width: 760px; }
+.toc { max-width: 1240px; margin: 0 auto; padding: 14px 24px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.toc a { text-decoration: none; color: var(--p900); background: #fff; border: 1px solid var(--g200); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600; }
+.toc a:hover { border-color: var(--p700); }
+main { max-width: 1240px; margin: 0 auto; padding: 8px 24px 40px; }
+.feature { margin-top: 36px; padding-top: 8px; scroll-margin-top: 12px; }
+.feature > h2 { font-size: 24px; display: flex; align-items: center; gap: 10px; }
+.num { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--p100); color: var(--p900); font-size: 16px; font-weight: 700; flex: none; }
+.ask { margin: 4px 0 0 42px; color: var(--g500); font-size: 14px; font-style: italic; }
+.now, .same { margin: 14px 0 0; border-radius: 12px; padding: 12px 16px; font-size: 14px; }
+.now { background: #fff7ed; border: 1px solid #fed7aa; }
+.now strong { color: #9a3412; }
+.same { background: #fff; border: 1px solid var(--g200); }
+.same strong { color: var(--p900); }
+.same ul, .now ul { margin: 6px 0 0; padding-left: 20px; }
+.same li + li { margin-top: 3px; }
+.sub { margin: 26px 0 0; font-size: 17px; }
+.options { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; align-items: start; }
+.options--wide { grid-template-columns: repeat(auto-fit, minmax(660px, 1fr)); }
+.opt { background: #fff; border: 1px solid var(--g200); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: border-color .15s, box-shadow .15s; }
+.opt.is-picked { border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.opt__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opt__letter { width: 28px; height: 28px; border-radius: 8px; background: var(--g900); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.opt__head h3 { font-size: 16px; }
+.rec { font-size: 11px; font-weight: 700; color: var(--p900); background: var(--p100); border-radius: 999px; padding: 2px 8px; text-transform: uppercase; letter-spacing: .03em; }
+.opt p { margin: 0; font-size: 14px; }
+.opt ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--g600); }
+.pros li::marker { content: '+  '; color: var(--p700); font-weight: 700; }
+.cons li::marker { content: '–  '; color: #b91c1c; font-weight: 700; }
+.stage { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 14px; background: var(--g100); border-radius: 12px; overflow-x: auto; }
+.pick { align-self: flex-start; border: 1px solid var(--g300); background: #fff; border-radius: 10px; padding: 7px 14px; font-weight: 600; font-size: 14px; display: inline-flex; gap: 6px; align-items: center; }
+.pick:hover { border-color: var(--p700); color: var(--p900); }
+.opt.is-picked .pick { background: var(--p700); border-color: var(--p700); color: #fff; }
+.caption { font-size: 12px; color: var(--g500); text-align: center; margin-top: 6px; }
+.frame-wrap { display: flex; flex-direction: column; align-items: center; }
+.controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.ctl { border: 1px solid var(--g300); background: #fff; border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 600; display: inline-flex; gap: 5px; align-items: center; }
+.ctl:hover { border-color: var(--p700); color: var(--p900); }
+.ctl--dark { background: var(--g900); color: #fff; border-color: var(--g900); }
+.ctl--dark:hover { color: #fff; background: var(--g700); }
+.hint { font-size: 12px; color: var(--g500); text-align: center; }
+
+/* bottom bar with the choices */
+.picks { position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; background: var(--g900); color: #fff; box-shadow: 0 -8px 24px rgba(0,0,0,.2); }
+.picks__inner { max-width: 1240px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.picks strong { font-size: 13px; margin-right: 4px; }
+.chip { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; background: var(--g700); color: var(--g300); text-decoration: none; }
+.chip.is-set { background: var(--p700); color: #fff; }
+.picks__end { margin-left: auto; display: flex; gap: 8px; }
+.picks button { border: 0; border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; background: #fff; color: var(--g900); }
+.picks button.ghost { background: transparent; color: #fff; border: 1px solid var(--g600); }
+
+/* ---------- mock frames ---------- */
+.phone { width: 280px; height: 580px; flex: none; border-radius: 34px; background: var(--g900); padding: 9px; box-shadow: 0 20px 40px -16px rgba(0,0,0,.45); }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 26px; overflow: hidden; background: var(--g50); font-size: 12px; line-height: 1.35; user-select: none; }
+.sbar { height: 22px; display: flex; justify-content: space-between; align-items: center; padding: 0 18px; font-size: 10px; font-weight: 700; color: #fff; background: var(--p900); }
+.sbar--dark { background: var(--g900); }
+.sbar--light { background: #fff; color: var(--g900); }
+.desk { width: 640px; height: 400px; flex: none; border-radius: 10px; border: 1px solid var(--g300); background: #fff; overflow: hidden; box-shadow: 0 16px 32px -18px rgba(0,0,0,.35); display: flex; flex-direction: column; font-size: 12px; line-height: 1.35; position: relative; user-select: none; }
+.chrome { height: 24px; flex: none; background: var(--g200); display: flex; gap: 5px; align-items: center; padding: 0 10px; }
+.chrome span { width: 9px; height: 9px; border-radius: 50%; background: var(--g400); }
+.chrome em { margin-left: 12px; font-style: normal; font-size: 10px; color: var(--g500); background: #fff; border-radius: 5px; padding: 1px 10px; }
+
+/* app parts, shared by phone and desktop mocks */
+.m-head { height: 42px; flex: none; background: var(--p900); color: #fff; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-weight: 700; font-size: 13px; }
+.m-search { flex: 1; height: 26px; border-radius: 7px; background: #fff; color: var(--g400); display: flex; align-items: center; gap: 6px; padding: 0 8px; font-weight: 400; font-size: 11px; }
+.m-ava { width: 26px; height: 26px; border-radius: 50%; background: #fde68a; color: #92400e; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+.m-body { position: absolute; top: 64px; left: 0; right: 0; bottom: 52px; overflow: hidden; padding: 10px; }
+.m-crumbs { display: flex; align-items: center; gap: 4px; color: var(--g500); font-size: 10px; }
+.m-back { width: 24px; height: 24px; border-radius: 7px; border: 1px solid var(--g200); background: #fff; display: grid; place-items: center; color: var(--g700); }
+.m-title { display: flex; align-items: baseline; gap: 6px; margin: 6px 0 8px; }
+.m-title b { font-size: 18px; color: var(--g900); }
+.m-title span { font-size: 10px; color: var(--g500); }
+.m-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.m-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.m-card { position: relative; background: #fff; border: 1px solid var(--g200); border-radius: 10px; padding: 5px 5px 7px; min-width: 0; }
+.m-card.is-sel { border-color: var(--p700); background: var(--p50); box-shadow: 0 0 0 1px var(--p700); }
+.m-thumb { position: relative; height: 74px; border-radius: 6px; background: var(--g100); overflow: hidden; }
+.m-name { display: flex; gap: 5px; align-items: center; margin: 6px 2px 0; padding-right: 22px; font-weight: 600; font-size: 11px; color: var(--g900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-name span { overflow: hidden; text-overflow: ellipsis; }
+.m-meta { margin: 1px 2px 0 20px; padding-right: 22px; font-size: 9.5px; color: var(--g500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-info { position: absolute; right: 4px; bottom: 6px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--g200); background: #fff; display: grid; place-items: center; color: var(--g600); }
+.m-more { position: absolute; right: 9px; top: 9px; width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.95); box-shadow: 0 1px 3px rgba(0,0,0,.25); display: grid; place-items: center; color: var(--g700); z-index: 2; }
+.m-check { position: absolute; left: 9px; top: 9px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: rgba(17,24,39,.25); display: grid; place-items: center; color: #fff; z-index: 2; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.m-card.is-sel .m-check, .m-row.is-sel .m-check { background: var(--p700); border-color: var(--p700); }
+.m-check svg { opacity: 0; }
+.is-sel .m-check svg { opacity: 1; }
+.m-tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; background: #fff; border-top: 1px solid var(--g200); display: flex; z-index: 5; }
+.m-tabbar a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 8.5px; font-weight: 600; color: var(--g600); border-top: 2px solid transparent; text-decoration: none; }
+.m-tabbar a.on { color: var(--p900); border-top-color: var(--p900); }
+.m-tabbar .m-tabplus { flex: none; width: 50px; }
+.m-tabplus i { width: 38px; height: 38px; border-radius: 12px; background: var(--p700); color: #fff; display: grid; place-items: center; }
+.m-fab { position: absolute; right: 12px; bottom: 62px; z-index: 6; height: 46px; min-width: 46px; border-radius: 14px; background: var(--p700); color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; font-weight: 700; font-size: 12px; box-shadow: 0 8px 14px -4px rgba(0,0,0,.35); }
+.m-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.4); z-index: 20; }
+.m-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; background: #fff; border-radius: 16px 16px 0 0; padding: 8px 14px 16px; box-shadow: 0 -10px 30px rgba(0,0,0,.25); }
+.m-sheet::before { content: ''; display: block; width: 32px; height: 4px; border-radius: 4px; background: var(--g200); margin: 0 auto 10px; }
+.m-sheet h4 { font-size: 14px; }
+.m-sheet p { margin: 4px 0 0; font-size: 11px; color: var(--g600); }
+.m-dialog { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); z-index: 21; background: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); }
+.m-btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+.m-btn { border: 1px solid var(--g300); background: #fff; color: var(--g800); border-radius: 8px; padding: 6px 10px; font-weight: 600; font-size: 11px; display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+.m-btn--p { background: var(--p700); border-color: var(--p700); color: #fff; }
+.m-btn--g { border-color: transparent; color: var(--p700); }
+.m-toast { position: absolute; left: 12px; right: 12px; bottom: 64px; z-index: 30; background: var(--g900); color: #fff; border-radius: 10px; padding: 9px 12px; display: flex; gap: 8px; align-items: center; font-size: 11px; box-shadow: 0 10px 20px -6px rgba(0,0,0,.4); }
+.m-toast b { margin-left: auto; color: var(--p400); }
+.m-field { border: 1px solid var(--g300); border-radius: 8px; height: 30px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; background: #fff; }
+.m-field.is-focus { border-color: var(--p700); box-shadow: 0 0 0 2px #bbf7d0; }
+.caret { display: inline-block; width: 1px; height: 13px; background: var(--g900); margin-left: 1px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { to { opacity: 0; } }
+
+/* rows (list view, pickers) */
+.m-row { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 8px; height: 36px; border-bottom: 1px solid var(--g100); background: #fff; font-size: 11px; }
+.m-row.is-sel { background: var(--p50); }
+.m-row .m-check { position: static; border-color: var(--g300); background: #fff; width: 16px; height: 16px; box-shadow: none; }
+.m-row span.grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--g900); }
+.m-row small { color: var(--g500); font-size: 10px; }
+
+/* thumbnails */
+.t-photo { background: radial-gradient(circle at 76% 28%, #fde68a 0 9%, transparent 10%), radial-gradient(ellipse 70% 45% at 25% 100%, #15803d 0 98%, transparent 100%), radial-gradient(ellipse 80% 50% at 85% 100%, #166534 0 98%, transparent 100%), linear-gradient(#60a5fa, #dbeafe 80%); }
+.t-photo2 { background: radial-gradient(circle at 50% 70%, #fef3c7 0 12%, transparent 13%), linear-gradient(to top, #1e3a8a 0 22%, transparent 22%), linear-gradient(#7c3aed, #f97316 60%, #fde68a); }
+.t-photo3 { background: radial-gradient(ellipse 60% 30% at 40% 100%, #d6d3d1 0 98%, transparent 100%), linear-gradient(to top, #0e7490 0 38%, transparent 38%), linear-gradient(#bae6fd, #e0f2fe); }
+.t-doc { background: var(--g100); display: flex; justify-content: center; padding-top: 8px; }
+.t-doc::after { content: ''; width: 64%; height: 110%; background: #fff linear-gradient(var(--g800), var(--g800)) 10px 10px / 45% 5px no-repeat; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.12); background-image: linear-gradient(var(--g800), var(--g800)), repeating-linear-gradient(transparent 0 6px, var(--g200) 6px 9px); background-size: 45% 5px, 80% 100%; background-position: 10px 10px, 10px 22px; background-repeat: no-repeat; }
+.t-pdf::after { background-image: linear-gradient(#b91c1c, #b91c1c), repeating-linear-gradient(transparent 0 6px, var(--g200) 6px 9px); }
+.t-sheet { background-color: #fff; background-image: repeating-linear-gradient(90deg, transparent 0 24%, var(--g200) 24% 25%), repeating-linear-gradient(transparent 0 11px, var(--g200) 11px 12px); }
+.t-sheet::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: #bbf7d0; }
+.t-video { background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.95) 0 13px, transparent 14px), linear-gradient(135deg, #312e81, #6d28d9); }
+.t-folder { background: #fefce8; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 6px; }
+.t-folder > div { border-radius: 3px; }
+.t-folder--empty { display: grid; place-items: center; }
+
+/* viewer */
+.m-viewer { position: absolute; inset: 0; background: var(--g900); color: #fff; z-index: 15; display: flex; flex-direction: column; }
+.m-vbar { flex: none; height: 46px; display: flex; align-items: center; gap: 7px; padding: 0 8px; border-bottom: 1px solid var(--g800); }
+.m-vbar .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-vbar .t b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-vbar .t span { font-size: 9.5px; color: var(--g400); }
+.m-dbtn { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--g800); display: grid; place-items: center; color: #fff; }
+.m-dbtn--plain { background: transparent; }
+.m-seg { display: flex; background: var(--g800); border-radius: 8px; padding: 2px; flex: none; }
+.m-seg span { padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; color: var(--g300); }
+.m-seg span.on { background: #fff; color: var(--g900); }
+.m-seg--light { background: var(--g100); }
+.m-seg--light span { color: var(--g600); }
+.m-seg--light span.on { background: #fff; color: var(--p900); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.m-vstage { position: relative; flex: 1; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+
+/* rendered Markdown page */
+.md { background: #fff; color: var(--g800); border-radius: 8px; padding: 16px 16px 20px; font-size: 10.5px; line-height: 1.55; }
+.md h5 { margin: 0 0 6px; font-size: 16px; color: var(--g900); }
+.md h6 { margin: 10px 0 3px; font-size: 12px; color: var(--g900); }
+.md p { margin: 0 0 6px; }
+.md ul { margin: 0 0 6px; padding-left: 16px; }
+.md blockquote { margin: 6px 0; padding: 4px 8px; border-left: 3px solid var(--p700); background: var(--p50); color: var(--g700); }
+.md a { color: var(--p700); }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
+
+/* editor */
+.m-editor { position: absolute; inset: 0; background: var(--g100); z-index: 16; display: flex; flex-direction: column; }
+.m-ehead { flex: none; height: 46px; background: #fff; border-bottom: 1px solid var(--g200); display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+.m-ehead .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-ehead .t b { font-size: 12px; color: var(--g900); }
+.m-ehead .t span { font-size: 9.5px; color: var(--p700); }
+.m-tools { flex: none; height: 34px; background: #fff; border-bottom: 1px solid var(--g200); display: flex; align-items: center; gap: 2px; padding: 0 6px; overflow: hidden; color: var(--g700); font-weight: 700; font-size: 11px; }
+.m-tools span { min-width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; }
+.m-tools span.on { background: var(--p50); color: var(--p900); }
+.m-note { flex: none; background: var(--amber50); color: #92400e; font-size: 10px; padding: 6px 10px; border-bottom: 1px solid #fde68a; }
+.diff { margin-top: 8px; border: 1px solid var(--g200); border-radius: 8px; overflow: hidden; font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; }
+.diff div { padding: 1px 6px; white-space: pre; }
+.diff .del { background: #fee2e2; color: #991b1b; }
+.diff .add { background: #dcfce7; color: #166534; }
+.diff .ctx { color: var(--g500); }
+.m-list { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 11px; }
+.m-list li { display: flex; gap: 6px; align-items: flex-start; }
+
+/* desktop app */
+.d-body { flex: 1; min-height: 0; display: flex; position: relative; }
+.d-side { width: 128px; flex: none; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--g100); }
+.d-new { height: 30px; border-radius: 9px; background: var(--p700); color: #fff; font-weight: 700; display: flex; align-items: center; gap: 5px; padding: 0 10px; margin-bottom: 8px; }
+.d-nav { height: 26px; border-radius: 7px; display: flex; align-items: center; gap: 7px; padding: 0 8px; color: var(--g700); font-weight: 600; font-size: 11px; }
+.d-nav.on { background: var(--p100); color: var(--p900); }
+.d-main { flex: 1; min-width: 0; padding: 10px 14px; position: relative; overflow: hidden; }
+.d-main .m-card .m-thumb { height: 66px; }
+.d-selbar { height: 42px; flex: none; background: #fff; border-bottom: 1px solid var(--g200); display: flex; align-items: center; gap: 6px; padding: 0 10px; color: var(--g900); }
+.d-selbar b { font-size: 13px; margin-right: 6px; }
+.d-selbar .sp { flex: 1; }
+.ibtn { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--g700); }
+.ibtn:hover { background: var(--g100); }
+.floatbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 8; background: var(--g900); color: #fff; border-radius: 14px; padding: 5px; display: flex; gap: 2px; box-shadow: 0 12px 24px -8px rgba(0,0,0,.45); white-space: nowrap; }
+.floatbar span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 8px; border-radius: 9px; font-size: 9px; font-weight: 600; }
+.floatbar span:hover { background: var(--g700); }
+.floatbar .x { justify-content: center; color: var(--g400); }
+
+/* context menu */
+.cmenu { position: absolute; z-index: 40; width: 196px; background: #fff; border: 1px solid var(--g200); border-radius: 10px; box-shadow: 0 16px 32px -8px rgba(0,0,0,.3); padding: 4px; font-size: 11.5px; }
+.cmenu .it { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--g800); }
+.cmenu .it:hover, .cmenu .it.hl { background: var(--g100); }
+.cmenu .it kbd { margin-left: auto; font-family: inherit; font-size: 10px; color: var(--g400); }
+.cmenu .it.danger { color: #b91c1c; }
+.cmenu hr { border: 0; border-top: 1px solid var(--g100); margin: 4px 2px; }
+.cmenu .quick { display: flex; justify-content: space-between; padding: 2px 4px 4px; border-bottom: 1px solid var(--g100); margin-bottom: 4px; }
+.cmenu .quick span { width: 36px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--g700); }
+.cmenu .quick span:hover { background: var(--g100); }
+.cmenu .quick span.danger { color: #b91c1c; }
+.cmenu .head { padding: 4px 8px 6px; font-size: 10px; color: var(--g500); font-weight: 600; }
+
+/* animation demo layers */
+.layer { position: absolute; left: 0; right: 0; top: 64px; bottom: 52px; padding: 10px; background: var(--g50); overflow: hidden; }
+.layer--child { visibility: hidden; }
+.layer--viewer { top: 0; bottom: 0; padding: 0; background: var(--g900); visibility: hidden; z-index: 12; display: flex; align-items: center; justify-content: center; }
+.zoom-ghost-m { position: absolute; z-index: 9; background: #fef9c3; border-radius: 6px; pointer-events: none; }
+
+/* zoom demo */
+.zstage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; cursor: grab; display: flex; align-items: center; justify-content: center; }
+.zstage:active { cursor: grabbing; }
+.zimg { width: 230px; height: 160px; border-radius: 6px; transform-origin: 0 0; will-change: transform; position: absolute; left: 0; top: 0; }
+.zchip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); background: rgba(31,41,55,.92); color: #fff; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.zchip.show { opacity: 1; pointer-events: auto; cursor: pointer; }
+.zbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(31,41,55,.95); border-radius: 12px; display: flex; align-items: center; gap: 2px; padding: 3px; color: #fff; font-size: 11px; font-weight: 700; transition: opacity .25s; }
+.zbar span { min-width: 30px; height: 28px; display: grid; place-items: center; border-radius: 8px; padding: 0 6px; cursor: pointer; }
+.zbar span:hover { background: var(--g700); }
+.zbar span.pct { min-width: 46px; cursor: default; }
+.zbar span.pct:hover { background: transparent; }
+.zbar.hide { opacity: 0; pointer-events: none; }
+.zoom-now { transform: scale(1.7); transform-origin: 30% 40%; }
+
+/* back simulator */
+.sim { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; background: #fff; border: 1px solid var(--g200); border-radius: 16px; padding: 16px; margin-top: 14px; }
+.sim__panel { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.sim__panel h4 { font-size: 13px; color: var(--g500); text-transform: uppercase; letter-spacing: .04em; }
+.stack { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.stack span { background: var(--g100); border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+.stack span.top { background: var(--p100); color: var(--p900); }
+.stack i { color: var(--g400); font-style: normal; }
+.simscreen { position: absolute; inset: 22px 0 0; display: flex; flex-direction: column; }
+.closed { position: absolute; inset: 0; z-index: 40; background: linear-gradient(160deg, #1e3a8a, #111827); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 20px; font-size: 12px; }
+.appicon { width: 56px; height: 56px; border-radius: 16px; background: #fff; color: var(--p900); display: grid; place-items: center; }
+.flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.flow .arrow { color: var(--g400); }
+
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top__inner">
+    <i data-i="logo" data-s="44"></i>
+    <div>
+      <h1>Homedrive v3 · UX options</h1>
+      <p>Nine improvements for v3. For each one: what is wrong now, what every option has in common, and two or three options to pick from. Most mockups can be clicked. Pick one option per question with <b>Choose</b>; the bar at the bottom collects your choices so you can copy them.</p>
+      <p><b style="color:#fff">Chosen on 2026-11-13:</b> 1a B · 1b A · 2 A · 3 A · 4 B · 5 B · 6 B · 7 A · 8 A · 9a A · 9b B · 9c A · 9d A, marked <i>Chosen</i> below. The design as it will be built is in <code style="background:rgba(255,255,255,.15);color:#fff">docs/architecture.md</code> (the v3 sections), the work plan in <code style="background:rgba(255,255,255,.15);color:#fff">docs/v3-ux-plan.md</code>.</p>
+    </div>
+  </div>
+</header>
+<nav class="toc" aria-label="Features">
+  <a href="#f1">1 · Markdown preview &amp; page editing</a>
+  <a href="#f2">2 · Back animations</a>
+  <a href="#f3">3 · New folder when saving</a>
+  <a href="#f4">4 · + button covers ⓘ</a>
+  <a href="#f5">5 · Select several</a>
+  <a href="#f6">6 · Zoom in the viewer</a>
+  <a href="#f7">7 · Back button in the app</a>
+  <a href="#f8">8 · Right-click menu</a>
+  <a href="#f9">9 · Fill in and sign PDFs</a>
+</nav>
+<main>
+<section class="feature" id="f1">
+  <h2><span class="num">1</span>Markdown: a real preview, and page editing that works</h2>
+  <p class="ask">"md file preview. editor mobile more stable"</p>
+  <div class="now"><strong>Now:</strong>
+    <ul>
+      <li>Opening a <code>.md</code> file shows its raw text in the viewer.</li>
+      <li>A document made in Homedrive can get stuck in <b>.md</b> mode. Found while preparing this: pressing Enter twice on the page saves an empty paragraph as extra blank lines (<code>A\n\n\n\nB</code>). Read back, that is two paragraphs, so the editor thinks the page would change the file and only offers the source. The <b>Page</b> button is then disabled with no way out.</li>
+    </ul>
+  </div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li><b>Bug fix:</b> the page editor writes empty lines so they read back the same, and tests check that everything it writes reopens on the page.</li>
+      <li><b>Page</b> is never a dead end: when switching would really rewrite the file (another app's style, <code>*</code> bullets, tables, extra blank lines), tapping it asks first (question 1b). Nothing is saved until you type.</li>
+      <li>Files with images or HTML stay in <b>.md</b>: the page editor would drop them. The dialog then only says why.</li>
+      <li>The preview uses the editor's page style. Links open in a new tab, raw HTML stays text and images aren't loaded, as in the editor.</li>
+    </ul>
+  </div>
+
+  <h3 class="sub">1a · The preview in the viewer</h3>
+  <div class="options">
+    <article class="opt" data-q="1a" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Page only</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--dark"><span>9:41</span><span>5G</span></div>
+          <div class="m-viewer" style="top:22px">
+            <div class="m-vbar">
+              <span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span>
+              <i data-i="text" data-c="#7dd3fc"></i>
+              <div class="t"><b>Packing list</b><span>Text · 2 KB</span></div>
+              <span class="m-dbtn"><i data-i="pencil" data-s="14"></i></span>
+              <span class="m-dbtn"><i data-i="download" data-s="14"></i></span>
+              <span class="m-dbtn"><i data-i="info" data-s="14"></i></span>
+            </div>
+            <div style="flex:1;overflow:hidden;padding:10px 8px">
+              <div class="md">
+                <h5>Packing list</h5>
+                <p>For the <b>summer holiday</b> in Brittany, 12–26 July.</p>
+                <h6>Clothes</h6>
+                <ul><li>Rain jacket</li><li>Swimwear ×2</li><li>Walking shoes</li></ul>
+                <h6>Documents</h6>
+                <ul><li>Passports and <b>ID cards</b></li><li>Ferry tickets (in <a>Travel</a>)</li></ul>
+                <blockquote>Check the car tyres the week before.</blockquote>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <p>The file shows as a formatted page on the dark viewer, like the editor's page. To see the Markdown itself you open the editor and switch to <b>.md</b>.</p>
+      <ul class="pros"><li>Simplest: one way to look at a file.</li></ul>
+      <ul class="cons"><li>Reading the source needs edit rights (the editor).</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="1a" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Page, with a .md switch</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--dark"><span>9:41</span><span>5G</span></div>
+          <div class="m-viewer" style="top:22px" data-toggle-md>
+            <div class="m-vbar">
+              <span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span>
+              <div class="t"><b>Packing list</b><span>Text · 2 KB</span></div>
+              <span class="m-seg" style="cursor:pointer"><span class="on" data-v="page">Page</span><span data-v="src">.md</span></span>
+              <span class="m-dbtn"><i data-i="pencil" data-s="14"></i></span>
+              <span class="m-dbtn"><i data-i="info" data-s="14"></i></span>
+            </div>
+            <div style="flex:1;overflow:hidden;padding:10px 8px">
+              <div class="md" data-v="page">
+                <h5>Packing list</h5>
+                <p>For the <b>summer holiday</b> in Brittany, 12–26 July.</p>
+                <h6>Clothes</h6>
+                <ul><li>Rain jacket</li><li>Swimwear ×2</li><li>Walking shoes</li></ul>
+                <h6>Documents</h6>
+                <ul><li>Passports and <b>ID cards</b></li><li>Ferry tickets (in <a>Travel</a>)</li></ul>
+                <blockquote>Check the car tyres the week before.</blockquote>
+              </div>
+              <div class="md mono" data-v="src" hidden># Packing list
+
+For the **summer holiday** in Brittany, 12–26 July.
+
+## Clothes
+
+- Rain jacket
+- Swimwear ×2
+- Walking shoes
+
+## Documents
+
+- Passports and **ID cards**
+- Ferry tickets (in [Travel](https://…))
+
+> Check the car tyres the week before.</div>
+            </div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Tap <b>Page</b> / <b>.md</b> in the mockup.</span>
+      </div>
+      <p>The same page, with a <b>Page | .md</b> switch in the viewer bar to read the source. The viewer remembers the last choice. Download moves into ⓘ on phones to make room.</p>
+      <ul class="pros"><li>Everyone can read the source, also people who can only view.</li><li>Same switch as in the editor.</li></ul>
+      <ul class="cons"><li>One more control in the bar.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">1b · When switching to the page would rewrite the file</h3>
+  <div class="options">
+    <article class="opt" data-q="1b" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Short question</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div class="m-editor" style="top:22px">
+            <div class="m-ehead">
+              <span class="m-dbtn m-dbtn--plain" style="color:var(--g700)"><i data-i="back"></i></span>
+              <div class="t"><b>Notes</b><span>Saved</span></div>
+              <span class="m-seg m-seg--light"><span>Page</span><span class="on">.md</span></span>
+            </div>
+            <div style="flex:1;background:#fff;padding:12px" class="mono">* bread
+* milk and **eggs**
+
+
+Call the plumber on Friday</div>
+          </div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet">
+            <h4>Switch To Page Editing?</h4>
+            <p>To show this file as a page, Homedrive tidies its formatting, such as empty lines and bullet signs. Your text stays the same, and nothing is saved until you type.</p>
+            <div class="m-btns"><span class="m-btn">Stay In .md</span><span class="m-btn m-btn--p">Switch</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p>One sentence, two buttons. Shown each time you tap <b>Page</b> on such a file; switching back to <b>.md</b> after typing shows the tidied text.</p>
+      <ul class="pros"><li>Quick to read on a phone.</li></ul>
+      <ul class="cons"><li>You don't see what exactly changes.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="1b" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>With what changes</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div class="m-editor" style="top:22px">
+            <div class="m-ehead">
+              <span class="m-dbtn m-dbtn--plain" style="color:var(--g700)"><i data-i="back"></i></span>
+              <div class="t"><b>Notes</b><span>Saved</span></div>
+              <span class="m-seg m-seg--light"><span>Page</span><span class="on">.md</span></span>
+            </div>
+            <div style="flex:1;background:#fff;padding:12px" class="mono">* bread
+* milk and **eggs**
+
+
+Call the plumber on Friday</div>
+          </div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" data-diff>
+            <h4>Switch To Page Editing?</h4>
+            <p>The page editor writes Markdown in its own style. In this file:</p>
+            <ul class="m-list">
+              <li><i data-i="check" data-s="13" data-c="#15803d"></i><span>2 bullets written with <code>*</code> become <code>-</code></span></li>
+              <li><i data-i="check" data-s="13" data-c="#15803d"></i><span>2 extra empty lines are removed</span></li>
+            </ul>
+            <p style="margin-top:6px">Your text stays the same. Nothing is saved until you type.</p>
+            <a style="display:inline-block;margin-top:6px;font-size:11px;font-weight:600;color:var(--p700);cursor:pointer" data-diff-toggle>Show the changes</a>
+            <div class="diff" hidden>
+              <div class="del">- * bread</div><div class="del">- * milk and **eggs**</div>
+              <div class="add">+ - bread</div><div class="add">+ - milk and **eggs**</div>
+              <div class="ctx">  </div><div class="del">- </div><div class="del">- </div>
+              <div class="ctx">  Call the plumber on Friday</div>
+            </div>
+            <div class="m-btns"><span class="m-btn">Stay In .md</span><span class="m-btn m-btn--p">Switch</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Tap <b>Show the changes</b> in the mockup.</span>
+      </div>
+      <p>The same question with a short list of what changes, grouped by kind (bullets, emphasis signs, empty lines, numbering, escaped characters, tables that become plain text). <b>Show the changes</b> opens a line-by-line before/after.</p>
+      <ul class="pros"><li>No surprises: you see what is rewritten before it happens.</li></ul>
+      <ul class="cons"><li>More to build: grouping the differences into plain sentences.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+<section class="feature" id="f2">
+  <h2><span class="num">2</span>Back animations</h2>
+  <p class="ask">"back animations"</p>
+  <div class="now"><strong>Now:</strong> opening a folder zooms in from its card. Going back only has a small zoom-out of the folder card, in grid view only and only within 2 seconds of leaving it; list view has nothing, and the viewer and editor just disappear.</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>Plays on every way back: the phone's back button or gesture, the <b>← Back</b> button, the breadcrumb and the "You are here" rail. Switching tabs or sidebar sections only fades, as now.</li>
+      <li>Grid and list view both get it; the viewer and the editor get a closing animation too.</li>
+      <li>At most 420 ms, transform and opacity only; nothing moves with <i>reduce motion</i>.</li>
+      <li>Never waits for the network: the parent folder is kept from when you opened it, so it draws at once.</li>
+    </ul>
+  </div>
+  <div class="options">
+    <article class="opt" data-q="2" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Zoom back</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="frame-wrap" style="gap:10px">
+          <div class="phone"><div class="screen" data-anim="zoom">
+            <!--ANIMSCREEN-->
+          </div></div>
+          <div class="controls">
+            <button type="button" class="ctl ctl--dark" data-act="open">Open Photos</button>
+            <button type="button" class="ctl" data-act="back"><i data-i="back" data-s="14"></i>Back</button>
+            <button type="button" class="ctl" data-act="photo">Open photo</button>
+            <button type="button" class="ctl" data-act="close">Close photo</button>
+          </div>
+        </div>
+      </div>
+      <p>The exact reverse of opening. The folder's items gather back into the folder's card, which settles into its place in the parent. In list view the folder's name slides from the "You are here" rail back into its row. Closing a file shrinks it back into its thumbnail.</p>
+      <ul class="pros"><li>Matches the zoom-in you already have: you see where you came from.</li><li>Feels like one space you move in and out of.</li></ul>
+      <ul class="cons"><li>When the folder's card is off screen (scrolled away), it falls back to a fade.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="2" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Slide, like a phone app</h3></div>
+      <div class="stage">
+        <div class="frame-wrap" style="gap:10px">
+          <div class="phone"><div class="screen" data-anim="slide">
+            <!--ANIMSCREEN-->
+          </div></div>
+          <div class="controls">
+            <button type="button" class="ctl ctl--dark" data-act="open">Open Photos</button>
+            <button type="button" class="ctl" data-act="back"><i data-i="back" data-s="14"></i>Back</button>
+            <button type="button" class="ctl" data-act="photo">Open photo</button>
+            <button type="button" class="ctl" data-act="close">Close photo</button>
+          </div>
+        </div>
+      </div>
+      <p>Going into a folder slides it in from the right over the current one; going back slides it out to the right while the previous page comes back from slightly left. A file opens by rising up and closes by sliding down. This replaces the zoom-in, so both directions match.</p>
+      <ul class="pros"><li>Familiar from iPhone and Android apps; the direction tells forward from back.</li><li>Always works, also when the card is off screen.</li></ul>
+      <ul class="cons"><li>Drops the folder zoom from v1.</li><li>On a computer a sideways slide feels heavier than a zoom.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+<section class="feature" id="f3">
+  <h2><span class="num">3</span>New folder while saving from the share sheet</h2>
+  <p class="ask">"when file upload, i want to be able to make new folders" — on the <i>Save to Homedrive</i> page, and go back Home after saving</p>
+  <div class="now"><strong>Now:</strong> the folder picker on the <i>Save to Homedrive</i> page only lists existing folders, so a new folder means leaving the page. After saving, the page stays on "Saved in …".</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>The picker gets <b>New folder</b>: it is made in the folder the picker shows, at once (also when you then cancel, like other drives), opened, and ready to pick. A taken name gets <code>(2)</code>, as with <b>+ New</b>.</li>
+      <li>Only where you can add (not in drives where you are a viewer).</li>
+      <li>The <b>Move</b> dialog uses the same picker, so it gets <b>New folder</b> too.</li>
+      <li><b>After saving everything</b>, the app goes Home (My Files) by itself, with a toast <i>"Saved in Documents / Receipts"</i> and <b>Open</b>. When a file failed or still waits for <i>Replace / Keep both</i>, the page stays.</li>
+    </ul>
+  </div>
+  <div class="options">
+    <article class="opt" data-q="3" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Name it in the list</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="savepage"></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" style="padding-bottom:12px">
+            <h4>Choose A Folder</h4>
+            <div style="display:flex;gap:4px;margin:8px 0"><span class="m-btn" style="background:var(--p100);border-color:var(--p100);color:var(--p900)">My Files</span><span class="m-btn">Family</span></div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span class="m-back"><i data-i="back" data-s="13"></i></span><b style="flex:1;font-size:12px">Documents</b>
+              <span class="m-btn m-btn--g" style="padding:4px 6px"><i data-i="folderAdd" data-s="14"></i>New Folder</span>
+            </div>
+            <div style="border:1px solid var(--g200);border-radius:8px;overflow:hidden">
+              <div class="m-row" style="background:var(--p50);height:42px">
+                <i data-i="folder" data-c="#a16207" data-f="#fef9c3"></i>
+                <div class="m-field is-focus" style="flex:1;height:26px">Receipts 2026<span class="caret"></span></div>
+                <span class="m-btn m-btn--p" style="padding:5px 7px"><i data-i="check" data-s="13"></i></span>
+              </div>
+              <div class="m-row"><i data-i="folder" data-c="#a16207" data-f="#fef9c3"></i><span class="grow">Manuals</span><i data-i="chevronRight" data-s="13" data-c="#9ca3af"></i></div>
+              <div class="m-row"><i data-i="folder" data-c="#a16207" data-f="#fef9c3"></i><span class="grow">Taxes</span><i data-i="chevronRight" data-s="13" data-c="#9ca3af"></i></div>
+            </div>
+            <div class="m-btns"><span class="m-btn">Cancel</span><span class="m-btn m-btn--p">Save Here</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p><b>New Folder</b> next to the folder's name adds a row at the top of the list with the name selected; Enter or ✓ makes it and opens it, Esc drops the row. The keyboard pushes the sheet up; nothing else covers the list.</p>
+      <ul class="pros"><li>One layer: you stay in the picker the whole time.</li></ul>
+      <ul class="cons"><li>A new inline editing row to build (the name dialog exists already).</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="3" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Name dialog on top</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="savepage"></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" style="padding-bottom:12px">
+            <h4>Choose A Folder</h4>
+            <div style="display:flex;gap:4px;margin:8px 0"><span class="m-btn" style="background:var(--p100);border-color:var(--p100);color:var(--p900)">My Files</span><span class="m-btn">Family</span></div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span class="m-back"><i data-i="back" data-s="13"></i></span><b style="font-size:12px">Documents</b></div>
+            <div style="border:1px solid var(--g200);border-radius:8px;overflow:hidden">
+              <div class="m-row" style="color:var(--p700);font-weight:700"><i data-i="folderAdd"></i>New folder…</div>
+              <div class="m-row"><i data-i="folder" data-c="#a16207" data-f="#fef9c3"></i><span class="grow">Manuals</span><i data-i="chevronRight" data-s="13" data-c="#9ca3af"></i></div>
+              <div class="m-row"><i data-i="folder" data-c="#a16207" data-f="#fef9c3"></i><span class="grow">Taxes</span><i data-i="chevronRight" data-s="13" data-c="#9ca3af"></i></div>
+            </div>
+            <div class="m-btns"><span class="m-btn">Cancel</span><span class="m-btn m-btn--p">Save Here</span></div>
+          </div>
+          <div class="m-scrim" style="z-index:22"></div>
+          <div class="m-sheet" style="z-index:23">
+            <h4>New Folder</h4>
+            <p>In Documents</p>
+            <div style="font-size:10px;font-weight:600;margin:10px 0 4px">Folder name</div>
+            <div class="m-field is-focus">Receipts 2026<span class="caret"></span></div>
+            <div class="m-btns"><span class="m-btn">Back</span><span class="m-btn m-btn--p">Create</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p>A <b>New folder…</b> row at the top of the list opens the name dialog Homedrive already has (<b>+ New → Folder</b>) as a second sheet. <b>Create</b> brings you back to the picker, inside the new folder.</p>
+      <ul class="pros"><li>Reuses the existing dialog: least to build.</li></ul>
+      <ul class="cons"><li>A sheet on a sheet on a phone.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+  <h3 class="sub">After saving (both options)</h3>
+  <div class="stage" style="margin-top:12px">
+    <div class="flow">
+      <div class="frame-wrap">
+        <div class="phone" style="height:420px"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="savepage" data-saving></div>
+        </div></div>
+        <span class="caption">Save → uploading</span>
+      </div>
+      <span class="arrow"><i data-i="chevronRight" data-s="28"></i></span>
+      <div class="frame-wrap">
+        <div class="phone" style="height:420px"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="home"></div>
+          <div class="m-toast"><i data-i="check" data-s="14" data-c="#4ade80"></i>2 photos saved in Documents / Receipts 2026<b>Open</b></div>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+        </div></div>
+        <span class="caption">Done → Home, with Open</span>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="feature" id="f4">
+  <h2><span class="num">4</span>Files on phones: the + button covers ⓘ</h2>
+  <p class="ask">"better ui ux for files → bottom right file information not reachable because of fab button"</p>
+  <div class="now" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+    <div class="phone" style="height:360px;width:220px;border-radius:28px;padding:7px"><div class="screen" style="border-radius:22px">
+      <div class="sbar"><span>9:41</span><span>5G</span></div>
+      <div data-tpl="head"></div>
+      <div class="m-body" data-tpl="grid" data-variant="info" data-end="10"></div>
+      <span class="m-fab"><i data-i="plus" data-s="22" data-w="2.25"></i></span>
+      <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+    </div></div>
+    <div style="flex:1;min-width:240px"><strong>Now:</strong> scrolled to the end of a folder, the ⓘ of the bottom-right card sits under the floating <b>+</b> (the list ends 104 px above the bottom, the + reaches 144 px). Tapping there opens <i>Add</i> instead of the item's info.</div>
+  </div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>The end of every list gets enough room that the last row always clears the + button, the tab bar and a toast.</li>
+      <li>Long-press on an item starts selecting (question 5); it doesn't open the info.</li>
+    </ul>
+  </div>
+  <div class="options">
+    <article class="opt" data-q="4" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>⋮ on the thumbnail</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="grid" data-variant="more" data-end="62"></div>
+          <span class="m-fab"><i data-i="plus" data-s="22" data-w="2.25"></i></span>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+        </div></div>
+      </div>
+      <p>The ⓘ becomes a round <b>⋮</b> in the top-right corner of the thumbnail (44 px touch area) and opens the same info sheet. The name and details get the card's full width. On computers it shows on hover and opens the side panel, as ⓘ does now.</p>
+      <ul class="pros"><li>Never near the + button, wherever you scroll.</li><li>Where Google Drive and Photos put it, so people look there.</li></ul>
+      <ul class="cons"><li>Covers a corner of the thumbnail.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="4" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>+ in the tab bar</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="grid" data-variant="info" data-end="10"></div>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files" data-plus></nav>
+        </div></div>
+      </div>
+      <p>No floating button. <b>+</b> sits in the middle of the tab bar: Files, Shared, +, Recent, Starred. Trash moves to the account menu (top right) on phones. Where you can't add, the + is dimmed.</p>
+      <ul class="pros"><li>Nothing floats over the files at all.</li></ul>
+      <ul class="cons"><li>Trash is one tap further away.</li><li>Changes the phone navigation people know from v2.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+
+    <article class="opt" data-q="4" data-o="C">
+      <div class="opt__head"><span class="opt__letter">C</span><h3>+ New that steps aside</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="grid" data-variant="info" data-end="62"></div>
+          <span class="m-fab" style="transform:translateY(0)" data-hiding><i data-i="plus" data-s="18" data-w="2.25"></i>New</span>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+        </div></div>
+        <span class="hint" style="width:100%">The button slides away and back every few seconds here.</span>
+      </div>
+      <p>The + becomes a wider <b>+ New</b> that slides down out of view while you scroll down, and comes back when you scroll up or stop. The cards keep ⓘ where it is now.</p>
+      <ul class="pros"><li>Smallest change to the cards.</li></ul>
+      <ul class="cons"><li>Mid-scroll the ⓘ can still be under it until it moves.</li><li>Moving buttons are harder to aim for.</li></ul>
+      <button type="button" class="pick">Choose C</button>
+    </article>
+  </div>
+</section>
+<section class="feature" id="f5">
+  <h2><span class="num">5</span>Select several files</h2>
+  <p class="ask">"multiple file selection"</p>
+  <div class="now"><strong>Now:</strong> everything works on one item at a time: moving twenty photos is twenty times Move.</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li><b>Computers:</b> a check circle shows in the top-left corner of a card (start of a row) on hover; clicking it selects. Ctrl/⌘-click adds or removes, Shift-click selects a range, Ctrl/⌘+A selects all, Esc clears. Clicking the name or thumbnail still opens.</li>
+      <li><b>Phones:</b> long-press an item to start selecting, then tap to add or remove. The + button hides while selecting. Back clears the selection (question 7).</li>
+      <li>Actions: <b>Download</b> (one <code>.zip</code>), <b>Move</b>, <b>Star / Unstar</b>, <b>Delete</b> (to the trash, with one <i>Undo</i>). Share, Rename and Details stay one at a time. In Trash: <b>Restore</b> and <b>Delete forever</b>.</li>
+      <li>Items you can't change are skipped and the toast says so: <i>"3 moved. 2 skipped: you can only view them."</i></li>
+      <li>Also in Recent, Starred, Shared with me and search results. Drag and drop of the selection onto a folder is left for later.</li>
+    </ul>
+  </div>
+  <div class="options options--wide">
+    <article class="opt" data-q="5" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Actions in a top bar</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen" data-sel="top" data-dev="phone"></div></div>
+        <div class="desk" data-sel="top" data-dev="desk"></div>
+        <span class="hint" style="width:100%">Click the check circles (on the computer: hover a card first).</span>
+      </div>
+      <p>While selecting, the header turns into a white selection bar: <b>✕</b>, "2 selected", <b>Select all</b>, then the actions as icons with tooltips. Like Google Drive and the Android Files app.</p>
+      <ul class="pros"><li>Keeps the tab bar and the bottom of the screen free.</li><li>Fits many actions.</li></ul>
+      <ul class="cons"><li>On big phones the top is hard to reach with a thumb.</li><li>Icons without labels.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="5" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Actions in a bottom bar</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen" data-sel="bottom" data-dev="phone"></div></div>
+        <div class="desk" data-sel="bottom" data-dev="desk"></div>
+        <span class="hint" style="width:100%">Click the check circles (on the computer: hover a card first).</span>
+      </div>
+      <p>The count and <b>Select all</b> sit at the top. The actions, with labels, are at the bottom: on phones they take the place of the tab bar while selecting; on computers they float as a dark bar over the files.</p>
+      <ul class="pros"><li>Easy to reach with a thumb.</li><li>Labels say what each action does.</li></ul>
+      <ul class="cons"><li>Room for about five actions.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+<section class="feature" id="f6">
+  <h2><span class="num">6</span>Zoom in the viewer: only the file</h2>
+  <p class="ask">"file zoom better, not just zoom entire website in file preview"</p>
+  <div class="now" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+    <div class="phone" style="height:360px;width:220px;border-radius:28px;padding:7px"><div class="screen" style="border-radius:22px;background:var(--g900)">
+      <div class="sbar sbar--dark"><span>9:41</span><span>5G</span></div>
+      <div class="m-viewer zoom-now" style="top:22px">
+        <div class="m-vbar"><span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span><div class="t"><b>IMG_2041.jpg</b><span>Photo · 3.1 MB</span></div><span class="m-dbtn"><i data-i="download" data-s="14"></i></span><span class="m-dbtn"><i data-i="info" data-s="14"></i></span></div>
+        <div class="m-vstage"><div class="t-photo" style="width:190px;height:130px;border-radius:6px"></div></div>
+      </div>
+    </div></div>
+    <div style="flex:1;min-width:240px"><strong>Now:</strong> pinching in the viewer zooms the whole page, so the bar and its buttons slide off screen and you have to pinch back out to close the file. A zoomed PDF also gets blurry: its pages are drawn once, at the size that fits.</div>
+  </div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>Only the file zooms; the bar, its buttons and the rest of the page stay where they are. Elsewhere in Homedrive normal page zoom keeps working (accessibility).</li>
+      <li><b>Phones:</b> pinch, double-tap (2× at that spot, again to fit), drag to move around when zoomed. Swiping to the next file only works when not zoomed.</li>
+      <li><b>Computers:</b> Ctrl/⌘ + wheel or trackpad pinch zooms at the pointer, double-click as above, drag to pan, keys <code>+</code> <code>−</code> <code>0</code>.</li>
+      <li><b>Photos</b> up to 4× their real pixels; <b>PDFs</b> are drawn again sharp at the new zoom (up to 400%), page by page; <b>text, code and Markdown</b> zoom their text size, and the text rewraps.</li>
+    </ul>
+  </div>
+  <div class="options">
+    <article class="opt" data-q="6" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Gestures only</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen" style="background:var(--g900)">
+          <div class="sbar sbar--dark"><span>9:41</span><span>5G</span></div>
+          <div class="m-viewer" style="top:22px">
+            <div class="m-vbar"><span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span><i data-i="image" data-c="#5eead4"></i><div class="t"><b>IMG_2041.jpg</b><span>Photo · 3.1 MB</span></div><span class="m-dbtn"><i data-i="download" data-s="14"></i></span><span class="m-dbtn"><i data-i="info" data-s="14"></i></span></div>
+            <div class="zstage" data-zoom="chip"><div class="zimg t-photo"></div><span class="zchip">100%</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Try it: wheel to zoom, drag, double-click. Tap the % chip to fit.</span>
+      </div>
+      <p>Nothing extra on screen. While zooming, a small chip with the zoom level shows for a second; tapping it goes back to fit.</p>
+      <ul class="pros"><li>The photo gets all the room.</li></ul>
+      <ul class="cons"><li>On a computer without a trackpad you have to know Ctrl + wheel.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="6" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Gestures and a zoom bar</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen" style="background:var(--g900)">
+          <div class="sbar sbar--dark"><span>9:41</span><span>5G</span></div>
+          <div class="m-viewer" style="top:22px">
+            <div class="m-vbar"><span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span><i data-i="image" data-c="#5eead4"></i><div class="t"><b>IMG_2041.jpg</b><span>Photo · 3.1 MB</span></div><span class="m-dbtn"><i data-i="download" data-s="14"></i></span><span class="m-dbtn"><i data-i="info" data-s="14"></i></span></div>
+            <div class="zstage" data-zoom="bar"><div class="zimg t-photo"></div>
+              <div class="zbar"><span data-z="-"><i data-i="zoomOut" data-s="15"></i></span><span class="pct">Fit</span><span data-z="+"><i data-i="zoomIn" data-s="15"></i></span><span data-z="fit"><i data-i="expand" data-s="15"></i></span></div>
+            </div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Try it: the same gestures, plus − / + / fit. On phones the bar hides after 3 s; tap to show it.</span>
+      </div>
+      <p>The same gestures, plus a small bar at the bottom: <b>−</b>, the zoom level, <b>+</b> and <b>Fit</b>. Always there on computers; on phones it shows after a tap and hides after 3 seconds. PDFs get the same bar, with the page number.</p>
+      <ul class="pros"><li>Discoverable with a mouse; one tap back to fit.</li></ul>
+      <ul class="cons"><li>Covers a little of the bottom of the photo while shown.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+<section class="feature" id="f7">
+  <h2><span class="num">7</span>The back button in the installed app</h2>
+  <p class="ask">"back button pwa better integration. when on homepage ask to close. when not on homepage the last step should always be home"</p>
+  <div class="now"><strong>Now:</strong>
+    <ul>
+      <li>A file, info sheet, dialog or the editor isn't a step in the history: back leaves the whole folder behind them.</li>
+      <li><b>← Back to Photos</b> adds a new step instead of going back, so after it the phone's back button goes <i>forward</i> into the folder you just left.</li>
+      <li>Opened from the share sheet, a link or (v3) a notification, back closes the app instead of going Home. On Home, back closes the app at once.</li>
+    </ul>
+  </div>
+  <div class="same"><strong>Same in every option: the rules</strong>
+    <ol style="margin:6px 0 0;padding-left:20px">
+      <li>Back closes the top thing first: a menu, dialog or sheet, the info sheet, a selection, then the viewer, then the editor (which saves first).</li>
+      <li>Then it goes back through the folders and pages you visited. <b>← Back to …</b> in the page does the same as the phone's back when that is where you came from, so the two never disagree.</li>
+      <li>When Homedrive was opened on another page (the share sheet's <i>Save to Homedrive</i>, a link, a notification), the last step back is always <b>Home</b> (My Files), never out of the app.</li>
+      <li>On Home, back asks before closing (below).</li>
+    </ol>
+    <p style="margin:8px 0 0">A web app can't close itself from a button: browsers don't allow it for installed apps. So the app is closed by pressing back a second time. On iPhone, home-screen apps have no back button; the in-page Back button follows the same rules. In a normal browser tab nothing asks: back leaves the site as usual.</p>
+  </div>
+  <div class="options">
+    <article class="opt" data-q="7" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Ask in a sheet</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="home"></div>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" style="text-align:center">
+            <div class="appicon" style="margin:2px auto 8px;width:40px;height:40px;border-radius:12px;background:var(--p100)"><i data-i="logo" data-s="26"></i></div>
+            <h4>Close Homedrive?</h4>
+            <p>Press back again to close.</p>
+            <div class="m-btns" style="justify-content:center"><span class="m-btn m-btn--p" style="padding:7px 26px">Stay</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p>The first back on Home opens a small sheet: <i>"Close Homedrive? Press back again to close."</i> with <b>Stay</b>. Back again closes the app; Stay, a tap outside or 4 seconds closes the sheet.</p>
+      <ul class="pros"><li>Clearly asks, as you described.</li></ul>
+      <ul class="cons"><li>Covers the screen for a moment.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="7" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>"Press back again" bar</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" data-tpl="home"></div>
+          <nav class="m-tabbar" data-tpl="tabbar" data-on="files"></nav>
+          <div class="m-toast" style="justify-content:center">Press back again to close Homedrive</div>
+        </div></div>
+      </div>
+      <p>A bar like a toast says <i>"Press back again to close Homedrive"</i> for 2 seconds; back within that time closes the app. Many Android apps do this.</p>
+      <ul class="pros"><li>Doesn't interrupt; familiar on Android.</li></ul>
+      <ul class="cons"><li>Easy to miss; there is no "Stay" button.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">Try the rules</h3>
+  <div class="sim" id="sim">
+    <div class="phone"><div class="screen" id="simScreen"></div></div>
+    <div class="sim__panel">
+      <div><h4>Start Homedrive from</h4>
+        <div class="controls" style="justify-content:flex-start;margin-top:6px">
+          <button type="button" class="ctl" data-start="icon">The app icon</button>
+          <button type="button" class="ctl" data-start="share">The share sheet</button>
+          <button type="button" class="ctl" data-start="notif">A notification</button>
+        </div></div>
+      <div><h4>Then</h4>
+        <div class="controls" style="justify-content:flex-start;margin-top:6px">
+          <button type="button" class="ctl" data-do="folder">Open a folder</button>
+          <button type="button" class="ctl" data-do="photo">Open a photo</button>
+          <button type="button" class="ctl" data-do="info">Open ⓘ info</button>
+          <button type="button" class="ctl" data-do="select">Select 2 items</button>
+          <button type="button" class="ctl" data-do="upback">Tap ← Back in the page</button>
+        </div></div>
+      <div><button type="button" class="ctl ctl--dark" data-do="back" style="font-size:15px;padding:8px 18px">◁ Phone's back button</button></div>
+      <div><h4>History (left = first)</h4><div class="stack" id="simStack"></div></div>
+      <div id="simNext" style="color:var(--g600)"></div>
+      <div class="controls" style="justify-content:flex-start"><span style="font-size:12px;color:var(--g500)">Asking on Home as:</span>
+        <button type="button" class="ctl" data-ask="A">A · sheet</button><button type="button" class="ctl" data-ask="B">B · bar</button></div>
+    </div>
+  </div>
+</section>
+<section class="feature" id="f8">
+  <h2><span class="num">8</span>Right-click menu on computers</h2>
+  <p class="ask">"right click integration on desktop"</p>
+  <div class="now"><strong>Now:</strong> right-clicking a file shows the browser's own menu (Save link as…, Inspect), and everything else goes through ⓘ.</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>Right-click on an item (also the menu key and Shift+F10) opens Homedrive's menu with what its info panel offers: <b>Open</b>, <b>Share…</b>, <b>Download</b>, <b>Rename…</b>, <b>Move…</b>, <b>Star</b>, <b>Details</b>, <b>Delete</b>. What you can't do is left out, not greyed.</li>
+      <li>On a selection (question 5) the menu has the actions for several items. Right-clicking an item outside the selection selects just that one first.</li>
+      <li>On empty space: <b>New folder</b>, <b>Upload files</b>, <b>New document</b>, <b>New spreadsheet</b> (where you can add), and <b>Grid / List</b>. In Trash: <b>Restore</b>, <b>Delete forever</b>, <b>Details</b>.</li>
+      <li>Arrow keys move, Enter picks, Esc or a click elsewhere closes; the menu flips to stay on screen. In text fields, the editor and the viewer the browser's own menu stays (copy, paste, spelling).</li>
+      <li>On phones nothing changes: long-press selects (question 5).</li>
+    </ul>
+  </div>
+  <div class="options options--wide">
+    <article class="opt" data-q="8" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Classic list with shortcuts</h3><span class="rec">Recommended</span></div>
+      <div class="stage"><div class="desk" data-ctx="A"></div><span class="hint" style="width:100%">Right-click a card, the empty space, or select two cards first (Ctrl-click) and right-click one.</span></div>
+      <p>One list with icons, in groups, with the keyboard shortcut on the right. The shortcuts work everywhere in the file list too: Enter opens, F2 renames, Delete deletes, Ctrl/⌘+A selects all.</p>
+      <ul class="pros"><li>What people know from Windows Explorer, Finder and Google Drive.</li><li>Teaches the shortcuts.</li></ul>
+      <ul class="cons"><li>The longest menu.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="8" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Quick icons on top</h3></div>
+      <div class="stage"><div class="desk" data-ctx="B"></div><span class="hint" style="width:100%">Right-click a card, the empty space, or select two cards first (Ctrl-click) and right-click one.</span></div>
+      <p>The four most used actions as an icon row at the top (Share, Download, Star, Delete, with tooltips), the rest as a short list below. Like the Windows 11 menu. No shortcut hints.</p>
+      <ul class="pros"><li>Shorter; the common actions are one small move away.</li></ul>
+      <ul class="cons"><li>Icons need tooltips to be clear.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+
+<section class="feature" id="f9">
+  <h2><span class="num">9</span>Fill in and sign PDFs</h2>
+  <p class="ask">"add pdf editing also to the v3" — fill in forms and sign; a signature on the page is enough (no eID or itsme)</p>
+  <div class="now"><strong>Now:</strong> PDFs can only be looked at. To fill in a form or sign a contract you download it, use another app, and upload the result again.</div>
+  <div class="same"><strong>Same in every option</strong>
+    <ul>
+      <li>In the viewer, a PDF gets <b>Fill &amp; Sign</b> (the pencil). It opens the PDF full screen with the same page view as the viewer, zoom included (question 6).</li>
+      <li><b>Form fields</b> in the PDF (text, check boxes, radio buttons, lists) are shown in blue and filled in where they are. On any PDF, also without fields, you can <b>place</b> text, a date, ✓ or ✗, your signature and your initials anywhere; placed items can be moved, resized and deleted.</li>
+      <li>The date is written the way your language writes it (13/11/2026 in Dutch, 11/13/2026 in English), and can be changed.</li>
+      <li>On saving, everything is written <b>into the page</b> (flattened): the result looks the same in every app and can't be changed by accident.</li>
+      <li>People who can edit the file save it in place (question 9d). People who can only view it can still fill it in and save their copy in <b>My Files</b>, for example a form that was shared with them.</li>
+      <li>The signature is a picture on the page, like Adobe Fill &amp; Sign or a scanned signature, not a digital signature with eID or itsme. PDFs with a password and XFA forms open read-only with a note.</li>
+    </ul>
+  </div>
+
+  <h3 class="sub">9a · Filling in</h3>
+  <div class="options">
+    <article class="opt" data-q="9a" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Toolbar, tap to place</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="tools"></div></div>
+          <div class="pdftools">
+            <span><b class="gl">T</b>Text</span>
+            <span class="on"><i data-i="calendar" data-s="17"></i>Date</span>
+            <span><i data-i="check" data-s="17" data-w="2.5"></i>Tick</span>
+            <span><i data-i="close" data-s="17" data-w="2.5"></i>Cross</span>
+            <span><i data-i="pencil" data-s="17"></i>Sign</span>
+            <span><b class="gl" style="font-size:12px">AB</b>Initials</span>
+          </div>
+        </div></div>
+      </div>
+      <p>Form fields are just there to tap and type in. For everything else you pick a tool at the bottom and tap the page where it goes; a placed item can then be dragged, resized at its corner or deleted. The keyboard pushes the page up so the field stays in view.</p>
+      <ul class="pros"><li>One way of working for forms and for plain PDFs.</li><li>Like Adobe Fill &amp; Sign and the iPhone's Markup.</li></ul>
+      <ul class="cons"><li>On a long form you look for the fields yourself.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="9a" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Field by field</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="guided"></div></div>
+          <div class="stepbar">
+            <span class="m-btn" style="padding:6px 8px"><i data-i="plus" data-s="14" data-w="2.5"></i></span>
+            <div class="grow"><b>Phone</b>Field 2 of 5</div>
+            <span class="m-btn" style="padding:6px 8px"><i data-i="chevronLeft" data-s="14"></i></span>
+            <span class="m-btn m-btn--p">Next<i data-i="chevronRight" data-s="13"></i></span>
+          </div>
+        </div></div>
+      </div>
+      <p>A form opens on its first empty field, zoomed in, with the keyboard up. <b>Next</b> goes to the following field, and the last one ends on the signature. The <b>+</b> places text, a date, ✓, ✗, a signature or initials, as in A. A PDF without fields opens with the tools of A.</p>
+      <ul class="pros"><li>Fast on a phone: no hunting for the next field.</li></ul>
+      <ul class="cons"><li>Two ways of working, depending on the PDF.</li><li>Some forms have their fields in an odd order.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9b · Making your signature</h3>
+  <div class="options">
+    <article class="opt" data-q="9b" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>Draw it</h3></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="plain"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet">
+            <h4>Your Signature</h4>
+            <p>Draw with your finger or the mouse.</p>
+            <canvas class="pad" data-pad style="margin-top:10px"></canvas>
+            <div class="m-btns" style="justify-content:space-between"><span class="m-btn" data-pad-clear style="cursor:pointer">Clear</span><span class="m-btn m-btn--p">Use</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Draw in the box.</span>
+      </div>
+      <p>A drawing pad in a sheet: draw, <b>Clear</b> to start again, <b>Use</b> to place it. Initials the same way. The line is smoothed and its thickness follows the speed, like a pen.</p>
+      <ul class="pros"><li>Looks like your real signature.</li></ul>
+      <ul class="cons"><li>Hard to draw neatly with a mouse.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+
+    <article class="opt" data-q="9b" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Draw it or type it</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage"><div data-tpl="pdfpage" data-v="plain"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet" data-sigtabs>
+            <h4>Your Signature</h4>
+            <div class="tabs2" style="cursor:pointer"><span class="on" data-t="draw">Draw</span><span data-t="type">Type</span></div>
+            <div data-t="draw"><canvas class="pad" data-pad></canvas></div>
+            <div data-t="type" hidden>
+              <div class="m-field" style="height:30px">Bert Van Baelen</div>
+              <div class="script" style="height:84px;display:grid;place-items:center;font-size:30px;color:#1e3a8a;border:1.5px dashed var(--g300);border-radius:10px;margin-top:6px;background:#fff">Bert Van Baelen</div>
+            </div>
+            <div class="m-btns" style="justify-content:space-between"><span class="m-btn" data-pad-clear style="cursor:pointer">Clear</span><span class="m-btn m-btn--p">Use</span></div>
+          </div>
+        </div></div>
+        <span class="hint" style="width:100%">Draw in the box, or tap <b>Type</b>.</span>
+      </div>
+      <p>The same pad, plus <b>Type</b>: your name (filled in from your account) written in a handwriting font that ships with the app. Initials are made from it too.</p>
+      <ul class="pros"><li>A neat signature from a computer without a pen or touch screen.</li></ul>
+      <ul class="cons"><li>A handwriting font to ship (about 50 KB, loaded only here).</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9c · Keeping your signature for next time</h3>
+  <div class="options">
+    <article class="opt" data-q="9c" data-o="A" data-rec>
+      <div class="opt__head"><span class="opt__letter">A</span><h3>With your account</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Sign</b>
+            <div class="sigtile" style="margin-top:10px"><span class="script" style="font-size:18px;color:#1e3a8a;flex:1">Bert V.B.</span><span class="ibtn"><i data-i="trash" data-s="15"></i></span></div>
+            <small style="display:block;margin-top:4px;color:var(--g500);font-size:9.5px">Saved with your account · on all your devices</small>
+            <div class="sigtile" style="margin-top:10px;justify-content:center;color:var(--p700);font-weight:700;font-size:11px"><i data-i="plus" data-s="14" data-w="2.5"></i>New signature</div>
+          </div>
+        </div></div>
+      </div>
+      <p>The signature and initials are kept on the server with your account, so the phone and the computer offer the same one. <b>Account Settings</b> shows them and can delete them.</p>
+      <ul class="pros"><li>Draw once, use everywhere.</li></ul>
+      <ul class="cons"><li>Your signature is stored on the home server, like your files.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="9c" data-o="B">
+      <div class="opt__head"><span class="opt__letter">B</span><h3>On this device only</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Sign</b>
+            <div class="sigtile" style="margin-top:10px"><span class="script" style="font-size:18px;color:#1e3a8a;flex:1">Bert V.B.</span><span class="ibtn"><i data-i="trash" data-s="15"></i></span></div>
+            <small style="display:block;margin-top:4px;color:var(--g500);font-size:9.5px">Saved on this phone</small>
+            <div class="sigtile" style="margin-top:10px;justify-content:center;color:var(--p700);font-weight:700;font-size:11px"><i data-i="plus" data-s="14" data-w="2.5"></i>New signature</div>
+          </div>
+        </div></div>
+      </div>
+      <p>Kept in the browser of the device where you made it. Each phone or computer has its own; signing out removes it.</p>
+      <ul class="pros"><li>The signature never leaves the device on its own.</li></ul>
+      <ul class="cons"><li>Draw it again on every device, and after signing out.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+    <article class="opt" data-q="9c" data-o="C">
+      <div class="opt__head"><span class="opt__letter">C</span><h3>Not kept</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:330px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div style="padding:14px">
+            <b style="font-size:14px;color:var(--g900)">Your Signature</b>
+            <p style="margin:4px 0 8px;font-size:10px;color:var(--g600)">Draw with your finger or the mouse.</p>
+            <div class="pad" style="height:110px"></div>
+          </div>
+        </div></div>
+      </div>
+      <p>The pad opens every time you sign; nothing is kept anywhere except in the signed PDF.</p>
+      <ul class="pros"><li>Nothing to keep or delete.</li></ul>
+      <ul class="cons"><li>Drawing it each time, and it never looks the same twice.</li></ul>
+      <button type="button" class="pick">Choose C</button>
+    </article>
+  </div>
+
+  <h3 class="sub">9d · Saving</h3>
+  <div class="options">
+    <article class="opt" data-q="9d" data-o="A">
+      <div class="opt__head"><span class="opt__letter">A</span><h3>New version of the file</h3></div>
+      <div class="stage">
+        <div class="phone" style="height:440px"><div class="screen">
+          <div class="sbar sbar--light"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="pdfhead"></div>
+          <div class="pdfstage" style="bottom:0"><div data-tpl="pdfpage" data-v="signed"></div></div>
+          <div class="m-scrim"></div>
+          <div class="m-sheet">
+            <h4>Save Rental Agreement?</h4>
+            <p>The filled-in PDF becomes the file. The empty one stays in Versions for 30 days.</p>
+            <div class="m-btns"><span class="m-btn">Keep Editing</span><span class="m-btn m-btn--p">Save</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p><b>Save</b> replaces the file with the filled-in PDF, as a new version: same name, shares, link and stars. It takes the edit lock like the other editors. The empty form stays in <i>Versions</i> until <code>backup_retention_days</code> have passed.</p>
+      <ul class="pros"><li>No extra files in the folder.</li></ul>
+      <ul class="cons"><li>The empty form disappears after the retention days; to fill it again, you'd need a copy.</li><li>A shared link now shows the signed PDF.</li></ul>
+      <button type="button" class="pick">Choose A</button>
+    </article>
+    <article class="opt" data-q="9d" data-o="B" data-rec>
+      <div class="opt__head"><span class="opt__letter">B</span><h3>Signed copy next to it</h3><span class="rec">Recommended</span></div>
+      <div class="stage">
+        <div class="phone" style="height:440px"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>5G</span></div>
+          <div data-tpl="head"></div>
+          <div class="m-body" style="bottom:0">
+            <div class="m-crumbs"><span class="m-back"><i data-i="back" data-s="12"></i></span>My Files <i data-i="chevronRight" data-s="10"></i> <b style="color:var(--g800)">Housing</b></div>
+            <div class="m-title"><b>Housing</b><span>2 items</span></div>
+            <div class="m-grid">
+              <div class="m-card"><div class="m-thumb t-doc t-pdf"></div><div class="m-name"><i data-i="pdf" data-s="13" data-c="#b91c1c"></i><span>Rental agreement</span></div><div class="m-meta">PDF · 184 KB · 1 w ago</div><span class="m-info"><i data-i="info" data-s="14"></i></span></div>
+              <div class="m-card is-sel"><div class="m-thumb t-doc t-pdf"></div><div class="m-name"><i data-i="pdf" data-s="13" data-c="#b91c1c"></i><span>Rental agreement (signed)</span></div><div class="m-meta">PDF · 231 KB · now</div><span class="m-info"><i data-i="info" data-s="14"></i></span></div>
+            </div>
+          </div>
+          <div class="m-toast" style="bottom:12px"><i data-i="check" data-s="14" data-c="#4ade80"></i>Saved as Rental agreement (signed)<b>Open</b></div>
+        </div></div>
+      </div>
+      <p><b>Save</b> writes <i>Rental agreement (signed).pdf</i> next to the original (<i>(filled in)</i> when nothing was signed); the empty form stays as it was. Viewers save their copy in My Files instead. No edit lock is needed.</p>
+      <ul class="pros"><li>The empty form stays, to fill in again.</li><li>Nothing shared changes by accident.</li></ul>
+      <ul class="cons"><li>One more file in the folder.</li></ul>
+      <button type="button" class="pick">Choose B</button>
+    </article>
+  </div>
+</section>
+</main>
+
+<div class="picks" role="region" aria-label="Your choices">
+  <div class="picks__inner">
+    <strong>Your choices</strong>
+    <span id="pickChips" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+    <div class="picks__end">
+      <button type="button" class="ghost" id="pickRec">Use recommended</button>
+      <button type="button" id="pickCopy">Copy choices</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .desk .m-check { opacity: 0; transition: opacity .15s; }
+  .desk .m-card:hover .m-check, .desk .selecting .m-check, .desk .m-card.is-sel .m-check { opacity: 1; }
+  .screen[data-sel] .m-check { display: none; }
+  .screen[data-sel].selecting .m-check { display: grid; }
+  .actbar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6; background: #fff; border-top: 1px solid var(--g200); display: flex; }
+  .actbar span { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 8.5px; font-weight: 600; color: var(--g700); }
+  .actbar span.danger, .floatbar span.danger { color: #fca5a5; }
+  .actbar span.danger { color: #b91c1c; }
+  .m-selhead { height: 42px; background: #fff; border-bottom: 1px solid var(--g200); display: flex; align-items: center; gap: 4px; padding: 0 6px; color: var(--g900); }
+  .m-selhead b { font-size: 13px; margin-left: 2px; }
+  .m-selhead .sp { flex: 1; }
+  .m-selhead .txt { font-size: 11px; font-weight: 700; color: var(--p700); padding: 0 6px; }
+  .flash { animation: flash .5s; }
+  @keyframes flash { 50% { box-shadow: 0 0 0 3px var(--focus); } }
+  /* 9: fill in and sign PDFs */
+  .pdfstage { position: absolute; top: 68px; left: 0; right: 0; bottom: 52px; background: #e5e7eb; overflow: hidden; padding: 10px; }
+  .pdfpage { background: #fff; border-radius: 2px; box-shadow: 0 2px 6px rgba(0,0,0,.18); padding: 14px 14px 18px; font-size: 7.5px; line-height: 1.5; color: var(--g800); font-family: Georgia, 'Times New Roman', serif; }
+  .pdfpage h5 { margin: 0 0 2px; font-size: 11px; text-align: center; color: var(--g900); }
+  .pdfpage .pdfsub { text-align: center; color: var(--g500); margin-bottom: 8px; }
+  .pdfpage .ln { height: 3px; background: var(--g200); border-radius: 2px; margin: 4px 0; }
+  .pdfpage .lbl { margin-top: 8px; font-family: var(--font); font-size: 7px; color: var(--g600); font-weight: 600; }
+  .fld { position: relative; height: 16px; border-radius: 2px; background: #dbeafe; border-bottom: 1.5px solid #1d4ed8; font-family: var(--font); font-size: 8.5px; color: var(--g900); padding: 2px 4px; display: flex; align-items: center; }
+  .fld.done { background: #eff6ff; }
+  .fld.cur { box-shadow: 0 0 0 2px #1d4ed8; background: #fff; }
+  .chk { display: inline-grid; place-items: center; width: 11px; height: 11px; border: 1.5px solid #1d4ed8; background: #dbeafe; border-radius: 2px; vertical-align: -2px; margin-right: 4px; color: var(--g900); }
+  .placed { position: relative; outline: 1.5px dashed var(--p700); outline-offset: 2px; border-radius: 2px; }
+  .placed::after { content: ''; position: absolute; right: -6px; bottom: -6px; width: 7px; height: 7px; border-radius: 50%; background: #fff; border: 1.5px solid var(--p700); }
+  .sigline { position: relative; height: 34px; border-bottom: 1px solid var(--g500); margin-top: 2px; }
+  .sigline svg { position: absolute; left: 8px; bottom: 2px; }
+  .pdftools { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6; background: #fff; border-top: 1px solid var(--g200); display: flex; }
+  .pdftools span { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 8.5px; font-weight: 600; color: var(--g700); }
+  .pdftools span.on { color: var(--p900); background: var(--p50); }
+  .pdftools b.gl { font-size: 14px; line-height: 17px; font-family: Georgia, serif; }
+  .stepbar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; z-index: 6; background: #fff; border-top: 1px solid var(--g200); display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+  .stepbar .grow { flex: 1; font-size: 10px; color: var(--g600); }
+  .stepbar .grow b { display: block; font-size: 11.5px; color: var(--g900); }
+  .pad { display: block; width: 100%; height: 120px; border: 1.5px dashed var(--g300); border-radius: 10px; background: #fff; touch-action: none; cursor: crosshair; }
+  .tabs2 { display: flex; gap: 4px; margin: 8px 0; }
+  .tabs2 span { flex: 1; text-align: center; padding: 5px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--g600); background: var(--g100); }
+  .tabs2 span.on { background: var(--p100); color: var(--p900); }
+  .script { font-family: 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', cursive; }
+  .sigtile { border: 1px solid var(--g200); border-radius: 10px; padding: 8px; display: flex; align-items: center; gap: 8px; background: #fff; }
+  .sigtile small { display: block; font-size: 9.5px; color: var(--g500); }
+</style>
+<script>
+const P = {
+  folder: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
+  folderAdd: 'M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  family: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+  trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+  home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+  plus: 'M12 4v16m8-8H4',
+  back: 'M10 19l-7-7m0 0l7-7m-7 7h18',
+  chevronRight: 'M9 5l7 7-7 7',
+  chevronLeft: 'M15 19l-7-7 7-7',
+  calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+  close: 'M6 18L18 6M6 6l12 12',
+  grid: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
+  list: 'M4 6h16M4 12h16M4 18h16',
+  info: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  download: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4',
+  upload: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12',
+  eye: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+  pencil: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z',
+  move: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4',
+  restore: 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6',
+  check: 'M5 13l4 4L19 7',
+  star: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
+  recent: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  search: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+  share: 'M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z',
+  archive: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
+  dotsV: 'M12 5h.01M12 12h.01M12 19h.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z',
+  zoomIn: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7',
+  zoomOut: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7',
+  expand: 'M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4',
+  text: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  image: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
+  video: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
+  pdf: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+  sheet: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
+}
+function svg(name, s = 16, c = 'currentColor', f = 'none', w = 2) {
+  if (name === 'logo') return `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5L12 3.8l9.5 7.7"/><path d="M5.5 9.6V19a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5V9.6"/><rect x="8.25" y="11.75" width="7.5" height="5.5" rx="1.25"/><path d="M10.25 14.5h1.5"/><circle cx="13.75" cy="14.5" r="0.9" fill="#4ade80" stroke="none"/></svg>`
+  return `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path d="${P[name]}"/></svg>`
+}
+function icons(root = document) {
+  root.querySelectorAll('i[data-i]').forEach((el) => {
+    const d = el.dataset
+    el.outerHTML = svg(d.i, +d.s || 16, d.c || 'currentColor', d.f || 'none', d.w || 2)
+  })
+}
+
+// ---------- sample items and shared templates ----------
+const types = { folder: ['folder', '#a16207', '#fef9c3'], text: ['text', '#0369a1'], sheet: ['sheet', '#15803d'], image: ['image', '#0f766e'], video: ['video', '#6d28d9'], pdf: ['pdf', '#b91c1c'] }
+const items = {
+  home: [
+    { n: 'Photos', k: 'folder', meta: '48 items · 2 d ago', mini: ['t-photo', 't-photo2', 't-photo3', 't-photo'] },
+    { n: 'Documents', k: 'folder', meta: '12 items · 1 w ago', mini: ['t-doc', 't-sheet', 't-doc t-pdf', 't-doc'] },
+    { n: 'Holiday 2026', k: 'video', t: 't-video', meta: 'Video · 84 MB · 3 d ago' },
+    { n: 'Budget', k: 'sheet', t: 't-sheet', meta: 'Sheet · 18 KB · today' },
+  ],
+  photos: ['t-photo', 't-photo2', 't-photo3', 't-photo2', 't-photo3', 't-photo'].map((t, i) => ({ n: `IMG_20${41 + i}.jpg`, k: 'image', t, meta: 'Photo · 3.1 MB · 2 d ago' })),
+}
+items.grid = [
+  items.home[0], items.home[1],
+  { n: 'Packing list', k: 'text', t: 't-doc', meta: 'Text · 2 KB · today' },
+  items.home[3],
+  { n: 'Beach', k: 'image', t: 't-photo3', meta: 'Photo · 2.4 MB · 3 d ago' },
+  { n: 'Invoice garage', k: 'pdf', t: 't-doc t-pdf', meta: 'PDF · 184 KB · 1 w ago' },
+]
+items.desk = [...items.grid, { n: 'Sunset', k: 'image', t: 't-photo2', meta: 'Photo · 2.9 MB · 2 w ago' }, items.home[2]]
+
+function thumb(it) {
+  if (it.k === 'folder') return `<div class="m-thumb t-folder">${(it.mini || []).map((m) => `<div class="${m}" style="position:relative;overflow:hidden"></div>`).join('')}</div>`
+  return `<div class="m-thumb ${it.t}"></div>`
+}
+function card(it, o = {}) {
+  const [ic, c, f] = types[it.k]
+  const pad = o.more ? ' style="padding-right:0"' : ''
+  return `<div class="m-card${o.sel ? ' is-sel' : ''}" data-name="${it.n}">`
+    + (o.check ? `<span class="m-check"><i data-i="check" data-s="11" data-w="3"></i></span>` : '')
+    + thumb(it)
+    + (o.more ? `<span class="m-more"><i data-i="dotsV" data-s="15"></i></span>` : '')
+    + `<div class="m-name"${pad}><i data-i="${ic}" data-s="13" data-c="${c}"${f ? ` data-f="${f}"` : ''}></i><span>${it.n}</span></div>`
+    + `<div class="m-meta"${pad}>${it.meta}</div>`
+    + (o.info ? `<span class="m-info"><i data-i="info" data-s="14"></i></span>` : '')
+    + `</div>`
+}
+const T = {
+  head: () => `<div class="m-head"><i data-i="logo" data-s="20"></i><div class="m-search"><i data-i="search" data-s="12"></i>Search</div><span class="m-ava">BV</span></div>`,
+  tabbar: (el) => {
+    const tabs = [['files', 'folder', 'Files'], ['shared', 'family', 'Shared'], ['recent', 'recent', 'Recent'], ['starred', 'star', 'Starred'], ['trash', 'trash', 'Trash']]
+    const list = el.dataset.plus !== undefined ? [tabs[0], tabs[1], '+', tabs[2], tabs[3]] : tabs
+    return list.map((t) => t === '+'
+      ? `<a class="m-tabplus"><i><i data-i="plus" data-s="20" data-w="2.25"></i></i></a>`
+      : `<a class="${t[0] === el.dataset.on ? 'on' : ''}"><i data-i="${t[1]}" data-s="17"></i>${t[2]}</a>`).join('')
+  },
+  pdfhead: () => `<div class="m-ehead" style="position:absolute;top:22px;left:0;right:0;height:46px"><span class="m-dbtn m-dbtn--plain" style="color:var(--g700)"><i data-i="close"></i></span><i data-i="pdf" data-c="#b91c1c"></i><div class="t"><b>Rental agreement</b><span style="color:var(--g500)">Fill &amp; Sign</span></div><span class="m-btn m-btn--p">Save</span></div>`,
+  pdfpage: (el) => {
+    const v = el.dataset.v
+    const sig = `<svg width="96" height="30" viewBox="0 0 96 30"><path d="M4 22c6-14 10-16 12-8s-2 12 4 4 8-14 10-6-4 10 2 6 10-12 14-4 2 8 8 2 8-8 12-2 4 6 10 2 10-6 14-4" fill="none" stroke="#1e3a8a" stroke-width="1.6" stroke-linecap="round"/></svg>`
+    const filled = v !== 'guided' && v !== 'plain'
+    return `<div class="pdfpage">
+      <h5>Rental Agreement</h5><div class="pdfsub">Rue de la Loi 16, Brussels · Apartment 2B</div>
+      <div class="ln"></div><div class="ln" style="width:86%"></div><div class="ln" style="width:93%"></div>
+      <div class="lbl">Tenant name</div><div class="fld done">Bert Van Baelen</div>
+      <div class="lbl">Phone</div><div class="fld${v === 'guided' ? ' cur' : filled ? ' done' : ''}">${v === 'guided' ? '+32 470 12 34 5<span class="caret"></span>' : filled ? '+32 470 12 34 56' : ''}</div>
+      <div class="lbl">Start date</div><div class="fld${filled ? ' done' : ''}">${filled ? '01/12/2026' : ''}</div>
+      <div class="ln" style="margin-top:8px"></div><div class="ln" style="width:72%"></div>
+      <div style="margin-top:8px;font-family:var(--font);font-size:7.5px"><span class="chk">${filled ? '✓' : ''}</span>I have read and agree to the terms</div>
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1"><div class="lbl">Signature</div><div class="sigline${v === 'tools' ? ' placed' : ''}">${filled ? sig : ''}</div></div>
+        <div style="width:70px"><div class="lbl">Date</div><div style="height:20px;display:flex;align-items:flex-end;border-bottom:1px solid var(--g500)">${filled ? `<span class="${v === 'tools' ? 'placed' : ''}" style="font-family:var(--font);font-size:8.5px;margin:0 0 2px 4px">13/11/2026</span>` : ''}</div></div>
+      </div>
+    </div>`
+  },
+  home: () => `<div class="m-title" style="margin-top:0"><b>My Files</b><span>4 items</span></div><div class="m-grid">${items.home.map((it) => card(it, { info: true })).join('')}</div>`,
+  grid: (el) => {
+    const more = el.dataset.variant === 'more'
+    Object.assign(el.style, { display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: (el.dataset.end || 10) + 'px' })
+    return `<div class="m-grid">${items.grid.map((it) => card(it, { info: !more, more })).join('')}</div>`
+  },
+  savepage: (el) => {
+    const saving = el.dataset.saving !== undefined
+    const files = ['IMG_2101.jpg', 'IMG_2102.jpg'].map((n, i) =>
+      `<div style="display:flex;gap:6px;align-items:center;margin-top:8px"><i data-i="image" data-s="14" data-c="#0f766e"></i><div class="m-field" style="flex:1;height:26px">${n}</div><small style="color:var(--g500);font-size:9.5px">${['2.4', '3.1'][i]} MB</small></div>`
+      + (saving ? `<div style="height:4px;border-radius:4px;background:var(--g200);margin:5px 0 0 20px;overflow:hidden"><div style="height:100%;width:${[100, 64][i]}%;background:var(--p700)"></div></div>` : '')).join('')
+    return `${T.head()}<div style="position:absolute;top:64px;left:0;right:0;bottom:0;padding:12px;overflow:hidden">
+      <b style="font-size:17px;color:var(--g900)">Save To Homedrive</b>
+      <div style="margin-top:10px;background:#fff;border:1px solid var(--g200);border-radius:10px;padding:10px;display:flex;align-items:center;gap:8px">
+        <div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--g500)">Save in</div>
+        <div style="display:flex;gap:5px;align-items:center;font-weight:700;font-size:11px"><i data-i="folder" data-s="14" data-c="#a16207" data-f="#fef9c3"></i>My Files / Documents</div></div>
+        <span class="m-btn">Change</span></div>
+      <div style="margin-top:10px;background:#fff;border:1px solid var(--g200);border-radius:10px;padding:10px"><b style="font-size:12px">2 files received</b>${files}
+        <div class="m-btns"><span class="m-btn">Discard</span><span class="m-btn m-btn--p" data-save><i data-i="upload" data-s="12"></i>${saving ? 'Saving…' : 'Save'}</span></div></div></div>`
+  },
+}
+document.querySelectorAll('[data-tpl]').forEach((el) => { el.innerHTML = T[el.dataset.tpl](el) })
+
+// ---------- choices ----------
+const Q = ['1a', '1b', '2', '3', '4', '5', '6', '7', '8', '9a', '9b', '9c', '9d']
+// What was chosen on 2026-11-13 (docs/architecture.md describes these).
+const CHOSEN = { '1a': 'B', '1b': 'A', '2': 'A', '3': 'A', '4': 'B', '5': 'B', '6': 'B', '7': 'A', '8': 'A', '9a': 'A', '9b': 'B', '9c': 'A', '9d': 'A' }
+document.querySelectorAll('.opt').forEach((o) => {
+  if (CHOSEN[o.dataset.q] !== o.dataset.o) return
+  const b = document.createElement('span')
+  b.className = 'rec'
+  b.style.cssText = 'background:#166534;color:#fff'
+  b.textContent = 'Chosen'
+  o.querySelector('.opt__head').appendChild(b)
+})
+let picks = {}
+try { picks = JSON.parse(localStorage.getItem('hd.v3picks') || 'null') ?? { ...CHOSEN } } catch { picks = { ...CHOSEN } }
+function savePicks() { try { localStorage.setItem('hd.v3picks', JSON.stringify(picks)) } catch {} }
+function renderPicks() {
+  document.getElementById('pickChips').innerHTML = Q.map((q) =>
+    `<a class="chip${picks[q] ? ' is-set' : ''}" href="#f${q[0]}">${q} · ${picks[q] || '?'}</a>`).join('')
+  document.querySelectorAll('.opt').forEach((o) => o.classList.toggle('is-picked', picks[o.dataset.q] === o.dataset.o))
+  document.querySelectorAll('.opt .pick').forEach((b) => {
+    const o = b.closest('.opt')
+    b.textContent = picks[o.dataset.q] === o.dataset.o ? `✓ Chosen` : `Choose ${o.dataset.o}`
+  })
+}
+document.querySelectorAll('.opt .pick').forEach((b) => b.addEventListener('click', () => {
+  const o = b.closest('.opt')
+  picks[o.dataset.q] = o.dataset.o
+  savePicks()
+  renderPicks()
+  if (o.dataset.q === '7' && window.simSetAsk) window.simSetAsk(o.dataset.o)
+}))
+document.getElementById('pickRec').addEventListener('click', () => {
+  document.querySelectorAll('.opt[data-rec]').forEach((o) => { picks[o.dataset.q] = o.dataset.o })
+  savePicks()
+  renderPicks()
+})
+document.getElementById('pickCopy').addEventListener('click', (e) => {
+  const text = 'Homedrive v3 choices: ' + Q.map((q) => `${q}: ${picks[q] || '?'}`).join(', ')
+  const done = () => { e.target.textContent = 'Copied ✓'; setTimeout(() => (e.target.textContent = 'Copy choices'), 1500) }
+  navigator.clipboard?.writeText(text).then(done, () => prompt('Copy your choices:', text)) ?? prompt('Copy your choices:', text)
+})
+
+// ---------- small toggles ----------
+document.querySelectorAll('[data-toggle-md]').forEach((v) => {
+  v.querySelectorAll('.m-seg span').forEach((s) => s.addEventListener('click', () => {
+    v.querySelectorAll('.m-seg span').forEach((x) => x.classList.toggle('on', x === s))
+    v.querySelectorAll('.md[data-v]').forEach((b) => (b.hidden = b.dataset.v !== s.dataset.v))
+  }))
+})
+document.querySelectorAll('[data-diff-toggle]').forEach((a) => a.addEventListener('click', () => {
+  const d = a.parentElement.querySelector('.diff')
+  d.hidden = !d.hidden
+  a.textContent = d.hidden ? 'Show the changes' : 'Hide the changes'
+}))
+document.querySelectorAll('[data-hiding]').forEach((f) => {
+  f.style.transition = 'transform .35s cubic-bezier(.2,.8,.2,1)'
+  let down = false
+  setInterval(() => { down = !down; f.style.transform = down ? 'translateY(130px)' : 'none' }, 2200)
+})
+
+// ---------- 2: back animations ----------
+const D = 420, E = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+function rel(el, base) {
+  const r = el.getBoundingClientRect(), b = base.getBoundingClientRect()
+  return { left: r.left - b.left, top: r.top - b.top, width: r.width, height: r.height }
+}
+function animScreen() {
+  return `<div class="sbar"><span>9:41</span><span>5G</span></div>${T.head()}
+  <div class="layer layer--parent">${T.home()}</div>
+  <div class="layer layer--child"><div class="m-crumbs"><span class="m-back"><i data-i="back" data-s="12"></i></span>My Files <i data-i="chevronRight" data-s="10"></i> <b style="color:var(--g800)">Photos</b></div>
+    <div class="m-title"><b>Photos</b><span>48 items</span></div><div class="m-grid">${items.photos.map((it) => card(it, { info: true })).join('')}</div></div>
+  <div class="layer layer--viewer"><div class="vimg t-photo" style="width:240px;height:166px;border-radius:6px"></div></div>
+  <nav class="m-tabbar">${T.tabbar({ dataset: { on: 'files' } })}</nav>`
+}
+document.querySelectorAll('[data-anim]').forEach((scr) => {
+  scr.innerHTML = animScreen()
+  const kind = scr.dataset.anim
+  const parent = scr.querySelector('.layer--parent'), child = scr.querySelector('.layer--child'), viewer = scr.querySelector('.layer--viewer')
+  const folder = parent.querySelector('.m-card'), img = viewer.querySelector('.vimg')
+  let level = 'parent', busy = false
+  const show = (el, on) => (el.style.visibility = on ? 'visible' : 'hidden')
+  const done = (a, fn) => new Promise((r) => (a.onfinish = () => { fn?.(); r() }))
+  const centre = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+
+  async function open() {
+    show(child, true)
+    if (kind === 'zoom') {
+      const from = rel(folder.querySelector('.m-thumb'), scr), to = rel(child, scr)
+      const ghost = document.createElement('div')
+      ghost.className = 'zoom-ghost-m'
+      Object.assign(ghost.style, { left: from.left + 'px', top: from.top + 'px', width: from.width + 'px', height: from.height + 'px' })
+      scr.appendChild(ghost)
+      const g = ghost.animate([{ transformOrigin: '0 0', transform: 'none', opacity: 0.95 },
+        { transformOrigin: '0 0', transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})`, opacity: 0 }], { duration: D, easing: E })
+      const c = centre(from)
+      child.querySelectorAll('.m-card').forEach((el, i) => {
+        const r = rel(el, scr), m = centre(r)
+        el.animate([{ transform: `translate(${c.x - m.x}px,${c.y - m.y}px) scale(.3)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D, easing: E, delay: 40 + i * 15, fill: 'backwards' })
+      })
+      parent.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200 }).onfinish = () => show(parent, false)
+      await done(g, () => ghost.remove())
+    } else {
+      parent.animate([{ transform: 'none' }, { transform: 'translateX(-30%)', opacity: 0.6 }], { duration: 360, easing: E }).onfinish = () => show(parent, false)
+      await done(child.animate([{ transform: 'translateX(100%)', boxShadow: '-8px 0 20px rgba(0,0,0,.15)' }, { transform: 'none', boxShadow: '-8px 0 20px rgba(0,0,0,0)' }], { duration: 360, easing: E }))
+    }
+    level = 'child'
+  }
+  async function back() {
+    show(parent, true)
+    if (kind === 'zoom') {
+      const c = centre(rel(folder.querySelector('.m-thumb'), scr))
+      child.querySelectorAll('.m-card').forEach((el) => {
+        const m = centre(rel(el, scr))
+        el.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${c.x - m.x}px,${c.y - m.y}px) scale(.3)`, opacity: 0 }], { duration: 300, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' })
+      })
+      const fade = child.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, fill: 'forwards' })
+      folder.animate([{ transform: 'scale(1.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D, easing: E, delay: 60, fill: 'backwards' })
+      parent.querySelectorAll('.m-card:not(:first-child), .m-title').forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 120, fill: 'backwards' }))
+      await done(fade, () => { show(child, false); child.getAnimations({ subtree: true }).forEach((a) => a.cancel()) })
+    } else {
+      parent.animate([{ transform: 'translateX(-30%)', opacity: 0.6 }, { transform: 'none', opacity: 1 }], { duration: 360, easing: E })
+      await done(child.animate([{ transform: 'none' }, { transform: 'translateX(100%)' }], { duration: 360, easing: E }), () => show(child, false))
+    }
+    level = 'parent'
+  }
+  async function photo() {
+    const t = child.querySelector('.m-card .m-thumb')
+    show(viewer, true)
+    if (kind === 'zoom') {
+      const from = rel(t, scr), to = rel(img, scr)
+      viewer.animate([{ backgroundColor: 'rgba(17,24,39,0)' }, { backgroundColor: 'rgba(17,24,39,1)' }], { duration: 220 })
+      await done(img.animate([{ transformOrigin: '0 0', transform: `translate(${from.left - to.left}px,${from.top - to.top}px) scale(${from.width / to.width},${from.height / to.height})` }, { transformOrigin: '0 0', transform: 'none' }], { duration: 340, easing: 'cubic-bezier(.34,1.3,.64,1)' }))
+    } else {
+      await done(viewer.animate([{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: E }))
+    }
+    level = 'viewer'
+  }
+  async function close() {
+    if (kind === 'zoom') {
+      const to = rel(child.querySelector('.m-card .m-thumb'), scr), from = rel(img, scr)
+      viewer.animate([{ backgroundColor: 'rgba(17,24,39,1)' }, { backgroundColor: 'rgba(17,24,39,0)' }], { duration: 300, fill: 'forwards' })
+      await done(img.animate([{ transformOrigin: '0 0', transform: 'none' }, { transformOrigin: '0 0', transform: `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width},${to.height / from.height})` }], { duration: 320, easing: E }),
+        () => { show(viewer, false); viewer.getAnimations().forEach((a) => a.cancel()) })
+    } else {
+      await done(viewer.animate([{ transform: 'none' }, { transform: 'translateY(100%)' }], { duration: 300, easing: 'cubic-bezier(.4,0,1,1)' }), () => show(viewer, false))
+    }
+    level = 'child'
+  }
+  const run = (fn) => async () => { if (busy) return; busy = true; try { await fn() } finally { busy = false } }
+  const wrap = scr.closest('.frame-wrap')
+  wrap.querySelector('[data-act="open"]').addEventListener('click', run(async () => { if (level === 'viewer') await close(); if (level === 'parent') await open() }))
+  wrap.querySelector('[data-act="back"]').addEventListener('click', run(async () => { if (level === 'viewer') await close(); else if (level === 'child') await back() }))
+  wrap.querySelector('[data-act="photo"]').addEventListener('click', run(async () => { if (level === 'parent') await open(); if (level === 'child') await photo() }))
+  wrap.querySelector('[data-act="close"]').addEventListener('click', run(async () => { if (level === 'viewer') await close() }))
+})
+</script>
+<script>
+// ---------- 5: selection ----------
+function selDemo(root) {
+  const mode = root.dataset.sel, phone = root.dataset.dev === 'phone'
+  const list = phone ? items.grid : items.desk
+  let sel = new Set([2, 4])
+  const actions = [['download', 'Download'], ['move', 'Move'], ['star', 'Star'], ['trash', 'Delete', 'danger']]
+  function render() {
+    const n = sel.size, on = n > 0
+    root.classList.toggle('selecting', on)
+    const grid = `<div class="m-grid${phone ? '' : ' m-grid--4'}">${list.map((it, i) => card(it, { info: true, check: true, sel: sel.has(i) })).join('')}</div>`
+    const count = `${n} selected`
+    const topIcons = actions.map(([i, l]) => `<span class="ibtn" title="${l}"><i data-i="${i}" data-s="17"></i></span>`).join('')
+    if (phone) {
+      let head = T.head(), bottom = `<nav class="m-tabbar">${T.tabbar({ dataset: { on: 'files' } })}</nav>${on ? '' : '<span class="m-fab"><i data-i="plus" data-s="22" data-w="2.25"></i></span>'}`
+      if (on && mode === 'top') head = `<div class="m-selhead"><span class="ibtn" data-clear><i data-i="close" data-s="17"></i></span><b>${n}</b><span class="sp"></span><span class="txt" data-all>All</span>${topIcons}</div>`
+      if (on && mode === 'bottom') {
+        head = `<div class="m-selhead"><span class="ibtn" data-clear><i data-i="close" data-s="17"></i></span><b>${count}</b><span class="sp"></span><span class="txt" data-all>Select all</span></div>`
+        bottom = `<div class="actbar">${actions.map(([i, l, d]) => `<span class="${d || ''}"><i data-i="${i}" data-s="17"></i>${l}</span>`).join('')}</div>`
+      }
+      root.innerHTML = `<div class="sbar${on ? ' sbar--light' : ''}"><span>9:41</span><span>5G</span></div>${head}<div class="m-body">${on ? '' : '<div class="m-title" style="margin-top:0"><b>My Files</b><span>long-press (here: click) to select</span></div>'}${grid}</div>${bottom}`
+    } else {
+      const side = `<div class="d-side"><span class="d-new"><i data-i="plus" data-s="14" data-w="2.5"></i>New</span>
+        <span class="d-nav on"><i data-i="folder" data-s="15"></i>My Files</span><span class="d-nav"><i data-i="family" data-s="15"></i>Family</span>
+        <span class="d-nav"><i data-i="recent" data-s="15"></i>Recent</span><span class="d-nav"><i data-i="star" data-s="15"></i>Starred</span><span class="d-nav"><i data-i="trash" data-s="15"></i>Trash</span></div>`
+      let top = `<div class="m-title" style="margin-top:0"><b>My Files</b><span>8 items${on && mode === 'bottom' ? ` · <strong style="color:var(--p900)">${count}</strong> · <a data-all style="color:var(--p700);font-weight:700;cursor:pointer">Select all</a>` : ''}</span></div>`
+      if (on && mode === 'top') top = `<div class="d-selbar" style="margin:-10px -14px 10px"><span class="ibtn" data-clear><i data-i="close" data-s="17"></i></span><b>${count}</b><span class="txt" data-all style="font-size:11px;font-weight:700;color:var(--p700);cursor:pointer">Select all</span><span class="sp"></span>${topIcons}</div>`
+      const float = on && mode === 'bottom'
+        ? `<div class="floatbar">${actions.map(([i, l, d]) => `<span class="${d || ''}"><i data-i="${i}" data-s="16"></i>${l}</span>`).join('')}<span class="x" data-clear title="Clear"><i data-i="close" data-s="16"></i></span></div>` : ''
+      root.innerHTML = `<div class="chrome"><span></span><span></span><span></span><em>homedrive.example.org</em></div>${T.head()}<div class="d-body">${side}<div class="d-main">${top}${grid}${float}</div></div>`
+    }
+    icons(root)
+  }
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('[data-clear]')) sel.clear()
+    else if (e.target.closest('[data-all]')) sel = new Set(list.map((_, i) => i))
+    else {
+      const c = e.target.closest('.m-card')
+      if (!c) return
+      const i = [...root.querySelectorAll('.m-card')].indexOf(c)
+      sel.has(i) ? sel.delete(i) : sel.add(i)
+    }
+    render()
+  })
+  render()
+}
+document.querySelectorAll('[data-sel]').forEach(selDemo)
+
+// ---------- 6: zoom ----------
+function zoomDemo(stage) {
+  const img = stage.querySelector('.zimg'), mode = stage.dataset.zoom
+  const chip = stage.querySelector('.zchip'), bar = stage.querySelector('.zbar'), pct = bar?.querySelector('.pct')
+  const W = 230, H = 160
+  let s = 1, x = 0, y = 0, chipTimer, barTimer
+  const box = () => stage.getBoundingClientRect()
+  function clamp() {
+    const { width: w, height: h } = box()
+    const sw = W * s, sh = H * s
+    x = sw <= w ? (w - sw) / 2 : Math.min(0, Math.max(w - sw, x))
+    y = sh <= h ? (h - sh) / 2 : Math.min(0, Math.max(h - sh, y))
+  }
+  const label = () => (s < 1.01 ? 'Fit' : Math.round(s * 100) + '%')
+  function apply(smooth) {
+    clamp()
+    img.style.transition = smooth ? 'transform .25s cubic-bezier(.2,.8,.2,1)' : 'none'
+    img.style.transform = `translate(${x}px,${y}px) scale(${s})`
+    if (pct) pct.textContent = label()
+    if (chip) {
+      chip.textContent = s < 1.01 ? '100%' : label()
+      chip.classList.add('show')
+      clearTimeout(chipTimer)
+      chipTimer = setTimeout(() => chip.classList.remove('show'), s < 1.01 ? 600 : 1400)
+    }
+  }
+  function zoomAt(ns, px, py, smooth) {
+    ns = Math.max(1, Math.min(6, ns))
+    x = px - (px - x) * (ns / s)
+    y = py - (py - y) * (ns / s)
+    s = ns
+    apply(smooth)
+    showBar()
+  }
+  const fit = () => { s = 1; apply(true) }
+  function showBar() {
+    if (!bar) return
+    bar.classList.remove('hide')
+    clearTimeout(barTimer)
+    barTimer = setTimeout(() => bar.classList.add('hide'), 3000)
+  }
+  const pt = (e) => { const r = box(); return [e.clientX - r.left, e.clientY - r.top] }
+  stage.addEventListener('wheel', (e) => { e.preventDefault(); const [px, py] = pt(e); zoomAt(s * Math.exp(-e.deltaY * 0.0015), px, py) }, { passive: false })
+  stage.addEventListener('dblclick', (e) => { const [px, py] = pt(e); s > 1.01 ? fit() : zoomAt(2.5, px, py, true) })
+  let drag = null
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.zbar, .zchip')) return
+    drag = { sx: e.clientX, sy: e.clientY, x, y, moved: false }
+    stage.setPointerCapture(e.pointerId)
+  })
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true
+    x = drag.x + dx; y = drag.y + dy
+    apply()
+  })
+  stage.addEventListener('pointerup', () => { if (drag && !drag.moved) showBar(); drag = null })
+  chip?.addEventListener('click', fit)
+  bar?.querySelectorAll('[data-z]').forEach((b) => b.addEventListener('click', () => {
+    const { width: w, height: h } = box()
+    if (b.dataset.z === 'fit') fit()
+    else zoomAt(s * (b.dataset.z === '+' ? 1.5 : 1 / 1.5), w / 2, h / 2, true)
+    showBar()
+  }))
+  requestAnimationFrame(() => { apply(); chip?.classList.remove('show'); showBar() })
+}
+document.querySelectorAll('[data-zoom]').forEach(zoomDemo)
+
+// ---------- 7: back simulator ----------
+;(function sim() {
+  const screen = document.getElementById('simScreen'), stackEl = document.getElementById('simStack'), nextEl = document.getElementById('simNext')
+  const folders = ['Photos', 'Summer', 'Beach day', 'More']
+  let stack, asking = false, closed = false, toast = '', ask = picks['7'] || 'A', timer
+  const top = () => stack[stack.length - 1]
+  const isFolder = (s) => s.k === 'home' || s.k === 'folder'
+  function start(kind) {
+    closed = false; asking = false; toast = ''
+    stack = [{ k: 'home', t: 'My Files' }]
+    if (kind === 'share') stack.push({ k: 'save', t: 'Save To Homedrive', added: true })
+    if (kind === 'notif') stack.push({ k: 'folder', t: 'Holiday 2026', added: true })
+    render()
+  }
+  window.simSetAsk = (o) => { ask = o; render() }
+  function folderScreen(title, extra = '') {
+    const cards = (title === 'My Files' ? items.home : items.photos.slice(0, 4)).map((it) => card(it, { info: true })).join('')
+    const crumbs = title === 'My Files' ? '' : `<div class="m-crumbs"><span class="m-back" data-do="upback" style="cursor:pointer"><i data-i="back" data-s="12"></i></span>Back to ${stack.filter(isFolder).slice(-2)[0]?.t ?? 'My Files'}</div>`
+    return `${T.head()}<div class="m-body">${crumbs}<div class="m-title"${crumbs ? '' : ' style="margin-top:0"'}><b>${title}</b><span>${title === 'My Files' ? '4' : '48'} items</span></div><div class="m-grid">${cards}</div></div><nav class="m-tabbar">${T.tabbar({ dataset: { on: 'files' } })}</nav>${extra}`
+  }
+  function render() {
+    let html = ''
+    const s = top()
+    const under = [...stack].reverse().find(isFolder)
+    if (closed) {
+      html = `<div class="closed"><div class="appicon">${svg('logo', 34)}</div><b style="font-size:14px">Homedrive is closed</b><span style="color:#cbd5e1">You're on the phone's home screen. Start it again on the left.</span></div>`
+    } else if (s.k === 'save') {
+      html = T.savepage({ dataset: {} }) + `<div style="position:absolute;left:12px;right:12px;bottom:12px" class="hint">Tap <b>Save</b> to upload: the app goes Home (question 3).</div>`
+    } else if (s.k === 'viewer') {
+      html = `<div class="m-viewer" style="top:22px"><div class="m-vbar"><span class="m-dbtn m-dbtn--plain"><i data-i="back"></i></span><div class="t"><b>${s.t}</b><span>Photo · 3.1 MB</span></div><span class="m-dbtn"><i data-i="info" data-s="14"></i></span></div><div class="m-vstage"><div class="t-photo" style="width:230px;height:160px;border-radius:6px"></div></div></div>`
+    } else {
+      let extra = ''
+      if (s.k === 'sheet') extra = `<div class="m-scrim"></div><div class="m-sheet"><h4>IMG_2041.jpg</h4><p>Photo · 3.1 MB · Modified 2 days ago</p><div class="m-btns" style="justify-content:flex-start"><span class="m-btn m-btn--p">Open</span><span class="m-btn">Share</span><span class="m-btn">Move</span></div></div>`
+      if (s.k === 'select') extra = `<div style="position:absolute;top:22px;left:0;right:0;z-index:7" class="m-selhead"><span class="ibtn"><i data-i="close" data-s="17"></i></span><b>2 selected</b></div><div class="actbar"><span><i data-i="download" data-s="17"></i>Download</span><span><i data-i="move" data-s="17"></i>Move</span><span><i data-i="star" data-s="17"></i>Star</span><span class="danger"><i data-i="trash" data-s="17"></i>Delete</span></div>`
+      if (asking && ask === 'A') extra += `<div class="m-scrim"></div><div class="m-sheet" style="text-align:center"><h4>Close Homedrive?</h4><p>Press back again to close.</p><div class="m-btns" style="justify-content:center"><span class="m-btn m-btn--p" data-stay style="padding:7px 26px;cursor:pointer">Stay</span></div></div>`
+      if (asking && ask === 'B') extra += `<div class="m-toast" style="justify-content:center">Press back again to close Homedrive</div>`
+      if (toast) extra += `<div class="m-toast"><i data-i="check" data-s="14" data-c="#4ade80"></i>${toast}<b>Open</b></div>`
+      html = folderScreen(under.t, extra)
+    }
+    screen.innerHTML = `<div class="sbar${s?.k === 'viewer' && !closed ? ' sbar--dark' : ''}"><span>9:41</span><span>5G</span></div>` + html
+    icons(screen)
+    stackEl.innerHTML = closed ? '<span>—</span>' : stack.map((x, i) => `${i ? '<i>›</i>' : ''}<span class="${i === stack.length - 1 ? 'top' : ''}" title="${x.added ? 'Put under it when the app opened' : ''}">${x.t}${x.added ? '' : ''}</span>`).join('')
+    const prev = stack[stack.length - 2]
+    let next
+    if (closed) next = 'Back does nothing: the app is closed.'
+    else if (asking) next = 'Back now <b>closes the app</b>.'
+    else if (stack.length === 1) next = `Back now <b>asks</b> before closing (${ask === 'A' ? 'sheet' : 'bar'}).`
+    else if (!isFolder(s) && s.k !== 'save') next = `Back now <b>closes ${s.k === 'viewer' ? 'the photo' : s.k === 'sheet' ? 'the info sheet' : 'the selection'}</b>.`
+    else next = `Back now goes to <b>${prev.t}</b>${prev.k === 'home' && s.added ? ' (put under it when the app opened)' : ''}.`
+    nextEl.innerHTML = next
+    document.querySelectorAll('#sim [data-ask]').forEach((b) => b.classList.toggle('ctl--dark', b.dataset.ask === ask))
+  }
+  function doIt(what) {
+    if (closed) return
+    toast = ''
+    const s = top()
+    if (what === 'back') {
+      clearTimeout(timer)
+      if (asking) { closed = true; asking = false }
+      else if (stack.length > 1) stack.pop()
+      else { asking = true; timer = setTimeout(() => { asking = false; render() }, ask === 'A' ? 4000 : 2000) }
+    } else {
+      asking = false
+      if (what === 'upback') { if (s.k === 'folder') stack.pop() }
+      else if (!isFolder(s)) return render()
+      else if (what === 'folder') { const depth = stack.filter((x) => x.k === 'folder').length; stack.push({ k: 'folder', t: folders[Math.min(depth, folders.length - 1)] }) }
+      else if (what === 'photo') stack.push({ k: 'viewer', t: 'IMG_2041.jpg' })
+      else if (what === 'info') stack.push({ k: 'sheet', t: 'Info sheet' })
+      else if (what === 'select') stack.push({ k: 'select', t: '2 selected' })
+    }
+    render()
+  }
+  document.querySelectorAll('#sim [data-start]').forEach((b) => b.addEventListener('click', () => start(b.dataset.start)))
+  document.querySelectorAll('#sim .sim__panel [data-do]').forEach((b) => b.addEventListener('click', () => doIt(b.dataset.do)))
+  document.querySelectorAll('#sim [data-ask]').forEach((b) => b.addEventListener('click', () => { ask = b.dataset.ask; render() }))
+  screen.addEventListener('click', (e) => {
+    if (e.target.closest('[data-stay]')) { asking = false; clearTimeout(timer); render() }
+    else if (e.target.closest('[data-do="upback"]')) doIt('upback')
+    else if (e.target.closest('[data-save]') && top().k === 'save') { stack = [stack[0]]; toast = '2 photos saved in Documents'; render() }
+  })
+  start('share')
+})()
+
+// ---------- 8: right-click ----------
+function ctxDemo(root) {
+  const opt = root.dataset.ctx, list = items.desk
+  let sel = new Set(), menu = null
+  const it = (i, l, k = '', cls = '') => `<div class="it ${cls}"><i data-i="${i}" data-s="15"></i>${l}${opt === 'A' && k ? `<kbd>${k}</kbd>` : ''}</div>`
+  const q = (i, l, cls = '') => `<span class="${cls}" title="${l}"><i data-i="${i}" data-s="17"></i></span>`
+  function itemMenu(n) {
+    const name = `<div class="head">${n.n}</div>`
+    if (opt === 'A') return name + it('eye', 'Open', 'Enter') + '<hr>' + it('share', 'Share…') + it('download', 'Download') + '<hr>' + it('pencil', 'Rename…', 'F2') + it('move', 'Move…') + it('star', 'Star') + it('info', 'Details', 'Alt+Enter') + '<hr>' + it('trash', 'Delete', 'Del', 'danger')
+    return `<div class="quick">${q('share', 'Share…')}${q('download', 'Download')}${q('star', 'Star')}${q('trash', 'Delete', 'danger')}</div>` + it('eye', 'Open') + it('pencil', 'Rename…') + it('move', 'Move…') + it('info', 'Details')
+  }
+  function manyMenu(c) {
+    const head = `<div class="head">${c} items</div>`
+    if (opt === 'A') return head + it('archive', 'Download as .zip') + it('move', 'Move…') + it('star', 'Star') + '<hr>' + it('trash', 'Delete', 'Del', 'danger')
+    return head + `<div class="quick">${q('download', 'Download as .zip')}${q('star', 'Star')}${q('trash', 'Delete', 'danger')}</div>` + it('move', 'Move…')
+  }
+  function bgMenu() {
+    if (opt === 'A') return it('folderAdd', 'New folder') + it('upload', 'Upload files') + it('text', 'New document') + it('sheet', 'New spreadsheet') + '<hr>' + it('grid', 'Grid view', '✓') + it('list', 'List view')
+    return `<div class="quick">${q('folderAdd', 'New folder')}${q('upload', 'Upload files')}${q('text', 'New document')}${q('sheet', 'New spreadsheet')}</div>` + it('grid', 'Grid view ✓') + it('list', 'List view')
+  }
+  root.innerHTML = `<div class="chrome"><span></span><span></span><span></span><em>homedrive.example.org</em></div>${T.head()}<div class="d-body"><div class="d-side"><span class="d-new"><i data-i="plus" data-s="14" data-w="2.5"></i>New</span><span class="d-nav on"><i data-i="folder" data-s="15"></i>My Files</span><span class="d-nav"><i data-i="family" data-s="15"></i>Family</span><span class="d-nav"><i data-i="recent" data-s="15"></i>Recent</span><span class="d-nav"><i data-i="star" data-s="15"></i>Starred</span><span class="d-nav"><i data-i="trash" data-s="15"></i>Trash</span></div><div class="d-main"><div class="m-title" style="margin-top:0"><b>My Files</b><span>8 items</span></div><div class="m-grid m-grid--4">${list.map((n) => card(n, { info: true, check: true })).join('')}</div></div></div>`
+  const main = root.querySelector('.d-main'), cards = [...root.querySelectorAll('.m-card')]
+  const paint = () => cards.forEach((c, i) => c.classList.toggle('is-sel', sel.has(i)))
+  const closeMenu = () => { menu?.remove(); menu = null }
+  function open(html, cx, cy) {
+    closeMenu()
+    const r = root.getBoundingClientRect()
+    menu = document.createElement('div')
+    menu.className = 'cmenu'
+    menu.innerHTML = html
+    icons(menu)
+    root.appendChild(menu)
+    let x = cx - r.left, y = cy - r.top
+    const mw = menu.offsetWidth, mh = menu.offsetHeight
+    if (x + mw > r.width - 4) x -= mw
+    if (y + mh > r.height - 4) y = Math.max(4, y - mh)
+    Object.assign(menu.style, { left: Math.max(4, x) + 'px', top: y + 'px' })
+    menu.addEventListener('click', closeMenu)
+    menu.addEventListener('contextmenu', (e) => e.preventDefault())
+  }
+  main.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+    const c = e.target.closest('.m-card')
+    if (c) {
+      const i = cards.indexOf(c)
+      if (!sel.has(i)) sel = new Set([i])
+      paint()
+      open(sel.size > 1 ? manyMenu(sel.size) : itemMenu(list[i]), e.clientX, e.clientY)
+    } else {
+      sel.clear(); paint()
+      open(bgMenu(), e.clientX, e.clientY)
+    }
+  })
+  main.addEventListener('click', (e) => {
+    if (menu) return closeMenu()
+    const c = e.target.closest('.m-card')
+    if (!c) { sel.clear(); return paint() }
+    const i = cards.indexOf(c)
+    if (e.ctrlKey || e.metaKey || e.target.closest('.m-check')) sel.has(i) ? sel.delete(i) : sel.add(i)
+    else sel = new Set([i])
+    paint()
+  })
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && closeMenu())
+  document.addEventListener('click', (e) => { if (menu && !root.contains(e.target)) closeMenu() })
+  // Start with the menu open on one card, so it shows without clicking.
+  requestAnimationFrame(() => {
+    const c = cards[2], r = c.getBoundingClientRect()
+    sel = new Set([2]); paint()
+    open(itemMenu(list[2]), r.left + r.width * 0.6, r.top + 30)
+  })
+}
+document.querySelectorAll('[data-ctx]').forEach(ctxDemo)
+
+// ---------- 9: signature pad ----------
+document.querySelectorAll('canvas[data-pad]').forEach((c) => {
+  const ctx = c.getContext('2d')
+  let last = null, w = 2
+  function size() {
+    const r = c.getBoundingClientRect(), dpr = devicePixelRatio || 1
+    c.width = r.width * dpr; c.height = r.height * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1e3a8a'
+  }
+  requestAnimationFrame(size)
+  const at = (e) => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() } }
+  c.addEventListener('pointerdown', (e) => { c.setPointerCapture(e.pointerId); last = at(e); w = 2.2 })
+  c.addEventListener('pointermove', (e) => {
+    if (!last) return
+    const p = at(e), d = Math.hypot(p.x - last.x, p.y - last.y), v = d / Math.max(1, p.t - last.t)
+    w = w * 0.7 + Math.max(0.9, Math.min(3, 3.2 - v * 1.6)) * 0.3
+    ctx.lineWidth = w
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke()
+    last = p
+  })
+  c.addEventListener('pointerup', () => (last = null))
+  c.closest('.m-sheet')?.querySelector('[data-pad-clear]')?.addEventListener('click', () => ctx.clearRect(0, 0, c.width, c.height))
+})
+document.querySelectorAll('[data-sigtabs]').forEach((s) => {
+  s.querySelectorAll('.tabs2 span').forEach((tab) => tab.addEventListener('click', () => {
+    s.querySelectorAll('.tabs2 span').forEach((x) => x.classList.toggle('on', x === tab))
+    s.querySelectorAll('div[data-t]').forEach((p) => (p.hidden = p.dataset.t !== tab.dataset.t))
+  }))
+})
+
+icons()
+renderPicks()
+</script>
+</body>
+</html>

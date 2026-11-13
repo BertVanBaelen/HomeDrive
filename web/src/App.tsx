@@ -82,7 +82,7 @@ export function App() {
   return (
     <LocaleContext value={locale}>
       {page}
-      <ReauthDialog />
+      <ReauthDialog haOnly={!!user?.haOnly} />
       <Toast />
     </LocaleContext>
   )
