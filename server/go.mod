@@ -1,9 +1,10 @@
 module github.com/BertVanBaelen/HomeDrive/server
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354
 	github.com/xuri/excelize/v2 v2.11.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.50.0

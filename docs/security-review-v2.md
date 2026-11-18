@@ -2,7 +2,23 @@
 
 Status of the v2 release gate from [`security.md`](security.md#v2-release-gate-security-check). It covers everything v2 added (shared drives, share links, saved links, thumbnails and previews, zip downloads, Home Assistant sign-in, and the editors, versions and locks of 2.7.0). The areas that did not change since v1 are in [`security-review-v1.md`](security-review-v1.md).
 
-Last updated: 2026-11-06, on branch `v2/development` (release 2.7.0).
+Last updated: 2026-11-18, on `main` (source remediated for release 2.8.1).
+
+## 2026-11-18 source remediation
+
+The source-level gate was re-run. It added zxcvbn password-strength estimation, moved the runtime image to a dedicated non-root account, updated Go and Vite dependencies, added integer-boundary guards and added `staticcheck` and `gosec` to CI.
+
+| Check | Status | Result |
+|---|---|---|
+| `go test ./...` | Clean | All server packages pass. |
+| `go vet ./...` | Clean | No findings. |
+| `staticcheck` | Clean | No findings. |
+| Triaged `gosec` | Clean | No untriaged findings; fixed paths, subprocesses, SQL fragments and deliberate permissions remain excluded with documented reviews. |
+| `govulncheck` | Clean for called code | No symbol vulnerability found. One required module finding is not in a called code path. |
+| `npm audit --audit-level=high` | Clean | 0 vulnerabilities. |
+| Web build and tests | Clean | 126 tests pass; typecheck and both Vite builds pass. |
+| Race tests | CI-only | A local Windows GCC toolchain is not installed; CI runs `go test -race` on Ubuntu. |
+| Docker image build | Blocked locally | Docker is not installed in this environment; it still needs CI/release-image verification. |
 
 **Read this first.** The checks below were run by the developers and by AI coding agents, not by an independent party. Everything that needs a running instance, a real Home Assistant, or the release image is marked **Open**. The report says what is pinned down by tests and what is only reasoned about.
 
@@ -29,13 +45,13 @@ The design rules behind this: the server never trusts the browser (formulas, siz
 
 | Check | Status | Notes |
 |---|---|---|
-| `gofmt`, `go vet ./...` | Done, 2026-11-06: clean | CI also runs them. |
+| `gofmt`, `go vet ./...` | Done, 2026-11-18: clean | CI also runs them. |
 | `go test ./...` | Done, 2026-11-06: all packages pass | CI runs it with `-race` and the real thumbnail tools. `-race` needs cgo, which the developer machine doesn't have, so the race detector was **not** run locally for the new editing code (its locking relies on the database's write-exclusive transactions). Confirm a green CI run on the release commit. |
-| `govulncheck` | Done, 2026-11-06: no vulnerability in code that is called | One finding in a required module that is not called: GO-2026-5932 in `golang.org/x/crypto` v0.58.0. The fix exists only as an unreleased pseudo-version, so it was not pinned; Dependabot will propose the release. Accepted (F1). |
-| `staticcheck` | Done, 2026-11-06: 3 findings, none in v2 code paths of concern | `ST1005` twice (an error string that starts with the proper noun "Home Assistant") and `SA4000` in `TestGate` (the same call repeated on purpose). Not added to CI yet (**open**, low value for the effort). |
-| `gosec` | Done, 2026-11-06: 87 findings, triaged below, one fixed | 59 × G104 (unchecked `Close`/`Remove` on clean-up paths); 9 × G304 (files opened by variable: paths are built from validated IDs or from the operator's configuration); 8 × G306/G302 (cache and backup files are 0640 on purpose: owner and group, never other users); 2 × G202 (SQL built from constant fragments, values are bound); 1 × G204 (the sandbox starts fixed tools by absolute path, no shell); G703/G704/G705 (a path built from a validated version ID, the container health check to localhost, cached WebP bytes written with a fixed type); 4 × G115 (integer conversions): sizes of uploads are validated first, and the zip64 directory size in the archive snippet could wrap to a negative number and pass the limit; **fixed** (`size < 0` is refused). |
-| `npm audit` | Done, 2026-11-06: 0 vulnerabilities | CI runs `--audit-level=high`. TipTap and its Markdown extension were added in 2.7.0. |
-| Web tests, typecheck, build | Done, 2026-11-06: 126 tests pass, typecheck and build clean | CI now runs `npm test` too. The build has no inline `<style>`, `style=` or inline scripts in the HTML, and the CSS has no `@import` or external URLs; the editor and grid code has no `style=`, `innerHTML` or `eval` (checked by search). Typing in the real editor was tried in a headless browser against a fake server by the agent that wrote it; no real-browser run against the real server yet (**open**, with F11). |
+| `govulncheck` | Done, 2026-11-18: no vulnerability in code that is called | The 2026-11-18 scan found no symbols in vulnerable call paths. Go and Docker were moved to 1.27.4; an unrelated module finding may remain but is not called by this application. |
+| `staticcheck` | Done, 2026-11-18: clean | The former three findings were fixed or documented; the same check now runs in CI. |
+| `gosec` | Done, 2026-11-18: 0 untriaged findings | The 87-rule baseline was triaged. CI excludes G104, G202, G204, G302, G304, G306, G703, G704 and G705 where the existing code, validation or deliberate permissions account for the result; G115 integer conversions are checked rather than excluded. |
+| `npm audit` | Done, 2026-11-18: 0 vulnerabilities | CI runs `--audit-level=high`. Vite and plugin-react were updated to the audit-clean versions. |
+| Web tests, typecheck, build | Done, 2026-11-18: 126 tests pass, typecheck and build clean | CI runs `npm test` too. The build has no inline `<style>`, `style=` or inline scripts in the HTML, and the CSS has no `@import` or external URLs; the editor and grid code has no `style=`, `innerHTML` or `eval` (checked by search). Typing in the real editor was tried in a headless browser against a fake server by the agent that wrote it; no real-browser run against the real server yet (**open**, with F11). |
 | Fuzz tests | Done, 2026-11-06, no failures | Formula validator (1.4 M runs, then 1.35 M again today), `.xlsx` reader (2.6 M, then 1.5 M today), sheet XML writer (225 k); link tokens (8.6 M, 15 s), zip entry names (0.8 M), `.url` reader (0.6 M) and file names (0.6 M). One real crash was found in the `.xlsx` reader while it was written and fixed; its input is kept in `sheet/testdata/fuzz/FuzzRead` and runs with every `go test`. 60,000 random sheets gave the same answers in the Go and TypeScript formula engines. |
 | Hostile `.xlsx` files | Done in tests | `sheet/TestZipBombs` (entry count, part size and unzipped size caps), `TestUnsupported` (merged cells, unknown formulas, too many sheets, too big a grid), `TestStylesSurvive`, `TestEditInvalid` (external references, `INDIRECT`, `WEBSERVICE`, unbalanced input), and `thumbs/TestSheetSnippets` for the preview reader. Real-world workbooks from other tools are **not** covered (see F4). |
 | Image scan (OS packages + binary) | **Open** | Needs the release image from CI (for example Trivy or Grype on `ghcr.io/…:<version>`). |

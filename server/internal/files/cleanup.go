@@ -28,7 +28,14 @@ func (s *Service) checkSpace(size int64) error {
 		s.log.Warn("reading free disk space", "error", err)
 		return nil
 	}
-	if free < uint64(size)+diskReserve {
+	if size < 0 {
+		return ErrDiskFull
+	}
+	need := uint64(size)
+	if need > ^uint64(0)-diskReserve {
+		return ErrDiskFull
+	}
+	if free < need+diskReserve {
 		s.log.Warn("upload refused: data disk nearly full", "free", free, "size", size)
 		return ErrDiskFull
 	}

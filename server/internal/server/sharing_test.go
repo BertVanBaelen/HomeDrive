@@ -726,6 +726,7 @@ func TestLinkLimits(t *testing.T) {
 
 func TestGate(t *testing.T) {
 	g := newGate()
+	//lint:ignore SA4000 Re-entering the same key is intentional in this retry test.
 	if !g.enter("a", 2) || !g.enter("a", 2) || g.enter("a", 2) || !g.enter("b", 1) || g.enter("b", 1) {
 		t.Fatal("gate let too many in")
 	}

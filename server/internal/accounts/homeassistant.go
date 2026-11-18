@@ -23,7 +23,7 @@ import (
 
 var (
 	ErrInvalidHAUsername = errors.New("invalid Home Assistant username")
-	ErrHAUsernameTaken   = errors.New("Home Assistant username linked to another account")
+	ErrHAUsernameTaken   = errors.New("home assistant username linked to another account")
 	// ErrHAOnlyAdmin: an account without a Homedrive password can't be an
 	// admin, whose actions need a password to confirm.
 	ErrHAOnlyAdmin = errors.New("an account without a password can't be an admin")

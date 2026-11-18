@@ -38,7 +38,7 @@ Release gate
 
 ## v2
 
-Status 2026-11-06: items 1 to 8 are built (2.0 to 2.8.0); what remains is the v2 release gate: the manual checks listed in [`security.md`](security.md#v2-release-gate-security-check). The automated part and the review of how security is managed are in [`security-review-v2.md`](security-review-v2.md). Built in this order. The design is in [`architecture.md`](architecture.md).
+Status 2026-11-18: items 1 to 8 are built (2.0 to 2.8.1); what remains is the v2 release gate: the manual checks listed in [`security.md`](security.md#v2-release-gate-security-check). The automated part and the review of how security is managed are in [`security-review-v2.md`](security-review-v2.md). Built in this order. The design is in [`architecture.md`](architecture.md).
 
 1. **Shared drives** ([design](architecture.md#shared-drives-and-roles-v2)): anyone creates them and becomes manager; members are viewer, editor or manager. "Family" becomes a normal shared drive; the invite form picks the drives a new user joins. Admins manage every drive's members without seeing its files. A manager deletes a drive once it is empty. New navigation: a *Shared drives* group in the sidebar, *Shared with me*, and on phones the tabs Files, Shared, Recent, Starred, Trash. **Built.**
 2. **Sharing and public links** ([people](architecture.md#sharing-with-people-v2), [links](architecture.md#public-links-v2)): share with people as *Can view* or *Can edit* (only people who can edit an item may share it). One view-only public link per item with expiry Never / 7 days / 1 day and an optional password. Visitors browse shared folders and download single files or everything as a `.zip`. Signed-in users can download folders as `.zip` too. **Built.**

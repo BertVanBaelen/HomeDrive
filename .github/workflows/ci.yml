@@ -36,6 +36,10 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      - name: gosec
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.30.0 -exclude=G104,G202,G204,G302,G304,G306,G703,G704,G705 ./...
       # The thumbnail tools, so their tests run against the real thing.
       - name: Thumbnail tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvips-tools ffmpeg poppler-utils

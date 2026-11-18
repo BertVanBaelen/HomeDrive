@@ -18,7 +18,7 @@ import (
 
 // ErrUnavailable means the Supervisor couldn't check the password, for
 // example while Home Assistant restarts.
-var ErrUnavailable = errors.New("Home Assistant can't check passwords right now")
+var ErrUnavailable = errors.New("home assistant can't check passwords right now")
 
 type Client struct {
 	url, token string

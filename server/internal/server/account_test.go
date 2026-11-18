@@ -243,13 +243,13 @@ func TestAdminRecovery(t *testing.T) {
 	}
 	expect(t, c.json("POST", "/api/recover/finish", map[string]string{"token": token, "code": "12345678"}), 401)
 
-	expect(t, c.json("POST", "/api/recover/begin", map[string]string{"token": token, "email": "admin@example.com", "password": "a new admin password"}), 204)
+	expect(t, c.json("POST", "/api/recover/begin", map[string]string{"token": token, "email": "admin@example.com", "password": "Blue Lantern 7! Velvet"}), 204)
 	expect(t, c.json("POST", "/api/recover/finish", map[string]string{"token": token, "code": env.mail.lastCode(t, "admin@example.com")}), 200)
 	expect(t, c.get("/api/me"), 200)
 	// Old sessions end, the link is spent, the new password works.
 	expect(t, admin.get("/api/me"), 401)
 	expect(t, c.json("POST", "/api/recover/check", map[string]string{"token": token}), 403)
-	if r := env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "admin@example.com", "password": "a new admin password"}); r.Code != 200 {
+	if r := env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "admin@example.com", "password": "Blue Lantern 7! Velvet"}); r.Code != 200 {
 		t.Fatalf("login with recovered password: %d", r.Code)
 	}
 }
