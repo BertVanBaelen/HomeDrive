@@ -56,17 +56,25 @@ export function linkHref(input: string): string {
 export interface MdToken {
   type: string
   href?: string
+  task?: boolean
   tokens?: MdToken[]
   items?: MdToken[]
 }
 
-// pageUnsafe finds what the page editor must not show formatted (marked's
-// tokens): HTML, images, and links other than to web pages and e-mail.
+// pageUnsafe finds Markdown the page editor can't show without changing it
+// (marked's tokens). It is an allowlist: HTML, images, tables, strike-through,
+// task lists, footnotes and anything marked adds later keep the page closed,
+// as do links other than to web pages and e-mail.
+const pageTokenTypes = new Set([
+  'paragraph', 'heading', 'list', 'list_item', 'blockquote', 'code',
+  'hr', 'space', 'text', 'strong', 'em', 'codespan', 'br', 'link', 'escape',
+])
+
 export function pageUnsafe(tokens: MdToken[]): boolean {
   return tokens.some(
     (t) =>
-      t.type === 'html' ||
-      t.type === 'image' ||
+      !pageTokenTypes.has(t.type) ||
+      t.task === true ||
       (t.type === 'link' && !safeUrl(t.href ?? '')) ||
       pageUnsafe(t.tokens ?? []) ||
       pageUnsafe(t.items ?? []),

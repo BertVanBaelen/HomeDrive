@@ -11,6 +11,7 @@ import { formatSize } from '../format'
 import { useLocale, useT } from '../i18n'
 import { deleteShare, listShares, type PendingShare } from '../shared/shareStore'
 import { addUploads, typeFromName } from '../uploads'
+import { goTop, navigate } from '../router'
 
 interface Target {
   id: string
@@ -214,7 +215,20 @@ export function Save() {
     rememberFolder(target)
     setShares((s) => s?.filter((x) => x.id !== share.id) ?? null)
     setSavedTo(target)
-    showToast(t('save.saved', { folder: target.path }))
+    const remaining = shares?.filter((x) => x.id !== share.id) ?? []
+    if (remaining.length === 0) {
+      goTop('/')
+      showToast(t('save.saved', { folder: target.path }), {
+        action: {
+          label: t('save.openFolder'),
+          run: () => {
+            navigate(hrefFor(target.id, drives))
+          },
+        },
+      })
+    } else {
+      showToast(t('save.saved', { folder: target.path }))
+    }
   }
 
   async function discard(id: string) {

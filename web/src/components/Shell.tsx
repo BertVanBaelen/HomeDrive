@@ -77,7 +77,7 @@ function Search({ query }: { query: string }) {
   )
 }
 
-export function Header({ user, query, onSignOut }: { user: User; query?: string; onSignOut: () => void }) {
+export function Header({ user, query, onSignOut, trashCount = 0 }: { user: User; query?: string; onSignOut: () => void; trashCount?: number }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const go = (href: string) => {
@@ -113,6 +113,11 @@ export function Header({ user, query, onSignOut }: { user: User; query?: string;
                   <button type="button" onClick={() => go('/storage')}>
                     <Icon d={icons.storage} size={18} />
                     {t('storage.title')}
+                  </button>
+                  <button type="button" className="account-menu__phone-trash" onClick={() => go('/trash')}>
+                    <Icon d={icons.trash} size={18} />
+                    {t('nav.trash')}
+                    {!!trashCount && <span className="nav__count">{trashCount}</span>}
                   </button>
                   {user.role === 'admin' && (
                     <button type="button" onClick={() => go('/users')}>
@@ -263,33 +268,48 @@ function StorageMeter({ current }: { current: boolean }) {
 
 // TabBar is the phone's navigation. Shared lists the shared drives and
 // what was shared with the user.
-export function TabBar({ section }: { section: Section }) {
+export function TabBar({
+  section,
+  canAdd,
+  onAdd,
+}: {
+  section: Section
+  canAdd: boolean
+  onAdd: () => void
+}) {
   const t = useT()
-  const [files, ...lists] = sections(t)
-  const tabs = [
-    { id: 'files', href: files.href, label: t('nav.filesTab'), icon: files.icon },
-    { id: 'shared', href: '/shared', label: t('nav.sharedTab'), icon: icons.family },
-    ...lists,
-  ]
+  const [files] = sections(t)
   const current = section === 'sharedWithMe' ? 'shared' : section
   return (
     <nav className="tabbar" aria-label={t('nav.tabs')}>
-      {tabs.map((s) => (
-        <Link key={s.id} href={s.href} aria-current={current === s.id ? 'page' : undefined}>
-          <Icon d={s.icon} size={22} />
-          {s.label}
-        </Link>
-      ))}
+      <Link href="/" aria-current={current === 'files' ? 'page' : undefined}>
+        <Icon d={files.icon} size={22} />
+        {t('nav.filesTab')}
+      </Link>
+      <Link href="/shared" aria-current={current === 'shared' ? 'page' : undefined}>
+        <Icon d={icons.family} size={22} />
+        {t('nav.sharedTab')}
+      </Link>
+      <button
+        type="button"
+        className="tabbar__add"
+        disabled={!canAdd}
+        title={canAdd ? t('nav.addNew') : t('nav.addUnavailable')}
+        aria-label={t('nav.addNew')}
+        onClick={onAdd}
+      >
+        <span><Icon d={icons.plus} size={22} width={2.25} /></span>
+        {t('nav.addNew')}
+      </button>
+      <Link href="/recent" aria-current={current === 'recent' ? 'page' : undefined}>
+        <Icon d={icons.recent} size={22} />
+        {t('nav.recentTab')}
+      </Link>
+      <Link href="/starred" aria-current={current === 'starred' ? 'page' : undefined}>
+        <Icon d={icons.star} size={22} />
+        {t('nav.starredTab')}
+      </Link>
     </nav>
-  )
-}
-
-export function Fab({ onAdd }: { onAdd: () => void }) {
-  const t = useT()
-  return (
-    <button type="button" aria-label={t('nav.addNew')} className="fab" onClick={onAdd}>
-      <Icon d={icons.plus} size={26} width={2.25} />
-    </button>
   )
 }
 

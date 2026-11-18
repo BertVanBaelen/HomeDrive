@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, type Details, type Drive, type Located, type Node, type SharedItem, type User } from '../api'
-import { AddDialog, ConfirmDialog, errorText } from '../components/Dialogs'
+import { AddDialog, ConfirmDialog, errorText, FolderPicker } from '../components/Dialogs'
 import { DriveActions, NewDriveDialog, roleLabel } from '../components/Drives'
 import { Icon, icons } from '../components/Icon'
 import { InfoPanel, type InfoActions } from '../components/InfoPanel'
@@ -32,7 +32,7 @@ import {
   whereIs,
   type Crumb,
 } from '../components/Items'
-import { Fab, Header, Link, Sidebar, TabBar, type Section } from '../components/Shell'
+import { Header, Link, Sidebar, TabBar, type Section } from '../components/Shell'
 import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
 import { notifyChanged, onChanged } from '../events'
@@ -42,6 +42,8 @@ import { drivePath, folderPath, navigate, type ListName, type Route } from '../r
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
 import { StorageView } from './Storage'
+import { useSelection, useSelectionKeys } from '../selection'
+import { batchToast, SelectionBar } from '../components/SelectionBar'
 
 // The editor (with TipTap) loads the first time a new file is made.
 const Editor = lazy(() => import('../editor/Editor'))
@@ -118,7 +120,8 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
 
   return (
     <div className="app">
-      <Header user={user} onSignOut={onSignOut} query={route.name === 'list' && route.list === 'search' ? route.q : ''} />
+      <Header user={user} onSignOut={onSignOut} trashCount={counts.trash}
+        query={route.name === 'list' && route.list === 'search' ? route.q : ''} />
       <div className="app-body">
         <Sidebar section={section} drives={drives ?? []} driveId={driveId} counts={counts} canAdd={canAdd}
           onAdd={() => setAddOpen(true)} onNewDrive={() => setNewDrive(true)} />
@@ -143,8 +146,7 @@ export function Browser({ user, route, onSignOut }: { user: User; route: Route; 
           {drives && route.name === 'storage' && <StorageView drives={drives} user={user} />}
         </main>
       </div>
-      <TabBar section={section} />
-      {canAdd && <Fab onAdd={() => setAddOpen(true)} />}
+      <TabBar section={section} canAdd={canAdd} onAdd={() => setAddOpen(true)} />
       {newDrive && (
         <NewDriveDialog onClose={() => setNewDrive(false)}
           onCreated={async (d) => {
@@ -199,6 +201,7 @@ function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User;
   const [items, setItems] = useState<SharedItem[] | null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const selection = useSelection(items)
 
   const load = useCallback(() => {
     api.sharedWithMe().then(
@@ -211,6 +214,7 @@ function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User;
   }, [t])
   useEffect(load, [load])
   useEffect(() => onChanged((id) => id === 'starred' && load()), [load])
+  useSelectionKeys(selection)
 
   const actions = useItemActions({ drives, me: user, reload: load })
   const where = useMemo(() => (n: Node) => whereIs(t, n as Located), [t])
@@ -231,10 +235,12 @@ function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User;
   } else if (items) {
     content = view === 'grid' ? (
       <Grid items={items} selected={selected} onOpen={open} onInfo={info}
-        meta={(n) => `${t('shared.by', { name: n.sharedBy })} · ${formatWhen(n.sharedAt, t, locale)}`} />
+        meta={(n) => `${t('shared.by', { name: n.sharedBy })} · ${formatWhen(n.sharedAt, t, locale)}`}
+        selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
     ) : (
       <List items={items} selected={selected} onOpen={open} onInfo={info} location={(n) => n.sharedBy}
-        locationLabel={t('col.sharedBy')} date={{ label: t('col.sharedAt'), at: (n) => n.sharedAt }} />
+        locationLabel={t('col.sharedBy')} date={{ label: t('col.sharedAt'), at: (n) => n.sharedAt }}
+        selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
     )
   }
   const files = (
@@ -253,6 +259,9 @@ function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User;
       <>
         <PageHead crumbs={[]} title={title} count={items?.length ?? 0} view={view} setView={setView} />
         {files}
+        {items && (
+          <SelectionBar nodes={items} ids={selection.ids} onClear={selection.clear} onChanged={load} />
+        )}
         {actions.elements}
       </>
     )
@@ -298,6 +307,7 @@ function SharedView({ drives, user, onNewDrive }: { drives: Drive[]; user: User;
         </div>
         {(items || error) && files}
       </section>
+      {items && <SelectionBar nodes={items} ids={selection.ids} onClear={selection.clear} onChanged={load} />}
       {actions.elements}
     </>
   )
@@ -334,6 +344,8 @@ function FolderView({
   const fileInput = useRef<HTMLInputElement>(null)
   const filesRef = useRef<HTMLElement>(null)
   const motionPlayed = useRef(false)
+  const selection = useSelection(items)
+  const [movingIds, setMovingIds] = useState<string[] | null>(null)
 
   // Zoom in (opened from its card) or out (came up from a subfolder) once
   // the cards are there, before the browser paints them.
@@ -358,6 +370,8 @@ function FolderView({
 
   useEffect(load, [load])
   useEffect(() => onChanged((id) => id === folderId && load()), [folderId, load])
+
+  useSelectionKeys(selection)
 
   const drive = details?.drive
   const readOnly = !drive || drive.role === 'viewer'
@@ -462,11 +476,13 @@ function FolderView({
               )}
             </Empty>
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={open} onInfo={info} zoomed={zoomed} />
+            <Grid items={items} selected={selected} onOpen={open} onInfo={info} zoomed={zoomed}
+              selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
           ) : (
             <div className="list-wrap">
               {!isRoot && <Rail crumbs={crumbs} />}
-              <List items={items} selected={selected} sort={sort} setSort={setSort} onOpen={open} onInfo={info} />
+              <List items={items} selected={selected} sort={sort} setSort={setSort} onOpen={open} onInfo={info}
+                selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
             </div>
           )}
         </section>
@@ -495,6 +511,35 @@ function FolderView({
             {t('drop.overlay', { folder: title })}
           </div>
         </div>
+      )}
+
+      <SelectionBar
+        nodes={items}
+        ids={selection.ids}
+        readOnly={readOnly}
+        onClear={selection.clear}
+        onChanged={() => { load(); notifyChanged('storage') }}
+        onMove={(ids) => setMovingIds(ids)}
+      />
+
+      {movingIds && (
+        <FolderPicker
+          title={t('selection.moveTitle')}
+          submit={t('selection.moveHere')}
+          drives={drives}
+          startFolder={folderId}
+          currentId={folderId}
+          onClose={() => setMovingIds(null)}
+          onPick={async (targetId) => {
+            // Errors show in the picker, which stays open.
+            const res = await api.batch({ op: 'move', ids: movingIds, parentId: targetId })
+            setMovingIds(null)
+            selection.clear()
+            load()
+            notifyChanged('storage')
+            batchToast(t, res)
+          }}
+        />
       )}
 
       <input ref={fileInput} type="file" multiple hidden
@@ -555,6 +600,7 @@ function LocatedView({ list, q, drives, user }: { list: ListName; q: string; dri
   const [items, setItems] = useState<Located[] | null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const selection = useSelection(items)
 
   const load = useCallback(() => {
     const fetch = list === 'recent' ? api.recent() : list === 'starred' ? api.starred() : api.search(q)
@@ -562,6 +608,7 @@ function LocatedView({ list, q, drives, user }: { list: ListName; q: string; dri
   }, [list, q, t])
   useEffect(load, [load])
   useEffect(() => onChanged((id) => (id === 'starred' || id === 'trash') && load()), [load])
+  useSelectionKeys(selection)
 
   const actions = useItemActions({ drives, me: user, reload: load })
   const where = useMemo(() => (n: Node) => whereIs(t, n as Located), [t])
@@ -591,9 +638,11 @@ function LocatedView({ list, q, drives, user }: { list: ListName; q: string; dri
           {items.length === 0 ? (
             <Empty icon={empty[0]} title={empty[1]} body={empty[2]} />
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={open} onInfo={info} />
+            <Grid items={items} selected={selected} onOpen={open} onInfo={info}
+              selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
           ) : (
-            <List items={items} selected={selected} onOpen={open} onInfo={info} location={where} />
+            <List items={items} selected={selected} onOpen={open} onInfo={info} location={where}
+              selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
           )}
         </section>
         {sel && (
@@ -607,6 +656,12 @@ function LocatedView({ list, q, drives, user }: { list: ListName; q: string; dri
           />
         )}
       </div>
+      <SelectionBar
+        nodes={items}
+        ids={selection.ids}
+        onClear={selection.clear}
+        onChanged={load}
+      />
       {actions.elements}
     </>
   )
@@ -618,16 +673,18 @@ function TrashView() {
   const [items, setItems] = useState<Located[] | null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const selection = useSelection(items)
 
   const load = useCallback(() => {
     api.trashList().then(setItems, (err) => setError(errorText(t, err)))
   }, [t])
   useEffect(load, [load])
   useEffect(() => onChanged((id) => id === 'trash' && load()), [load])
+  useSelectionKeys(selection)
 
   const where = (n: Node) => whereIs(t, n as Located)
   const sel = items?.find((n) => n.id === selected) ?? null
-  const [confirm, setConfirm] = useState<'empty' | Located | null>(null)
+  const [confirm, setConfirm] = useState<'empty' | Located | { ids: string[] } | null>(null)
 
   async function restore(n: Located) {
     try {
@@ -661,9 +718,11 @@ function TrashView() {
           {items.length === 0 ? (
             <Empty icon={icons.trash} title={t('empty.trash.title')} body={t('empty.trash.body')} />
           ) : view === 'grid' ? (
-            <Grid items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info} />
+            <Grid items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info}
+              selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
           ) : (
-            <List items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info} trashed location={where} />
+            <List items={items} selected={selected} onOpen={(n) => setSelected(n.id)} onInfo={info} trashed location={where}
+              selectedIds={selection.ids} onSelect={(n, additive) => selection.toggle(n.id, additive)} />
           )}
         </section>
         {sel && (
@@ -672,6 +731,14 @@ function TrashView() {
             onDeleteForever={deletable(sel) ? () => setConfirm(sel) : undefined} />
         )}
       </div>
+      <SelectionBar
+        nodes={items}
+        ids={selection.ids}
+        trashed
+        onClear={selection.clear}
+        onChanged={() => { load(); notifyChanged('trash') }}
+        onDeleteForever={(ids) => setConfirm({ ids })}
+      />
       {confirm === 'empty' && (
         <ConfirmDialog title={t('trash.emptyTitle')} body={t('trash.emptyBody')} confirm={t('trash.empty')}
           onClose={() => setConfirm(null)}
@@ -684,7 +751,22 @@ function TrashView() {
             showToast(t('toast.trashEmptied'))
           }} />
       )}
-      {confirm && confirm !== 'empty' && (
+      {confirm && confirm !== 'empty' && 'ids' in confirm && (
+        <ConfirmDialog title={t('trash.deleteSelectedTitle', { count: confirm.ids.length })}
+          body={t('trash.deleteSelectedBody')} confirm={t('trash.deleteForever')}
+          onClose={() => setConfirm(null)}
+          onConfirm={async () => {
+            const res = await api.batch({ op: 'deleteForever', ids: confirm.ids })
+            setConfirm(null)
+            selection.clear()
+            notifyChanged('trash')
+            notifyChanged('starred')
+            notifyChanged('storage')
+            batchToast(t, res)
+            load()
+          }} />
+      )}
+      {confirm && confirm !== 'empty' && 'id' in confirm && (
         <ConfirmDialog title={t('trash.deleteTitle', { name: displayName(confirm) })} body={t('trash.deleteBody')}
           confirm={t('trash.deleteForever')} onClose={() => setConfirm(null)}
           onConfirm={async () => {

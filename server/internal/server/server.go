@@ -42,8 +42,10 @@ type Server struct {
 	linkLimit     *ratelimit.Limiter
 	linkPassLimit *ratelimit.Limiter
 	linkPassTotal *ratelimit.Limiter
-	// zips counts zip downloads in progress.
-	zips *gate
+	// zips counts zip downloads in progress; zipTickets are the single-use
+	// addresses of selections to download.
+	zips       *gate
+	zipTickets *zipTickets
 	// editLimit counts a user's lock, save and restore requests.
 	editLimit *ratelimit.Limiter
 
@@ -108,6 +110,7 @@ func New(cfg *config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		linkPassLimit: ratelimit.New(5, 15*time.Minute),
 		linkPassTotal: ratelimit.New(50, time.Hour),
 		zips:          newGate(),
+		zipTickets:    newZipTickets(),
 		editLimit:     ratelimit.New(300, time.Minute),
 		previews:      previews,
 		thumbs:        th,

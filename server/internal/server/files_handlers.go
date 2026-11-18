@@ -13,6 +13,9 @@ import (
 
 func (s *Server) fileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/drives", s.authed(s.handleDrives))
+	mux.HandleFunc("POST /api/nodes/batch", s.authed(s.handleBatchNodes))
+	mux.HandleFunc("POST /api/zips", s.authed(s.handleCreateZip))
+	mux.HandleFunc("GET /api/zips/{token}", s.authed(s.handleGetZip))
 	mux.HandleFunc("GET /api/nodes/{id}", s.authed(s.handleNode))
 	mux.HandleFunc("GET /api/nodes/{id}/children", s.authed(s.handleChildren))
 	mux.HandleFunc("GET /api/nodes/{id}/content", s.authed(s.handleContent))

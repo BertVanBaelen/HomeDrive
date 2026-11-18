@@ -459,6 +459,20 @@ export const api = {
   star: (id: string, starred: boolean) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { starred }),
   describe: (id: string, description: string) =>
     request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { description }),
+  batch: (p: { op: 'move' | 'star' | 'trash' | 'restore' | 'deleteForever'; ids: string[]; parentId?: string; starred?: boolean }) =>
+    request<{ done: string[]; skipped: { id: string; code: string }[] }>('POST', '/api/nodes/batch', p),
+  // zipMany downloads a selection as one zip. The server checks it and
+  // gives a single-use address, which the browser then downloads like any
+  // file, streaming it to disk.
+  zipMany: async (ids: string[]) => {
+    const { url } = await request<{ url: string }>('POST', '/api/zips', { ids })
+    const a = document.createElement('a')
+    a.href = url
+    a.download = ''
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  },
   linkPreview: (url: string) => request<LinkPreview>('GET', `/api/link-preview?url=${encodeURIComponent(url)}`),
   trash: (id: string) => request<void>('DELETE', `/api/nodes/${encodeURIComponent(id)}`),
   restore: (id: string) => request<Node>('POST', `/api/nodes/${encodeURIComponent(id)}/restore`),

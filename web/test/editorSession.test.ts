@@ -32,7 +32,7 @@ test('links go only to web pages and e-mail, also in loaded markdown', () => {
   for (const u of ['javascript:alert(1)', 'data:text/html,x', 'a b.com', '  ']) assert.equal(linkHref(u), '', u)
   const unsafe = (md: string) => pageUnsafe(marked.lexer(md) as unknown as MdToken[])
   assert.ok(!unsafe('# A\n\n- [x](https://a.b)\n  - <mailto:a@b.c>\n\n> **b**'))
-  for (const md of ['[x](javascript:alert(1))', '- a\n  - [x](data:text/html,x)', 'a <b>b</b>', '<div>x</div>', '![i](https://a.b/i.png)', '[x](rel.md)'])
+  for (const md of ['[x](javascript:alert(1))', '- a\n  - [x](data:text/html,x)', 'a <b>b</b>', '<div>x</div>', '![i](https://a.b/i.png)', '[x](rel.md)', '| A | B |\n|---|---|\n| 1 | 2 |', '~~deleted~~', '- [ ] todo', '1. [x] done'])
     assert.ok(unsafe(md), md)
 })
 

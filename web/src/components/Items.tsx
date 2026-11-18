@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { Drive, Located, Node, SortKey } from '../api'
 import { displayName, formatSize, formatWhen } from '../format'
 import { plural, useLocale, useT, type Locale, type MessageKey, type Translate } from '../i18n'
-import { drivePath, folderPath } from '../router'
+import { drivePath, folderPath, goUp } from '../router'
 import { fileTypes, Icon, icons } from './Icon'
 import { linkByline } from './LinkCard'
 import { Link } from './Shell'
@@ -121,14 +121,16 @@ export function PageHead({
 }) {
   const t = useT()
   const parent = crumbs.length > 1 ? crumbs[crumbs.length - 2] : null
+  const parentHref = parent?.href
   const backLabel = parent ? t('crumbs.backTo', { name: parent.name }) : t('crumbs.back')
   return (
     <div className="page-head">
       <div className="page-head__text">
         {crumbs.length > 0 && (
           <nav aria-label={t('crumbs.label')} className="crumbs">
-            {parent?.href ? (
-              <Link className="back-btn" href={parent.href} aria-label={backLabel}>
+            {parentHref ? (
+              <Link className="back-btn" href={parentHref} aria-label={backLabel}
+                onClick={(e) => { e.preventDefault(); goUp(parentHref) }}>
                 <Icon d={icons.back} size={18} />
                 <span className="back-btn__label">{backLabel}</span>
               </Link>
@@ -219,6 +221,8 @@ interface ItemsProps<T extends Node> {
   onOpen: (n: T) => void
   // Without onInfo there is no ⓘ button (link visitors).
   onInfo?: (n: T) => void
+  selectedIds?: Set<string>
+  onSelect?: (n: T, additive: boolean) => void
 }
 
 // Grid shows items as cards. meta replaces the line under the name.
@@ -229,6 +233,8 @@ export function Grid<T extends Node>({
   onInfo,
   zoomed,
   meta: metaFor,
+  selectedIds,
+  onSelect,
 }: ItemsProps<T> & { zoomed?: boolean; meta?: (n: T) => string }) {
   const t = useT()
   const locale = useLocale()
@@ -246,7 +252,18 @@ export function Grid<T extends Node>({
           meta = n.kind === 'folder' ? `${size} · ${when}` : `${t(`short.${n.type}` as MessageKey)} · ${size} · ${when}`
         }
         return (
-          <div key={n.id} data-node={n.id} className={'card' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
+          <div key={n.id} data-node={n.id}
+            className={'card' + (selected === n.id ? ' is-selected' : '') + (selectedIds?.has(n.id) ? ' is-multi-selected' : '')}
+            style={delay(i)}>
+            {onSelect && (
+              <button type="button"
+                className={'selection-circle' + (selectedIds?.has(n.id) ? ' is-on' : '')}
+                aria-label={t(selectedIds?.has(n.id) ? 'selection.remove' : 'selection.add', { name })}
+                aria-pressed={selectedIds?.has(n.id) ?? false}
+                onClick={(e) => onSelect(n, e.shiftKey)}>
+                {selectedIds?.has(n.id) && <span aria-hidden="true">✓</span>}
+              </button>
+            )}
             <button type="button" className="card__open" onClick={() => onOpen(n)}
               aria-label={n.kind === 'folder' ? t('item.openFolder', { name }) : t('item.open', { name })}>
               <Thumb node={n} />
@@ -286,6 +303,8 @@ export function List<T extends Node>({
   location,
   locationLabel,
   date,
+  selectedIds,
+  onSelect,
 }: ItemsProps<T> & {
   sort?: Sort
   setSort?: (s: Sort) => void
@@ -314,6 +333,7 @@ export function List<T extends Node>({
     <div className={'table' + variant}>
       <div className="table__inner">
         <div className="table__head">
+          <span className="table__select-space" aria-hidden="true" />
           <div className="table__cols">
             {col('name', t('col.name'))}
             {dateLabel ? <span>{dateLabel}</span> : col('modified', t('col.modified'))}
@@ -326,7 +346,16 @@ export function List<T extends Node>({
           const type = fileTypes[n.type]
           const name = displayName(n)
           return (
-            <div key={n.id} className={'row' + (selected === n.id ? ' is-selected' : '')} style={delay(i)}>
+            <div key={n.id} className={'row' + (selected === n.id ? ' is-selected' : '') + (selectedIds?.has(n.id) ? ' is-multi-selected' : '')} style={delay(i)}>
+              {onSelect && (
+                <button type="button"
+                  className={'selection-circle selection-circle--row' + (selectedIds?.has(n.id) ? ' is-on' : '')}
+                  aria-label={t(selectedIds?.has(n.id) ? 'selection.remove' : 'selection.add', { name })}
+                  aria-pressed={selectedIds?.has(n.id) ?? false}
+                  onClick={(e) => onSelect(n, e.shiftKey)}>
+                  {selectedIds?.has(n.id) && <span aria-hidden="true">✓</span>}
+                </button>
+              )}
               <button type="button" className="row__open" onClick={() => onOpen(n)}
                 aria-label={n.kind === 'folder' ? t('item.openFolder', { name }) : t('item.open', { name })}>
                 <span className="row__name">

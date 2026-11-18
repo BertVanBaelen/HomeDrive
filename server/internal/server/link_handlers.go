@@ -179,7 +179,7 @@ func (s *Server) handleUnlock(w http.ResponseWriter, r *http.Request) {
 // logPath hides link tokens from logs: /s/<token>/… and /api/s/<token>/…
 // are written with … in place of the token.
 func logPath(p string) string {
-	for _, prefix := range []string{"/s/", "/api/s/"} {
+	for _, prefix := range []string{"/s/", "/api/s/", "/api/zips/"} {
 		if rest, ok := strings.CutPrefix(p, prefix); ok {
 			if i := strings.IndexByte(rest, '/'); i >= 0 {
 				return prefix + "…" + rest[i:]

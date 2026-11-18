@@ -228,6 +228,12 @@
   margin: 16px 0 8px;
   font-size: 18px;
 }
+.editor__rich h4,
+.editor__rich h5,
+.editor__rich h6 {
+  margin: 14px 0 6px;
+  font-size: 16px;
+}
 .editor__rich p,
 .editor__rich ul,
 .editor__rich ol,
