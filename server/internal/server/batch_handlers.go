@@ -48,9 +48,10 @@ func (s *Server) handleBatchNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx, uid := r.Context(), currentUser(r.Context()).ID
-	done := make([]string, 0, len(req.IDs))
+	ids := s.files.OrderBatchIDs(ctx, uid, req.IDs, req.Op == "restore")
+	done := make([]string, 0, len(ids))
 	skipped := make([]map[string]string, 0)
-	for _, id := range req.IDs {
+	for _, id := range ids {
 		var err error
 		switch req.Op {
 		case "move":

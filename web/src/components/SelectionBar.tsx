@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { api, type Node } from '../api'
+import { notifyChanged } from '../events'
 import { plural, useT, type Translate } from '../i18n'
+import { maxSelection } from '../selection'
 import { showToast } from './Toast'
 import { errorText } from './Dialogs'
 import { Icon, icons } from './Icon'
@@ -57,12 +59,19 @@ export function SelectionBar({
       batchToast(t, res)
       onClear()
       onChanged()
+      if (op === 'star') {
+        notifyChanged('starred')
+      } else {
+        notifyChanged('trash')
+        notifyChanged('starred')
+      }
     })
 
   return (
     <div className="selection-bar" role="toolbar" aria-label={t('selection.actions')}>
       <div className="selection-bar__count">
         <strong>{plural(t, 'selection.count', count)}</strong>
+        {count === maxSelection && nodes.length > maxSelection && <span className="selection-bar__limit">{t('selection.limit')}</span>}
         <button type="button" className="icon-btn" aria-label={t('selection.clear')} onClick={onClear}>
           <Icon d={icons.close} size={18} />
         </button>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+export const maxSelection = 500
+
 // useSelection is the set of items selected in a list, with an anchor for
 // Shift ranges.
 export function useSelection<T extends { id: string }>(items: T[] | null) {
@@ -18,7 +20,7 @@ export function useSelection<T extends { id: string }>(items: T[] | null) {
     if (!range || !anchor.current) anchor.current = id
   }, [items])
 
-  const selectAll = useCallback(() => setIds(new Set(items?.map((n) => n.id) ?? [])), [items])
+  const selectAll = useCallback(() => setIds(new Set(items?.slice(0, maxSelection).map((n) => n.id) ?? [])), [items])
 
   // Items that went away (moved, trashed elsewhere) drop out.
   useEffect(() => {
@@ -45,12 +47,12 @@ export function selectionToggle(
     const a = items.findIndex((n) => n.id === anchor)
     const b = items.findIndex((n) => n.id === id)
     if (a >= 0 && b >= 0) {
-      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) next.add(items[i].id)
+    for (let i = Math.min(a, b); i <= Math.max(a, b) && next.size < maxSelection; i++) next.add(items[i].id)
       return next
     }
   }
   if (next.has(id)) next.delete(id)
-  else next.add(id)
+  else if (next.size < maxSelection) next.add(id)
   return next
 }
 

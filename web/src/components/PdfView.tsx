@@ -26,6 +26,8 @@ export default function PdfView({ url }: { url: string }) {
   const [width, setWidth] = useState(0)
   const [zoom, setZoom] = useState(1)
   const anchor = useRef<{ x: number; y: number; ratio: number } | null>(null)
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ distance: number; zoom: number; mid: { x: number; y: number } } | null>(null)
 
   useEffect(() => {
     const task = getDocument({ url, withCredentials: true })
@@ -48,7 +50,11 @@ export default function PdfView({ url }: { url: string }) {
     const el = box.current
     setZoom((z) => {
       const n = Math.max(zoomMin, Math.min(zoomMax, Math.round(f(z) * 100) / 100))
-      if (el && n !== z) anchor.current = { ...(at ?? { x: el.clientWidth / 2, y: el.clientHeight / 2 }), ratio: n / z }
+      if (el && n !== z) {
+        const point = at ?? { x: el.clientWidth / 2, y: el.clientHeight / 2 }
+        if (anchor.current) anchor.current.ratio *= n / z
+        else anchor.current = { ...point, ratio: n / z }
+      }
       return n
     })
   }
@@ -63,8 +69,9 @@ export default function PdfView({ url }: { url: string }) {
     el.scrollTop = (el.scrollTop + a.y) * a.ratio - a.y
   }, [zoom])
 
-  // Ctrl + wheel (and trackpad pinch) zooms the document, not the page; that
-  // needs a listener that isn't passive.
+  // Ctrl + wheel (and trackpad pinch), Safari gestures and two-finger
+  // touch pinch zoom the document, not the browser page. Native listeners
+  // are not passive.
   useEffect(() => {
     const el = box.current
     if (!el) return
@@ -74,8 +81,54 @@ export default function PdfView({ url }: { url: string }) {
       const r = el.getBoundingClientRect()
       zoomBy((z) => z * Math.exp(-e.deltaY / 300), { x: e.clientX - r.left, y: e.clientY - r.top })
     }
+    const point = (clientX: number, clientY: number) => {
+      const r = el.getBoundingClientRect()
+      return { x: clientX - r.left, y: clientY - r.top }
+    }
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      el.setPointerCapture(e.pointerId)
+      if (pointers.current.size !== 2) return
+      e.preventDefault()
+      const [a, b] = [...pointers.current.values()]
+      pinch.current = {
+        distance: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        zoom,
+        mid: point((a.x + b.x) / 2, (a.y + b.y) / 2),
+      }
+    }
+    const move = (e: PointerEvent) => {
+      if (!pointers.current.has(e.pointerId)) return
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const p = pinch.current
+      if (!p || pointers.current.size !== 2) return
+      e.preventDefault()
+      const [a, b] = [...pointers.current.values()]
+      const distance = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      zoomBy(() => p.zoom * distance / p.distance, p.mid)
+    }
+    const up = (e: PointerEvent) => {
+      pointers.current.delete(e.pointerId)
+      if (pointers.current.size < 2) pinch.current = null
+    }
+    const gesture = (e: Event) => e.preventDefault()
     el.addEventListener('wheel', wheel, { passive: false })
-    return () => el.removeEventListener('wheel', wheel)
+    el.addEventListener('pointerdown', down, { passive: false })
+    el.addEventListener('pointermove', move, { passive: false })
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+    el.addEventListener('gesturestart', gesture, { passive: false })
+    el.addEventListener('gesturechange', gesture, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', wheel)
+      el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+      el.removeEventListener('gesturestart', gesture)
+      el.removeEventListener('gesturechange', gesture)
+    }
   })
 
   const pageWidth = Math.round(width * zoom)

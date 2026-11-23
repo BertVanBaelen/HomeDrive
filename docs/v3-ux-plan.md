@@ -1,21 +1,21 @@
 # v3 usability: work plan
 
-## Implementation status — 2026-11-18
+## Implementation status — 2026-11-20
 
 Implemented in source and reviewed; WP9 (PDF fill and sign) is excluded from this pass. Not yet tried on Android or iPhone.
 
 | WP | State | Open |
 |---|---|---|
-| 1 Markdown | Done | The note says *why* the page is blocked only in general terms; the round-trip test uses a fixed set of documents, not random ones. Files the page editor would change in meaning (block markers it doesn't escape, a list numbered from 0) stay as text. |
+| 1 Markdown | Partly | The note says *why* the page is blocked only in general terms; the round-trip test uses a fixed set of documents, not random ones. Files the page editor would change in meaning (block markers it doesn't escape, a list numbered from 0) stay as text. A single empty paragraph and trailing newlines still need an edge-case fix. |
 | 2 History | Partly | Done: history model, trail, `goUp`/`goTop`, back layers for dialogs, the viewer and the editor. Open: launch rewrite and Home guard for the installed app, the *Close Homedrive?* sheet, back layers for the info sheet, account popover, `Select` and the drive menus, `history.test.ts`. |
-| 3 Tab bar | Done | Why + is dimmed is only a tooltip, which phones don't show. |
+| 3 Tab bar | Partly | The tab bar and Trash work. Why + is dimmed is only a tooltip, which phones don't show. |
 | 4 Picker, Save | Done | Back from Home after saving doesn't ask to close (needs the WP2 guard). |
 | 5 Select several | Partly | Done: server batch and single-use zip links with tests, check circles with Shift ranges, Ctrl/⌘+A and Esc, the selection bar, skipped counts. Open: long-press, Ctrl/Shift-click on the item itself, *Select all* in the bar, back clearing the selection, *Undo*. |
 | 6 Right-click menu | Not started | A first attempt with the Kokonut marking menu was removed: its ring blocked clicks. |
-| 7 Zoom | Done | The zoom bar doesn't hide by itself on phones; no page number in the PDF bar; text size is not offered on phones. |
+| 7 Zoom | Partly | Photo and PDF pinch/buttons/wheel zoom work. Open: the zoom bar doesn't hide by itself on phones; no page number in the PDF bar; text size is not offered on phones. |
 | 8 Back animations | Not started | |
 
-Automated checks pass: `go vet`, `go test`, staticcheck, gosec (with the CI exclusions), `npm run typecheck`, `npm test`, `npm run build`, `npm audit`.
+Automated checks pass: `go vet`, `go test`, staticcheck, gosec (with the CI exclusions), `npm run typecheck`, 142 `npm test` tests and `npm run build`. The 2026-11-18 `npm audit` was clean; its 2026-11-20 retry was blocked by the npm advisory endpoint.
 
 The nine "easier to use" items of the [v3 roadmap](roadmap.md#v3), as they were chosen on 2026-11-13 from the options in [`homedrive-mockup/v3-options.html`](../homedrive-mockup/v3-options.html). What to build is described in [`architecture.md`](architecture.md); this file is the order to build it in, what each step touches and when it is done. Work happens on `v3/development`.
 

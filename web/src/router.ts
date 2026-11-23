@@ -14,6 +14,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 //   /login, /login/homeassistant (add-on option), /setup, /recover, /welcome, /save
 
 const listeners = new Set<() => void>()
+const activeLayers = new Set<string>()
 
 // History. Every entry this app makes carries hd in history.state: doc
 // identifies this page load (entries from another load of the app can't be
@@ -94,6 +95,28 @@ function current(): Hd {
 
 current()
 
+// A reload or a Forward into an old overlay entry has no React overlay that
+// can answer it. Turn that entry into an ordinary page entry, otherwise the
+// next navigate() mistakes it for a live layer and replaces instead of
+// pushing.
+function normalizeOrphanLayer() {
+  const hd = hdState()
+  if (!hd || hd.layer === 0 || (hd.token && activeLayers.has(hd.token))) return
+  // Forward can resurrect the editor entry after it was closed while the
+  // viewer beneath it is still mounted. Don't rewrite a still-live stack:
+  // step straight back to its active lower layer.
+  if (activeLayers.size) {
+    history.back()
+    return
+  }
+  const next: Hd = { doc: hd.doc, i: hd.i, layer: 0 }
+  history.replaceState({ hd: next }, '', location.href)
+  record(next, here(), false)
+}
+
+normalizeOrphanLayer()
+window.addEventListener('popstate', () => queueMicrotask(normalizeOrphanLayer))
+
 function subscribe(fn: () => void) {
   listeners.add(fn)
   window.addEventListener('popstate', fn)
@@ -165,18 +188,21 @@ export function useBackLayer(open: boolean, close: () => void, key = 0) {
     const depth = cur.layer + 1
     const token = randomId()
     const hd: Hd = { doc: cur.doc, i: cur.i + 1, layer: depth, token }
+    activeLayers.add(token)
     history.pushState({ hd }, '')
     record(hd, here(), true)
     let popped = false
     const pop = () => {
       if ((hdState()?.layer ?? 0) < depth) {
         popped = true
+        activeLayers.delete(token)
         closeRef.current()
       }
     }
     window.addEventListener('popstate', pop)
     return () => {
       window.removeEventListener('popstate', pop)
+      activeLayers.delete(token)
       if (!popped && hdState()?.token === token) history.back()
     }
   }, [open, key])

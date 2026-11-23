@@ -293,6 +293,7 @@ export const nl: Messages = {
   'selection.actions': 'Selectieacties',
   'selection.count.one': '{n} item geselecteerd',
   'selection.count.other': '{n} items geselecteerd',
+  'selection.limit': 'max. 500',
   'selection.done.one': '{n} item klaar',
   'selection.done.other': '{n} items klaar',
   'selection.skipped.one': '{n} overgeslagen: dat kun je hier niet wijzigen',

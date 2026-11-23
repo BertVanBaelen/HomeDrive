@@ -108,6 +108,28 @@ func TestBatchNodes(t *testing.T) {
 		t.Fatalf("restore: %+v", res)
 	}
 
+	// Parents and children work the same in either order: descendants go
+	// first into the trash, and parents first when restoring.
+	branch := mkdir(t, a, aRoot, "Branch")
+	leaf := upload(t, a, branch.ID, "leaf.txt", []byte("leaf"), 10)
+	_, res = batch(t, a, map[string]any{"op": "trash", "ids": []string{branch.ID, leaf.ID, branch.ID}})
+	if len(res.Done) != 2 || len(res.Skipped) != 0 {
+		t.Fatalf("trash branch: %+v", res)
+	}
+	_, res = batch(t, a, map[string]any{"op": "restore", "ids": []string{leaf.ID, branch.ID}})
+	if len(res.Done) != 2 || len(res.Skipped) != 0 {
+		t.Fatalf("restore branch: %+v", res)
+	}
+	r = a.get("/api/nodes/" + leaf.ID)
+	expect(t, r, 200)
+	var restored struct {
+		Node node `json:"node"`
+	}
+	r.decode(t, &restored)
+	if restored.Node.ParentID != branch.ID {
+		t.Fatalf("leaf parent after restore = %q, want %q", restored.Node.ParentID, branch.ID)
+	}
+
 	// Deleting for good needs the password again and is audited like the
 	// single delete.
 	env.expireRecentAuth(t)

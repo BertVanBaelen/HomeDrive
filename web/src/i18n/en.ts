@@ -291,6 +291,7 @@ export const en = {
   'selection.actions': 'Selection actions',
   'selection.count.one': '{n} item selected',
   'selection.count.other': '{n} items selected',
+  'selection.limit': '500 max',
   'selection.done.one': '{n} item done',
   'selection.done.other': '{n} items done',
   'selection.skipped.one': '{n} skipped: you can’t change it here',

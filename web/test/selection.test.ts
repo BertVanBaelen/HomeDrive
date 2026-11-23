@@ -29,3 +29,12 @@ test('the selection given is not changed', () => {
   selectionToggle(before, items, 'a', 'c', true)
   assert.equal(ids(before), 'a')
 })
+
+test('the selection never exceeds what a batch or zip request accepts', () => {
+  const many = Array.from({ length: 550 }, (_, i) => ({ id: String(i).padStart(3, '0') }))
+  let selected = new Set<string>()
+  for (const item of many) selected = selectionToggle(selected, many, null, item.id, false)
+  assert.equal(selected.size, 500)
+  assert.ok(!selected.has('549'))
+  assert.ok(selected.has('499'))
+})
