@@ -21,7 +21,7 @@ COPY server/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/homedrive ./cmd/homedrive
 
-FROM alpine:3.24.3
+FROM alpine:3.24.4
 ARG VERSION=dev
 # Thumbnails: libvips (with HEIF for iPhone photos), ffmpeg and poppler,
 # started only through `homedrive sandbox` (docs/security.md#files). The
