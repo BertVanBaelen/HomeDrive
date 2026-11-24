@@ -36,7 +36,7 @@ Homedrive :8080 — one Go process: JSON API + static PWA + background jobs
 | State dir | `/data` (add-on private, part of add-on backups) | `/config` volume |
 | `data_path` | a folder under `/share` or `/media`: HA's own disk (default `/share/homedrive`), a USB disk (`/media/usb/homedrive`) or a NAS share added under *Settings → System → Storage* | `/data` volume: a local folder or a mounted network share |
 | `backup_path` | under `/share` or `/media`, empty = off | `/backup` volume, empty = off |
-| User | non-root UID/GID 1000 in the image, confined by Supervisor/AppArmor; HA-owned mounts are writable by that account | non-root (`user: "1000:1000"` in the compose example), read-only root filesystem, all capabilities dropped |
+| User | root inside the container, because the Supervisor mounts `/data` (and `options.json`, mode 0600) and `/share` root-owned; confined by the Supervisor's container and AppArmor | non-root (`user: "1000:1000"` in the compose example), read-only root filesystem, all capabilities dropped |
 | Network | no host port; the Cloudflared add-on connects to `http://<addon-hostname>:8080` | no published port when cloudflared runs in the same compose project |
 | Sidebar (Ingress) | **no** — the PWA needs its own origin | n/a |
 

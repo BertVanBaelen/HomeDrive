@@ -2,6 +2,12 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.8.2
+
+**Fix**
+
+- The add-on starts again. 2.8.1 ran as a non-root user, which can't read Home Assistant's root-only `/data/options.json` and stopped with `permission denied`. The add-on runs as root inside its confined container again, as before 2.8.1. Plain Docker is unchanged: it still runs as UID/GID 1000 through `user: "1000:1000"` in the compose example.
+
 ## 2.8.1
 
 **Security fixes**

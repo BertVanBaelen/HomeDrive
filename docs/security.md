@@ -88,8 +88,8 @@ Out of scope: a compromised Home Assistant host or NAS, a compromised Cloudflare
 
 ### Container and supply chain
 - Static Go binary on Alpine; no shell needed at runtime.
-- Docker: non-root, read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`.
-- HA add-on: no host network, no privileged mode, no Docker/HA API access, Ingress off. Custom AppArmor profile once tested on a real installation.
+- Docker: non-root (`user: "1000:1000"`; the image itself has no `USER`), read-only root filesystem, `cap_drop: ALL`, `no-new-privileges`.
+- HA add-on: runs as root inside its container, because the Supervisor gives add-ons root-only `/data`, `options.json` and `/share`; a non-root image can't read its options (2.8.1 did this and failed to start; fixed in 2.8.2). No host network, no privileged mode, no Docker/HA API access, Ingress off. Custom AppArmor profile once tested on a real installation.
 - CI: `go vet`, tests, `govulncheck`, `npm audit`; GitHub Actions pinned to commit SHAs; Dependabot for Go, npm, Docker and Actions.
 - Images built in GitHub Actions with provenance and SBOM. Only the release workflow can push images and tags, and it runs only on `main` after CI passed (or by hand on `main`); pull requests never get write access.
 
