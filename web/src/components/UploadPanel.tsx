@@ -7,6 +7,8 @@ import { fileTypes, Icon, icons } from './Icon'
 
 // UploadPanel shows running uploads above the files, like the design, and
 // asks about one upload at a time whose name is taken.
+const maxRows = 8
+
 export function UploadPanel() {
   const t = useT()
   const uploads = useUploads()
@@ -14,6 +16,9 @@ export function UploadPanel() {
   const active = uploads.filter((u) => u.state !== 'failed')
   const folders = [...new Set(uploads.map((u) => u.folderName))]
   const asking = uploads.find((u) => u.state === 'asking')
+  // A folder can hold hundreds of files: show the ones that need a look or are
+  // going, and count the rest.
+  const shown = uploads.length > maxRows ? uploads.filter((u) => u.state !== 'done').slice(0, maxRows) : uploads
   return (
     <>
       <div className="uploads" aria-live="polite">
@@ -21,7 +26,7 @@ export function UploadPanel() {
           <strong>{plural(t, 'upload.title', active.length || uploads.length)}</strong>
           {folders.length === 1 && <span>{t('upload.to', { folder: folders[0] })}</span>}
         </div>
-        {uploads.map((u) => {
+        {shown.map((u) => {
           const pct = u.file.size ? Math.min(100, Math.round((u.sent / u.file.size) * 100)) : u.state === 'done' ? 100 : 0
           const failed = u.state === 'failed'
           const type = fileTypes[u.type]
@@ -30,7 +35,7 @@ export function UploadPanel() {
               <Icon d={type.d} stroke={type.c} />
               <div className="upload__body">
                 <div className="upload__line">
-                  <span>{u.name}</span>
+                  <span>{[...u.dir, u.name].join(' / ')}</span>
                   {failed ? (
                     <span className="is-failed">{t('upload.failed')}</span>
                   ) : (
@@ -55,6 +60,7 @@ export function UploadPanel() {
             </div>
           )
         })}
+        {shown.length < uploads.length && <div className="upload__more">{t('upload.more', { n: uploads.length - shown.length })}</div>}
       </div>
       {asking && (
         <Collision
@@ -78,7 +84,7 @@ function Collision({ item, many }: { item: UploadItem; many: boolean }) {
   return (
     <Modal title={t('replace.title')} onClose={() => answer('skip')}>
       <p className="modal__body replace__body">
-        {t('replace.body', { name: item.existing?.name ?? item.name, folder: item.folderName })}
+        {t('replace.body', { name: item.existing?.name ?? item.name, folder: [item.folderName, ...item.dir].join(' / ') })}
       </p>
       {offerAll && (
         <label className="check">

@@ -5,7 +5,7 @@ Where the v3 usability work stands, what was checked, and what is left. The plan
 ## Branch
 
 - Work is on `v3/development`. It starts from `main` plus `7dd8ca9` *Security fixes for 2.8.1*, which is **not on `origin/main` yet**. Merging `v3/development` brings 2.8.1 along; to release 2.8.1 on its own first, push or open a pull request for `main` before merging v3.
-- The version stays 2.8.2 (`homedrive/config.yaml`). v3 gets its version and its `homedrive/CHANGELOG.md` entry when it is released.
+- The version stays 2.9.0 (`homedrive/config.yaml`). v3 gets its version and its `homedrive/CHANGELOG.md` entry when it is released.
 
 ## Status per work package
 

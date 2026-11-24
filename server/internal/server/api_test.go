@@ -348,6 +348,56 @@ func TestFileOperations(t *testing.T) {
 	expect(t, c.get("/api/nodes/"+f.ID), 200)
 }
 
+// Uploading a folder asks for each folder on the way with reuse: an existing
+// one is used, so the files join it.
+func TestEnsureFolder(t *testing.T) {
+	env := newTestEnv(t)
+	a := env.signIn(t, "a@example.com", "A")
+	b := env.signIn(t, "b@example.com", "B")
+	root := rootOf(t, a, "personal")
+
+	ensure := func(c *client, parent, name string, status int) node {
+		t.Helper()
+		r := c.json("POST", "/api/folders", map[string]any{"parentId": parent, "name": name, "reuse": true})
+		expect(t, r, status)
+		var n node
+		if r.Code < 300 {
+			r.decode(t, &n)
+		}
+		return n
+	}
+
+	photos := ensure(a, root, "Photos", 201)
+	if again := ensure(a, root, "photos", 200); again.ID != photos.ID || again.Name != "Photos" {
+		t.Fatalf("existing folder not reused: %+v", again)
+	}
+	if sub := ensure(a, photos.ID, "2024", 201); sub.ParentID != photos.ID || sub.DriveID != photos.DriveID {
+		t.Fatalf("subfolder = %+v", sub)
+	}
+	// Without reuse a taken name is still refused.
+	expectCode(t, a.json("POST", "/api/folders", map[string]any{"parentId": root, "name": "Photos"}), 409, "name_taken")
+
+	// A file with the name isn't a folder: the new folder is kept next to it.
+	upload(t, a, root, "Docs", []byte("x"), 10)
+	if docs := ensure(a, root, "Docs", 201); docs.Name != "Docs (2)" || docs.Kind != "folder" {
+		t.Fatalf("folder next to a file = %+v", docs)
+	}
+
+	// A trashed folder doesn't count.
+	expect(t, a.json("DELETE", "/api/nodes/"+photos.ID, nil), 204)
+	if fresh := ensure(a, root, "Photos", 201); fresh.ID == photos.ID {
+		t.Fatal("reused a trashed folder")
+	}
+
+	for _, bad := range []string{"", "  ", "a/b", `a\b`, "..", "x\x00y"} {
+		expectCode(t, a.json("POST", "/api/folders", map[string]any{"parentId": root, "name": bad, "reuse": true}), 400, "invalid_name")
+	}
+	// Reuse gives no way into other people's folders, not even to see that
+	// a folder exists.
+	expect(t, b.json("POST", "/api/folders", map[string]any{"parentId": root, "name": "Docs (2)", "reuse": true}), 404)
+	expect(t, b.json("POST", "/api/folders", map[string]any{"parentId": root, "name": "Nope", "reuse": true}), 404)
+}
+
 func TestUploadResume(t *testing.T) {
 	env := newTestEnv(t)
 	c := env.signIn(t, "a@example.com", "A")

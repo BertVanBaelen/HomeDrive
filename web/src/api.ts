@@ -453,7 +453,8 @@ export const api = {
   node: (id: string) => request<Details>('GET', `/api/nodes/${encodeURIComponent(id)}`),
   children: (id: string, sort: SortKey, desc: boolean) =>
     request<Node[]>('GET', `/api/nodes/${encodeURIComponent(id)}/children?sort=${sort}&order=${desc ? 'desc' : 'asc'}`),
-  createFolder: (parentId: string, name: string) => request<Node>('POST', '/api/folders', { parentId, name }),
+  createFolder: (parentId: string, name: string, reuse = false) =>
+    request<Node>('POST', '/api/folders', { parentId, name, ...(reuse && { reuse }) }),
   rename: (id: string, name: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { name }),
   move: (id: string, parentId: string) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { parentId }),
   star: (id: string, starred: boolean) => request<Node>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, { starred }),

@@ -2,12 +2,15 @@ import { useSyncExternalStore } from 'react'
 import { api, ApiError, type FileType, type Node, type Upload } from './api'
 import { notifyChanged } from './events'
 import { Choices, type Choice } from './uploadChoice'
+import type { Picked } from './uploadTree'
 
 // Uploads run in the background while the user keeps browsing. Each file is
 // sent in chunks (the server's chunkSize, under Cloudflare's body limit); a
 // dropped connection resumes from what the server has. When a file's name
 // is taken, the upload waits (asking) until the user chooses Replace, Keep
-// both or Skip; the upload panel asks about one file at a time.
+// both or Skip; the upload panel asks about one file at a time. Files from
+// a folder go into the same folders below the target, which are made (or,
+// when they exist, joined) just before the first file of each is sent.
 
 export interface UploadItem {
   key: number
@@ -16,8 +19,13 @@ export interface UploadItem {
   file: File
   name: string
   type: FileType
+  // folderId is the folder the files were added to; dir the folders below
+  // it that this file goes in, outermost first.
   folderId: string
   folderName: string
+  dir: string[]
+  // dirs holds, per batch, the folders made below folderId, by path.
+  dirs: Map<string, Promise<string>>
   // description is text shared with the file.
   description: string
   sent: number
@@ -72,17 +80,20 @@ type Outcome = 'done' | 'failed' | 'skipped'
 const settled = new Map<number, (o: Outcome) => void>()
 
 // addUploads queues files for a folder, each with the description if one
-// is given. The promise resolves once each of them has finished, failed or
+// is given. Picked files bring the folders they go in, which are made below
+// the folder. The promise resolves once each of them has finished, failed or
 // was skipped (a later retry doesn't count).
 export function addUploads(
-  files: Iterable<File>,
+  files: Iterable<File | Picked>,
   folderId: string,
   folderName: string,
   description = '',
 ): Promise<{ done: number; failed: number }> {
   const waits: Promise<Outcome>[] = []
   const batch = nextBatch++
-  for (const file of files) {
+  const dirs = new Map<string, Promise<string>>()
+  for (const picked of files) {
+    const { file, dir } = picked instanceof File ? { file: picked, dir: [] } : picked
     const key = nextKey++
     items.push({
       key,
@@ -92,6 +103,8 @@ export function addUploads(
       type: typeFromName(file.name),
       folderId,
       folderName,
+      dir,
+      dirs,
       description,
       sent: 0,
       state: 'queued',
@@ -109,6 +122,25 @@ export function addUploads(
 function settle(key: number, o: Outcome) {
   settled.get(key)?.(o)
   settled.delete(key)
+}
+
+// changed tells the views of a folder that a file arrived: at once, then at
+// most once a second, so a folder with hundreds of files doesn't reload the
+// listing for each of them.
+const changedIds = new Set<string>()
+let changedAt = 0
+let changedTimer: ReturnType<typeof setTimeout> | undefined
+
+function changed(folderId: string) {
+  changedIds.add(folderId)
+  if (changedTimer) return
+  changedTimer = setTimeout(() => {
+    changedTimer = undefined
+    changedAt = Date.now()
+    const ids = [...changedIds]
+    changedIds.clear()
+    ids.forEach(notifyChanged)
+  }, Math.max(0, changedAt + 1000 - Date.now()))
 }
 
 export function retryUpload(key: number) {
@@ -142,7 +174,7 @@ function pump() {
     run(it).then(
       () => {
         update(it.key, { state: 'done', sent: it.file.size })
-        notifyChanged(it.folderId)
+        changed(it.folderId)
         settle(it.key, 'done')
         finish()
       },
@@ -180,22 +212,37 @@ class Taken {
 // taken name; a folder with that name only allows keeping both, and a file
 // that vanished before it could be replaced is uploaded as a new one.
 // Keeping both is the server's default, so it isn't sent.
-async function create(it: UploadItem): Promise<Upload> {
+async function create(it: UploadItem, parentId: string): Promise<Upload> {
   const conflict = it.conflict === 'keep' ? undefined : (it.conflict ?? 'ask')
   try {
-    return await api.createUpload(it.folderId, it.name, it.file.size, it.description, conflict)
+    return await api.createUpload(parentId, it.name, it.file.size, it.description, conflict)
   } catch (err) {
     if (!(err instanceof ApiError)) throw err
     const existing = err.code === 'name_taken' && !it.conflict ? (err.body.existing as Node | undefined) : undefined
     if (existing?.kind === 'file' && typeof existing.name === 'string') throw new Taken(existing)
     if (!existing && !(err.code === 'not_found' && it.conflict === 'replace')) throw err
     update(it.key, { conflict: 'keep' })
-    return create({ ...it, conflict: 'keep' })
+    return create({ ...it, conflict: 'keep' }, parentId)
   }
 }
 
+// folderFor is the folder an upload goes in: the target, or the folder
+// below it that is made once for the whole batch. A folder that exists is
+// joined; a failure isn't remembered, so a retry tries again.
+function folderFor(it: UploadItem, depth = it.dir.length): Promise<string> {
+  if (depth === 0) return Promise.resolve(it.folderId)
+  const path = JSON.stringify(it.dir.slice(0, depth))
+  let made = it.dirs.get(path)
+  if (!made) {
+    made = folderFor(it, depth - 1).then(async (parentId) => (await api.createFolder(parentId, it.dir[depth - 1], true)).id)
+    it.dirs.set(path, made)
+    made.catch(() => it.dirs.delete(path))
+  }
+  return made
+}
+
 async function run(it: UploadItem): Promise<Node> {
-  const up = await create(it)
+  const up = await create(it, await folderFor(it))
   let received = 0
   let retries = 0
   while (received < it.file.size) {
