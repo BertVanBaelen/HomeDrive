@@ -4,7 +4,7 @@
 # amd64 and arm64. Both build stages run on the build machine and
 # cross-compile, so multi-arch builds need no emulation.
 
-FROM --platform=$BUILDPLATFORM node:26.12.1-alpine3.24 AS web
+FROM --platform=$BUILDPLATFORM node:26.13.1-alpine3.24 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -21,7 +21,7 @@ COPY server/ ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/homedrive ./cmd/homedrive
 
-FROM alpine:3.24.3
+FROM alpine:3.24.4
 ARG VERSION=dev
 # Thumbnails: libvips (with HEIF for iPhone photos), ffmpeg and poppler,
 # started only through `homedrive sandbox` (docs/security.md#files). The
