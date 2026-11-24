@@ -321,6 +321,7 @@ Editing is for people who can edit the file: the owner of My Files, editors and 
 - *Replace* makes the upload a new version of that file: it keeps its name, ID, description, shares, link and stars. It needs edit rights and is refused (`locked`) while someone else holds the edit lock; your own lock doesn't stop it, and your editor then finds the file changed (`edit_conflict`). If the file was renamed, moved or trashed while the upload ran, the upload becomes a new file instead, so nothing is overwritten that the user didn't choose.
 - *Keep both* adds `name (2)` as in v1. A folder with that name only allows *Keep both*.
 - `POST /api/uploads` takes `conflict: "ask" | "replace" | "keep"` (absent means keep). With `ask`, a taken name answers `name_taken` with `existing` (the node) before any bytes are sent. *Replace* records `uploads.replace_node_id`, is checked again on completion, and is audited as `upload.replace`.
+- **Uploading folders:** *Add → Upload Folder* (an `<input webkitdirectory>`) and dropping folders on the page. The browser reads the tree (`webkitGetAsEntry` for a drop; at most 10,000 files and 32 levels, checked in the browser) and makes each folder on the way with `POST /api/folders` and `reuse: true`, once per batch and just before its first file is sent. With `reuse`, the server answers an existing live folder with that name (200) so the files join it, and makes it (201) otherwise; a file with the name doesn't count and the folder is kept next to it with a number (`Docs (2)`), like an upload next to a folder. Without `reuse` a taken name is still `name_taken`. Names go through the same validation as any folder, access is the same as for creating a folder (read-only drives and other people's folders answer as before), and files inside then go through the usual upload route and its *Replace / Keep both / Skip* questions. Empty folders aren't made: the folder picker doesn't report them.
 - The Save page (Android share target) asks the same. iPhone Shortcut uploads always keep both.
 
 ### Email and push notifications (v3)
@@ -419,7 +420,7 @@ Mockup 8, option A.
 
 - Right-click on an item (also the context-menu key and Shift+F10) opens Homedrive's menu with what its info panel offers: *Open* (Enter), *Share…*, *Download*, *Rename…* (F2), *Move…*, *Star*, *Details* (Alt+Enter), *Delete* (Del), in groups, with the shortcut on the right. Entries the user can't use are left out, not greyed.
 - On a selection: *Download as .zip*, *Move…*, *Star*, *Delete*, headed by the count. Right-clicking an item outside the selection selects just that item first.
-- On empty space in a folder: *New folder*, *Upload files*, *New document*, *New spreadsheet* (where the user can add), then *Grid view* / *List view*. In Trash: *Restore*, *Delete forever*, *Details*. On link pages: *Open* and *Download*.
+- On empty space in a folder: *New folder*, *Upload files*, *Upload folder*, *New document*, *New spreadsheet* (where the user can add), then *Grid view* / *List view*. In Trash: *Restore*, *Delete forever*, *Details*. On link pages: *Open* and *Download*.
 - The shortcuts work in the file list without the menu: Enter opens, F2 renames, Delete moves to the trash (with *Undo*), Alt+Enter shows the details, Ctrl/⌘+A selects all.
 - One `ContextMenu` component: `role="menu"` with `menuitem`s, arrow keys and Home/End, Enter picks, Esc or a click elsewhere closes, flipped to stay inside the window, focus back where it was. Its entries come from the same action functions as the info panel and the selection bar, so the three stay the same.
 - In text fields, the editor and the viewer the browser's own menu stays (copy, paste, spelling). On touch screens `contextmenu` (Android fires it on long-press) is ignored: long-press selects.
@@ -585,7 +586,7 @@ Mockup 9: 9a A (toolbar, tap to place), 9b B (draw or type), 9c A (kept with the
 - **Push (v3):** the service worker receives Web Push messages and shows them as notifications (§4).
 - **Back button (v3):** see below.
 - **iPhone:** iOS has no Web Share Target support, so the PWA can't be in the share sheet. Homedrive provides an Apple Shortcut ("Save to Homedrive") that uploads to the user's inbox with a device token.
-- **Desktop:** normal website, drag-and-drop upload. The app never shows an install prompt on desktop (browsers may still offer install themselves).
+- **Desktop:** normal website, drag-and-drop upload of files and folders. The app never shows an install prompt on desktop (browsers may still offer install themselves).
 - **HTTPS only:** secure cookies and service workers require it, so Homedrive is always used through its public URL, also at home.
 
 ### Back button and history (v3)

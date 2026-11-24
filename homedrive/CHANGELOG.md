@@ -2,6 +2,14 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.9.0
+
+**Upload folders**
+
+- *Add → Upload Folder* and dragging folders onto the page upload a folder with all its subfolders. A folder that already exists in the target is joined, and files whose name is taken ask *Replace*, *Keep both* or *Skip* as before. Empty folders are not made. One upload holds at most 10,000 files and 32 levels of folders; add more in parts. Where a browser can't choose folders (some phone browsers), *Upload Folder* works like *Upload Files*.
+- While many files arrive, the folder list refreshes at most once a second, and the upload panel shows the first few and counts the rest.
+- Fixed: *Add → Folder* closed the dialog before a name could be typed (since v3).
+
 ## 2.8.2
 
 **Fix**

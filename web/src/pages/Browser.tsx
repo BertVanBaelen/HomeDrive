@@ -37,16 +37,23 @@ import { showToast } from '../components/Toast'
 import { UploadPanel } from '../components/UploadPanel'
 import { notifyChanged, onChanged } from '../events'
 import { displayName, formatWhen } from '../format'
-import { plural, useLocale, useT } from '../i18n'
+import { plural, useLocale, useT, type Translate } from '../i18n'
 import { drivePath, folderPath, navigate, type ListName, type Route } from '../router'
 import { leaveFolder, playFolderMotion, takePrefetched } from '../motion'
 import { addUploads, onBatchDone } from '../uploads'
+import { fromFolderInput, readDropped, UploadLimit } from '../uploadTree'
 import { StorageView } from './Storage'
 import { useSelection, useSelectionKeys } from '../selection'
 import { batchToast, SelectionBar } from '../components/SelectionBar'
 
 // The editor (with TipTap) loads the first time a new file is made.
 const Editor = lazy(() => import('../editor/Editor'))
+
+// uploadReadError says why dropped or chosen folders weren't added.
+function uploadReadError(t: Translate, err: unknown): string {
+  if (err instanceof UploadLimit) return t(err.kind === 'files' ? 'upload.tooMany' : 'upload.tooDeep', { max: err.max })
+  return t('upload.unreadable')
+}
 
 export function Browser({ user, route, onSignOut }: { user: User; route: Route; onSignOut: () => void }) {
   const t = useT()
@@ -342,6 +349,7 @@ function FolderView({
   const [editing, setEditing] = useState<{ node: Node; lockId: string } | null>(null)
   const creating = useRef(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
   const filesRef = useRef<HTMLElement>(null)
   const motionPlayed = useRef(false)
   const selection = useSelection(items)
@@ -426,12 +434,13 @@ function FolderView({
       e.preventDefault()
       depth = 0
       setDragging(false)
-      // Folders can't be uploaded yet; keep plain files only.
-      const dropped = [...(e.dataTransfer?.items ?? [])]
-        .filter((it) => it.kind === 'file' && !it.webkitGetAsEntry?.()?.isDirectory)
-        .map((it) => it.getAsFile())
-        .filter((f): f is File => !!f)
-      if (dropped.length) addUploads(dropped, folderId, title)
+      if (!e.dataTransfer) return
+      readDropped(e.dataTransfer).then(
+        (dropped) => {
+          if (dropped.length) addUploads(dropped, folderId, title)
+        },
+        (err) => showToast(uploadReadError(t, err), { error: true }),
+      )
     }
     window.addEventListener('dragenter', enter)
     window.addEventListener('dragleave', leave)
@@ -443,7 +452,7 @@ function FolderView({
       window.removeEventListener('dragover', over)
       window.removeEventListener('drop', drop)
     }
-  }, [readOnly, folderId, title])
+  }, [readOnly, folderId, title, t])
 
   if (error && !details) return <p className="form-error" role="alert">{error}</p>
   if (!details || !items) return null
@@ -547,6 +556,17 @@ function FolderView({
           if (e.target.files?.length) addUploads([...e.target.files], folderId, title)
           e.target.value = ''
         }} />
+      <input ref={folderInput} type="file" multiple hidden {...{ webkitdirectory: '' }}
+        onChange={(e) => {
+          if (e.target.files?.length) {
+            try {
+              addUploads(fromFolderInput(e.target.files), folderId, title)
+            } catch (err) {
+              showToast(uploadReadError(t, err), { error: true })
+            }
+          }
+          e.target.value = ''
+        }} />
 
       {addOpen && (
         <AddDialog
@@ -555,6 +575,10 @@ function FolderView({
           onUpload={() => {
             setAddOpen(false)
             fileInput.current?.click()
+          }}
+          onUploadFolder={() => {
+            setAddOpen(false)
+            folderInput.current?.click()
           }}
           onCreateFolder={async (name) => {
             await api.createFolder(folderId, name)

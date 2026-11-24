@@ -131,41 +131,29 @@ export function ConfirmDialog({
   )
 }
 
-// AddDialog offers what can be added to a folder: a folder, files and,
-// with onNewFile, a new document or spreadsheet to edit.
+// AddDialog offers what can be added to a folder: a folder, files, a folder
+// of files and, with onNewFile, a new document or spreadsheet to edit.
 export function AddDialog({
   folderName,
   onClose,
   onCreateFolder,
   onUpload,
+  onUploadFolder,
   onNewFile,
 }: {
   folderName: string
   onClose: () => void
   onCreateFolder: (name: string) => Promise<void>
   onUpload: () => void
+  onUploadFolder: () => void
   onNewFile?: (kind: 'markdown' | 'sheet') => void
 }) {
   const t = useT()
   const [step, setStep] = useState<'pick' | 'folder'>('pick')
-  if (step === 'folder') {
-    return (
-      <NameDialog
-        title={t('folder.newTitle')}
-        subtitle={t('add.in', { folder: folderName })}
-        label={t('folder.name')}
-        initial=""
-        placeholder={t('folder.placeholder')}
-        submit={t('folder.create')}
-        onBack={() => setStep('pick')}
-        onClose={onClose}
-        onSubmit={(name) => onCreateFolder(name || t('folder.placeholder'))}
-      />
-    )
-  }
   const tiles = [
     { label: t('add.folder'), desc: t('add.folderDesc'), icon: icons.folderAdd, color: '#a16207', tint: '#fef9c3', go: () => setStep('folder') },
     { label: t('add.upload'), desc: t('add.uploadDesc'), icon: icons.upload, color: '#374151', tint: '#f3f4f6', go: onUpload },
+    { label: t('add.uploadFolder'), desc: t('add.uploadFolderDesc'), icon: icons.cloudUpload, color: '#6d28d9', tint: '#ede9fe', go: onUploadFolder },
     ...(onNewFile
       ? [
           { label: t('editor.addDoc'), desc: t('editor.addDocDesc'), icon: fileTypes.text.d, color: '#0369a1', tint: '#e0f2fe', go: () => onNewFile('markdown') },
@@ -173,19 +161,34 @@ export function AddDialog({
         ]
       : []),
   ]
+  // Both steps stay in one Modal. Replacing it with another Modal would make
+  // the first one's history entry go away (Back) after the second has made
+  // its own, and that Back would close the second.
   return (
-    <Modal title={t('add.title')} subtitle={t('add.in', { folder: folderName })} onClose={onClose}>
-      <div className="tiles">
-        {tiles.map((a) => (
-          <button key={a.label} type="button" className="tile" onClick={a.go}>
-            <span className="tile__icon" style={{ background: a.tint, color: a.color }}>
-              <Icon d={a.icon} size={22} />
-            </span>
-            <strong>{a.label}</strong>
-            <span>{a.desc}</span>
-          </button>
-        ))}
-      </div>
+    <Modal title={step === 'folder' ? t('folder.newTitle') : t('add.title')} subtitle={t('add.in', { folder: folderName })} onClose={onClose}>
+      {step === 'folder' ? (
+        <NameForm
+          label={t('folder.name')}
+          initial=""
+          placeholder={t('folder.placeholder')}
+          submit={t('folder.create')}
+          onBack={() => setStep('pick')}
+          onClose={onClose}
+          onSubmit={(name) => onCreateFolder(name || t('folder.placeholder'))}
+        />
+      ) : (
+        <div className="tiles">
+          {tiles.map((a) => (
+            <button key={a.label} type="button" className="tile" onClick={a.go}>
+              <span className="tile__icon" style={{ background: a.tint, color: a.color }}>
+                <Icon d={a.icon} size={22} />
+              </span>
+              <strong>{a.label}</strong>
+              <span>{a.desc}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </Modal>
   )
 }
@@ -194,6 +197,30 @@ export function AddDialog({
 export function NameDialog({
   title,
   subtitle,
+  onClose,
+  ...form
+}: {
+  title: string
+  subtitle?: string
+  label: string
+  initial: string
+  placeholder?: string
+  submit: string
+  selectStem?: boolean
+  maxLength?: number
+  onBack?: () => void
+  onClose: () => void
+  onSubmit: (name: string) => Promise<void>
+}) {
+  return (
+    <Modal title={title} subtitle={subtitle} onClose={onClose}>
+      <NameForm onClose={onClose} {...form} />
+    </Modal>
+  )
+}
+
+// NameForm is the form of a NameDialog, for a Modal that has other steps.
+function NameForm({
   label,
   initial,
   placeholder,
@@ -204,8 +231,6 @@ export function NameDialog({
   onClose,
   onSubmit,
 }: {
-  title: string
-  subtitle?: string
   label: string
   initial: string
   placeholder?: string
@@ -224,8 +249,11 @@ export function NameDialog({
   const input = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Select the name without its extension, like file managers do.
+    // Select the name without its extension, like file managers do. The
+    // Modal only focuses its first field when it opens, so a form shown in
+    // a later step has to focus itself.
     const el = input.current
+    el?.focus()
     if (el && selectStem) {
       const dot = initial.lastIndexOf('.')
       el.setSelectionRange(0, dot > 0 ? dot : initial.length)
@@ -245,22 +273,20 @@ export function NameDialog({
   }
 
   return (
-    <Modal title={title} subtitle={subtitle} onClose={onClose}>
-      <form className="field" onSubmit={save}>
-        <label htmlFor={inputId}>{label}</label>
-        <input id={inputId} ref={input} value={name} placeholder={placeholder} maxLength={maxLength}
-          onChange={(e) => setName(e.target.value)} autoComplete="off" />
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="modal__foot">
-          <button type="button" className="btn" onClick={onBack ?? onClose}>
-            {onBack ? t('common.back') : t('common.cancel')}
-          </button>
-          <button type="submit" className="btn btn--primary" disabled={busy || (!name.trim() && !placeholder)}>
-            {submit}
-          </button>
-        </div>
-      </form>
-    </Modal>
+    <form className="field" onSubmit={save}>
+      <label htmlFor={inputId}>{label}</label>
+      <input id={inputId} ref={input} value={name} placeholder={placeholder} maxLength={maxLength}
+        onChange={(e) => setName(e.target.value)} autoComplete="off" />
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="modal__foot">
+        <button type="button" className="btn" onClick={onBack ?? onClose}>
+          {onBack ? t('common.back') : t('common.cancel')}
+        </button>
+        <button type="submit" className="btn btn--primary" disabled={busy || (!name.trim() && !placeholder)}>
+          {submit}
+        </button>
+      </div>
+    </form>
   )
 }
 

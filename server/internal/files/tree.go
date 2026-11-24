@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"path"
 	"slices"
@@ -254,24 +255,81 @@ func (s *Service) CreateFolder(ctx context.Context, userID, parentID, name strin
 	if err != nil {
 		return Node{}, err
 	}
-	id, ts := db.NewID(), s.stamp()
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO nodes (id, drive_id, parent_id, kind, name, name_key, created_by, created_at, modified_at)
-		 VALUES (?, ?, ?, 'folder', ?, ?, ?, ?, ?)`,
-		id, parent.DriveID, parent.ID, name, nameKey(name), userID, ts, ts)
-	if db.IsUniqueViolation(err) {
-		return Node{}, ErrNameTaken
-	}
+	id, err := s.addFolder(ctx, tx, userID, parent, name)
 	if err != nil {
-		return Node{}, err
-	}
-	if err := s.touch(ctx, tx, parent.ID); err != nil {
 		return Node{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return Node{}, err
 	}
 	return s.node(ctx, userID, id)
+}
+
+// addFolder adds a folder to parent inside tx. A taken name is ErrNameTaken.
+func (s *Service) addFolder(ctx context.Context, tx *sql.Tx, userID string, parent item, name string) (string, error) {
+	id, ts := db.NewID(), s.stamp()
+	_, err := tx.ExecContext(ctx,
+		`INSERT INTO nodes (id, drive_id, parent_id, kind, name, name_key, created_by, created_at, modified_at)
+		 VALUES (?, ?, ?, 'folder', ?, ?, ?, ?, ?)`,
+		id, parent.DriveID, parent.ID, name, nameKey(name), userID, ts, ts)
+	if db.IsUniqueViolation(err) {
+		return "", ErrNameTaken
+	}
+	if err != nil {
+		return "", err
+	}
+	return id, s.touch(ctx, tx, parent.ID)
+}
+
+// EnsureFolder is CreateFolder for uploading a folder: a folder that
+// already has the name is reused (created is false), so the new files join
+// it. A file with the name doesn't count; the new folder is kept next to it
+// with a number, as an upload is kept next to a folder.
+func (s *Service) EnsureFolder(ctx context.Context, userID, parentID, name string) (n Node, created bool, err error) {
+	name, err = ValidateName(name)
+	if err != nil {
+		return Node{}, false, err
+	}
+	// Two requests may add the same folder at once; the loser finds the
+	// winner's folder on the next try.
+	for range 3 {
+		if n, created, err = s.ensureFolder(ctx, userID, parentID, name); !errors.Is(err, ErrNameTaken) {
+			return n, created, err
+		}
+	}
+	return Node{}, false, ErrNameTaken
+}
+
+func (s *Service) ensureFolder(ctx context.Context, userID, parentID, name string) (Node, bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Node{}, false, err
+	}
+	defer tx.Rollback()
+	parent, err := s.editableFolder(ctx, tx, userID, parentID)
+	if err != nil {
+		return Node{}, false, err
+	}
+	var id string
+	err = tx.QueryRowContext(ctx,
+		`SELECT id FROM nodes WHERE parent_id = ? AND name_key = ? AND kind = 'folder' AND trashed_at IS NULL`,
+		parent.ID, nameKey(name)).Scan(&id)
+	created := errors.Is(err, sql.ErrNoRows)
+	if created {
+		unique, uerr := uniqueName(ctx, tx, parent.ID, name)
+		if uerr != nil {
+			return Node{}, false, uerr
+		}
+		id, err = s.addFolder(ctx, tx, userID, parent, unique)
+	}
+	if err != nil {
+		return Node{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Node{}, false, err
+	}
+	n, err := s.node(ctx, userID, id)
+	return n, created, err
 }
 
 // touch marks a folder as modified because its contents changed.

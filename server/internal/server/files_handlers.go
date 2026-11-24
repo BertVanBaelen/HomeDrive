@@ -77,11 +77,30 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
-	var req struct{ ParentID, Name string }
+	var req struct {
+		ParentID, Name string
+		// Reuse answers with the folder that already has the name (200)
+		// instead of refusing it, for uploading a folder.
+		Reuse bool
+	}
 	if !readJSON(w, r, &req) {
 		return
 	}
-	n, err := s.files.CreateFolder(r.Context(), currentUser(r.Context()).ID, req.ParentID, req.Name)
+	userID := currentUser(r.Context()).ID
+	if req.Reuse {
+		n, created, err := s.files.EnsureFolder(r.Context(), userID, req.ParentID, req.Name)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		status := http.StatusOK
+		if created {
+			status = http.StatusCreated
+		}
+		writeJSON(w, status, n)
+		return
+	}
+	n, err := s.files.CreateFolder(r.Context(), userID, req.ParentID, req.Name)
 	if err != nil {
 		s.fail(w, r, err)
 		return
