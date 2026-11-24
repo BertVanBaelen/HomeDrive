@@ -8,11 +8,14 @@ import { fileTypes, Icon, icons } from './Icon'
 import { LinkCard } from './LinkCard'
 import { Logo } from './Logo'
 import { showToast } from './Toast'
+import { ZoomStage } from './ZoomStage'
+import { closeBackLayer, useBackLayer } from '../router'
 
 // pdf.js is large; load it the first time a PDF is opened. So is the
 // editor, for the first file edited.
 const PdfView = lazy(() => import('./PdfView'))
 const Editor = lazy(() => import('../editor/Editor'))
+const MarkdownPreview = lazy(() => import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })))
 
 const showableImage = /\.(jpe?g|png|gif|webp|avif|bmp)$/i
 // Photos browsers can't show open through the server's preview (WebP).
@@ -62,26 +65,47 @@ export function Viewer({
   const contentUrl = useContentUrl()
   const [info, setInfo] = useState(false)
   const [editing, setEditing] = useState<{ node: Node; lockId: string } | null>(null)
+  const [textZoom, setTextZoom] = useState(1)
+  const [mdView, setMdView] = useState<'page' | 'source'>(() => {
+    try {
+      return localStorage.getItem('hd.mdView') === 'source' ? 'source' : 'page'
+    } catch {
+      return 'page'
+    }
+  })
   const n = files[index]
   const type = fileTypes[n.type]
+  const isMarkdown = (n.type === 'text' || n.type === 'code') && /\.md$/i.test(n.name)
+  function setMarkdownView(next: 'page' | 'source') {
+    setMdView(next)
+    try {
+      localStorage.setItem('hd.mdView', next)
+    } catch {
+      // Private browsing and disabled storage do not block viewing.
+    }
+  }
+
+  // Back closes the viewer before it leaves the folder.
+  useBackLayer(!!onClose, () => onClose?.())
+  const close = onClose && (() => closeBackLayer(onClose))
 
   useEffect(() => {
     if (editing) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape') close?.()
       else if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1)
       else if (e.key === 'ArrowRight' && index < files.length - 1) onIndex(index + 1)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [index, files.length, onClose, onIndex, editing])
+  }, [index, files.length, close, onIndex, editing])
 
   const sizeLabel = formatSize(n.size, locale)
   return (
     <div role="dialog" aria-modal="true" aria-label={displayName(n)} className="viewer">
       <div className="viewer__bar">
-        {onClose ? (
-          <button type="button" aria-label={t('viewer.close')} className="dark-btn dark-btn--plain" onClick={onClose} autoFocus>
+        {close ? (
+          <button type="button" aria-label={t('viewer.close')} className="dark-btn dark-btn--plain" onClick={close} autoFocus>
             <Icon d={icons.back} />
           </button>
         ) : (
@@ -97,8 +121,25 @@ export function Viewer({
         {onSaved && n.editor && (
           <EditButton key={n.id} node={n} editing={!!editing} onEdit={(lockId) => setEditing({ node: n, lockId })} />
         )}
+        {isMarkdown && (
+          <div className="viewer__modes" role="group" aria-label={t('viewer.markdownView')}>
+            <button type="button" aria-pressed={mdView === 'page'} onClick={() => setMarkdownView('page')}>
+              {t('viewer.page')}
+            </button>
+            <button type="button" aria-pressed={mdView === 'source'} onClick={() => setMarkdownView('source')}>
+              {t('viewer.markdown')}
+            </button>
+          </div>
+        )}
+        {(n.type === 'text' || n.type === 'code') && (
+          <div className="viewer__zoom" role="group" aria-label={t('zoom.text')}>
+            <button type="button" aria-label={t('zoom.out')} disabled={textZoom <= 0.5} onClick={() => setTextZoom((z) => Math.max(0.5, z - 0.25))}>−</button>
+            <span>{Math.round(textZoom * 100)}%</span>
+            <button type="button" aria-label={t('zoom.in')} disabled={textZoom >= 3} onClick={() => setTextZoom((z) => Math.min(3, z + 0.25))}>+</button>
+          </div>
+        )}
         <a className="dark-btn" aria-label={t('viewer.download')} href={contentUrl(n.id, true)} download
-          autoFocus={!onClose}>
+          autoFocus={!close}>
           <Icon d={icons.download} size={18} />
         </a>
         {showInfo && (
@@ -110,8 +151,15 @@ export function Viewer({
       <div className="viewer__main">
         <div className="viewer__stage">
           <div key={n.id + n.version}
-            className={'viewer__content' + (isDoc(n) ? ' viewer__content--doc' : '')}>
-            <Preview node={n} />
+            className={'viewer__content' + (isDoc(n) ? ' viewer__content--doc' : '') +
+              (n.type === 'image' && canPreview(n) ? ' viewer__content--zoom' : '')}>
+            <Preview
+              node={n}
+              mdView={mdView}
+              textZoom={textZoom}
+              onPrev={() => index > 0 && onIndex(index - 1)}
+              onNext={() => index < files.length - 1 && onIndex(index + 1)}
+            />
           </div>
           {index > 0 && (
             <button type="button" aria-label={t('viewer.prev')} className="dark-btn viewer__nav viewer__nav--prev" onClick={() => onIndex(index - 1)}>
@@ -218,7 +266,19 @@ function EditButton({ node, editing, onEdit }: { node: Node; editing: boolean; o
   )
 }
 
-function Preview({ node }: { node: Node }) {
+function Preview({
+  node,
+  mdView,
+  textZoom,
+  onPrev,
+  onNext,
+}: {
+  node: Node
+  mdView: 'page' | 'source'
+  textZoom: number
+  onPrev: () => void
+  onNext: () => void
+}) {
   const t = useT()
   const contentUrl = useContentUrl()
   const thumbUrl = useThumbUrl()
@@ -238,8 +298,13 @@ function Preview({ node }: { node: Node }) {
   }
   switch (node.type) {
     case 'image':
-      if (convertedImage.test(node.name)) return <img src={thumbUrl(node.id, node.version, 'preview')} alt={displayName(node)} />
-      return <img src={contentUrl(node.id)} alt={displayName(node)} />
+      return (
+        <ZoomStage onPrev={onPrev} onNext={onNext}>
+          {convertedImage.test(node.name)
+            ? <img src={thumbUrl(node.id, node.version, 'preview')} alt={displayName(node)} />
+            : <img src={contentUrl(node.id)} alt={displayName(node)} />}
+        </ZoomStage>
+      )
     case 'video':
       return <video src={contentUrl(node.id)} controls autoPlay playsInline />
     case 'audio':
@@ -253,23 +318,43 @@ function Preview({ node }: { node: Node }) {
         </Suspense>
       )
     default:
-      return <TextPreview node={node} />
+      return <TextPreview node={node} mdView={mdView} textZoom={textZoom} />
   }
 }
 
-function TextPreview({ node }: { node: Node }) {
+function TextPreview({
+  node,
+  mdView,
+  textZoom,
+}: {
+  node: Node
+  mdView: 'page' | 'source'
+  textZoom: number
+}) {
   const t = useT()
   const contentUrl = useContentUrl()
   const [text, setText] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
     fetch(contentUrl(node.id), { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.text() : Promise.reject()))
       .then((s) => live && setText(s))
-      .catch(() => live && setText(t('error.internal')))
+      .catch(() => live && setFailed(true))
     return () => {
       live = false
     }
-  }, [node.id, t, contentUrl])
-  return <pre className="viewer__text">{text ?? t('loading')}</pre>
+  }, [node.id, contentUrl])
+  if (failed) return <pre className="viewer__text">{t('error.internal')}</pre>
+  if (/\.md$/i.test(node.name) && mdView === 'page') {
+    if (text === null) return <p className="viewer__loading">{t('loading')}</p>
+    return (
+      <Suspense fallback={<p className="viewer__loading">{t('loading')}</p>}>
+        <div className="markdown-preview__zoom" style={{ fontSize: `${textZoom * 100}%` }}>
+          <MarkdownPreview markdown={text} />
+        </div>
+      </Suspense>
+    )
+  }
+  return <pre className="viewer__text" style={{ fontSize: `${textZoom * 100}%` }}>{text ?? t('loading')}</pre>
 }

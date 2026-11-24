@@ -390,6 +390,50 @@ func (s *Service) Move(ctx context.Context, userID, nodeID, targetID string) (No
 	return s.node(ctx, userID, it.ID)
 }
 
+// OrderBatchIDs removes repeated selections and orders descendants before
+// ancestors for operations that hide or remove a subtree, and ancestors
+// before descendants for restore. Items that aren't accessible keep their
+// original order; the operation that follows still reports their own error.
+func (s *Service) OrderBatchIDs(ctx context.Context, userID string, ids []string, ancestorsFirst bool) []string {
+	type entry struct {
+		id    string
+		depth int
+	}
+	ordered := make([]entry, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		e := entry{id: id, depth: -1}
+		if it, err := s.lookup(ctx, s.db, userID, id, true); err == nil {
+			e.depth = len(it.above)
+		}
+		ordered = append(ordered, e)
+	}
+	slices.SortStableFunc(ordered, func(a, b entry) int {
+		if (a.depth < 0) != (b.depth < 0) {
+			if a.depth < 0 {
+				return 1
+			}
+			return -1
+		}
+		if a.depth < 0 {
+			return 0
+		}
+		if ancestorsFirst {
+			return cmp.Compare(a.depth, b.depth)
+		}
+		return cmp.Compare(b.depth, a.depth)
+	})
+	out := make([]string, len(ordered))
+	for i := range ordered {
+		out[i] = ordered[i].id
+	}
+	return out
+}
+
 // Trash moves a node to the trash. A folder's contents go with it without
 // being marked themselves, so restoring the folder brings them back as they
 // were.

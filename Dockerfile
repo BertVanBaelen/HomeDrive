@@ -11,7 +11,7 @@ RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.24 AS server
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine3.24 AS server
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
 WORKDIR /src/server
@@ -26,16 +26,21 @@ ARG VERSION=dev
 # Thumbnails: libvips (with HEIF for iPhone photos), ffmpeg and poppler,
 # started only through `homedrive sandbox` (docs/security.md#files). The
 # DejaVu fonts let poppler draw PDFs whose fonts aren't embedded.
-RUN apk add --no-cache ca-certificates tzdata vips-tools vips-heif ffmpeg poppler-utils font-dejavu
+RUN apk add --no-cache ca-certificates tzdata vips-tools vips-heif ffmpeg poppler-utils font-dejavu \
+    && addgroup -g 1000 homedrive \
+    && adduser -D -u 1000 -G homedrive homedrive \
+    && mkdir -p /app /tmp /data /config \
+    && chown -R homedrive:homedrive /app /tmp /data /config
 COPY --from=server /out/homedrive /usr/local/bin/homedrive
 COPY --from=web /src/web/dist /app/web
+RUN chown -R homedrive:homedrive /app /usr/local/bin/homedrive
 
-# No USER here: Home Assistant mounts /data and /share root-owned, so the
-# add-on runs as root inside its confined container. Plain Docker should run
-# it as a normal user (see docker-compose.example.yml).
+# The runtime user is homedrive (UID/GID 1000). Plain Docker bind mounts should
+# be owned by 1000:1000 (see docker-compose.example.yml).
 ENV HOMEDRIVE_WEB_DIR=/app/web
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD ["/usr/local/bin/homedrive", "healthcheck"]
+USER homedrive
 
 LABEL org.opencontainers.image.title="Homedrive" \
       org.opencontainers.image.description="Self-hosted online drive for household documents" \

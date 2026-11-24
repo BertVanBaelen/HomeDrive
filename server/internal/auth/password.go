@@ -14,6 +14,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/nbutton23/zxcvbn-go"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -49,6 +50,10 @@ func CheckPassword(pw string, related ...string) error {
 	}
 	lower := strings.ToLower(pw)
 	if commonPasswords[lower] || isTrivial(lower) {
+		return ErrPasswordCommon
+	}
+	strength := zxcvbn.PasswordStrength(pw, append(related, "homedrive"))
+	if strength.Score <= 2 {
 		return ErrPasswordCommon
 	}
 	// A related value with a few characters around it is no better than the
@@ -156,6 +161,8 @@ func (h *Hasher) Verify(ctx context.Context, encoded, password string) (bool, er
 		return false, err
 	}
 	defer h.release()
-	got := argon2.IDKey([]byte(password), salt, uint32(t), uint32(mem), threads, uint32(len(want)))
+	// All parameter conversions are bounded by the validation above; len(want)
+	// is a 32-byte key for valid hashes and 0 for damaged hashes.
+	got := argon2.IDKey([]byte(password), salt, uint32(t), uint32(mem), threads, uint32(len(want))) // #nosec G115
 	return ok && subtle.ConstantTimeCompare(got, want) == 1, nil
 }

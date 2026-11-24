@@ -7,6 +7,7 @@ interface ToastState {
   message: string
   error?: boolean
   undo?: () => void
+  action?: { label: string; run: () => void }
 }
 
 let current: ToastState | null = null
@@ -18,7 +19,11 @@ function set(t: ToastState | null) {
   listeners.forEach((fn) => fn())
 }
 
-export function showToast(message: string, opts: { error?: boolean; undo?: () => void } = {}) {
+export function showToast(message: string, opts: {
+  error?: boolean
+  undo?: () => void
+  action?: { label: string; run: () => void }
+} = {}) {
   set({ id: ++seq, message, ...opts })
 }
 
@@ -35,7 +40,7 @@ export function Toast() {
   )
   useEffect(() => {
     if (!toast) return
-    const timer = setTimeout(() => set(null), toast.undo ? 6000 : 3500)
+    const timer = setTimeout(() => set(null), toast.undo || toast.action ? 6000 : 3500)
     return () => clearTimeout(timer)
   }, [toast])
   if (!toast) return null
@@ -53,6 +58,11 @@ export function Toast() {
       {toast.undo && (
         <button type="button" onClick={() => { toast.undo!(); set(null) }}>
           {t('toast.undo')}
+        </button>
+      )}
+      {toast.action && (
+        <button type="button" onClick={() => { toast.action!.run(); set(null) }}>
+          {toast.action.label}
         </button>
       )}
     </div>

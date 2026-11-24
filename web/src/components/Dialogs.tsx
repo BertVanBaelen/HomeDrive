@@ -4,6 +4,7 @@ import { displayName } from '../format'
 import { useT, type MessageKey, type Translate } from '../i18n'
 import { fileTypes, Icon, icons } from './Icon'
 import { driveLabel } from './Items'
+import { closeBackLayer, useBackLayer } from '../router'
 
 // errorText turns an API error into a sentence for the user, with the
 // error's text details (such as who holds a lock) filled in.
@@ -38,6 +39,7 @@ export function Modal({
   const titleId = useId()
   const close = useRef(onClose)
   close.current = onClose
+  useBackLayer(true, onClose)
 
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null
@@ -46,8 +48,10 @@ export function Modal({
     first?.focus()
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        // A field that cancels itself with Escape (a new folder's name).
+        if ((e.target as HTMLElement | null)?.closest?.('[data-own-escape]')) return
         e.stopPropagation()
-        close.current()
+        closeBackLayer(close.current)
       } else if (e.key === 'Tab') {
         const all = [...el.querySelectorAll<HTMLElement>(focusable)]
         if (!all.length) return
@@ -70,7 +74,7 @@ export function Modal({
 
   return (
     <div className="modal-wrap">
-      <button type="button" aria-label={t('common.close')} className="modal-scrim" tabIndex={-1} onClick={onClose} />
+      <button type="button" aria-label={t('common.close')} className="modal-scrim" tabIndex={-1} onClick={() => closeBackLayer(onClose)} />
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className="modal">
         <div className="modal__head">
           {lead && <span className="modal__thumb">{lead}</span>}
@@ -78,7 +82,7 @@ export function Modal({
             <h2 id={titleId}>{title}</h2>
             {subtitle && <span>{subtitle}</span>}
           </div>
-          <button type="button" aria-label={t('common.close')} className="icon-btn" onClick={onClose}>
+          <button type="button" aria-label={t('common.close')} className="icon-btn" onClick={() => closeBackLayer(onClose)}>
             <Icon d={icons.close} />
           </button>
         </div>
@@ -318,6 +322,9 @@ export function FolderPicker({
   const [folders, setFolders] = useState<Node[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [newFolder, setNewFolder] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newBusy, setNewBusy] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -353,6 +360,23 @@ export function FolderPicker({
     }
   }
 
+  async function createHere() {
+    const name = newName.trim()
+    if (!name || !drive) return
+    setNewBusy(true)
+    setError('')
+    try {
+      const created = await api.createFolder(folder, name)
+      setNewFolder(false)
+      setNewName('')
+      setFolder(created.id)
+    } catch (err) {
+      setError(errorText(t, err))
+    } finally {
+      setNewBusy(false)
+    }
+  }
+
   return (
     <Modal title={title} onClose={onClose}>
       <div className="picker">
@@ -373,6 +397,38 @@ export function FolderPicker({
         <div className="picker__list">
           {folders === null && !error && <div className="picker__empty">{t('loading')}</div>}
           {folders?.length === 0 && <div className="picker__empty">{t('move.noFolders')}</div>}
+          {drive && drive.role !== 'viewer' && !newFolder && (
+            <button type="button" className="picker__row picker__row--new"
+              onClick={() => { setNewFolder(true); setNewName('') }}>
+              <Icon d={icons.folderAdd} stroke="#a16207" />
+              <span>{t('folder.newTitle')}</span>
+            </button>
+          )}
+          {newFolder && (
+            <div className="picker__new" data-own-escape="">
+              <input
+                autoFocus
+                value={newName}
+                maxLength={255}
+                placeholder={t('folder.placeholder')}
+                aria-label={t('folder.name')}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void createHere()
+                  if (e.key === 'Escape') {
+                    e.stopPropagation()
+                    setNewFolder(false)
+                  }
+                }}
+              />
+              <button type="button" className="icon-btn" aria-label={t('common.cancel')} onClick={() => setNewFolder(false)}>
+                <Icon d={icons.close} size={16} />
+              </button>
+              <button type="button" className="btn btn--primary btn--small" disabled={newBusy || !newName.trim()} onClick={() => void createHere()}>
+                {t('folder.create')}
+              </button>
+            </div>
+          )}
           {folders?.map((f) => (
             <button key={f.id} type="button" className="picker__row" disabled={f.id === excludeId}
               aria-label={t('move.open', { name: f.name })} onClick={() => setFolder(f.id)}>

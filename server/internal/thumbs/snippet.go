@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -273,7 +274,11 @@ func zipDirectorySize(r io.ReaderAt, size int64) (int64, error) {
 	if i < 20 || string(b[i-20:i-16]) != "PK\x06\x07" {
 		return 0, errors.New("broken zip64 archive")
 	}
-	at := int64(binary.LittleEndian.Uint64(b[i-20+8:]))
+	atRaw := binary.LittleEndian.Uint64(b[i-20+8:])
+	if atRaw > math.MaxInt64 {
+		return 0, errors.New("broken zip64 archive")
+	}
+	at := int64(atRaw)
 	rec := make([]byte, 56)
 	if at < 0 || at > size-56 {
 		return 0, errors.New("broken zip64 archive")
@@ -284,5 +289,9 @@ func zipDirectorySize(r io.ReaderAt, size int64) (int64, error) {
 	if string(rec[:4]) != "PK\x06\x06" {
 		return 0, errors.New("broken zip64 archive")
 	}
-	return int64(binary.LittleEndian.Uint64(rec[40:])), nil
+	dirRaw := binary.LittleEndian.Uint64(rec[40:])
+	if dirRaw > math.MaxInt64 {
+		return 0, errors.New("broken zip64 archive")
+	}
+	return int64(dirRaw), nil
 }

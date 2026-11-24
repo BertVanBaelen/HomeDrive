@@ -5,6 +5,7 @@ import { fileTypes, Icon, icons } from '../components/Icon'
 import { showToast } from '../components/Toast'
 import { displayName, formatDateTime } from '../format'
 import { useLocale, useT } from '../i18n'
+import { useBackLayer } from '../router'
 import { editOf, toCsv, type Snapshot } from '../sheet/grid'
 import MarkdownEditor from './MarkdownEditor'
 import { saveCopy } from './saveCopy'
@@ -56,6 +57,10 @@ function Frame<P>({ node, lockId, onClose, Body, save, blob, copyExt }: {
   const [asking, setAsking] = useState(false)
   const [dismissed, setDismissed] = useState<SaveStatus | null>(null)
   const [busy, setBusy] = useState(false)
+  // Back closes the editor like its close button; when it stays open to ask
+  // about unsaved changes, it gets a new entry in history.
+  const [layer, setLayer] = useState(0)
+  useBackLayer(true, () => void close().then((closed) => closed || setLayer((k) => k + 1)), layer)
   const root = useRef<HTMLDivElement>(null)
   const nameInput = useRef<HTMLInputElement>(null)
   const renaming = useRef<Promise<unknown>>(Promise.resolve())
@@ -97,15 +102,23 @@ function Frame<P>({ node, lockId, onClose, Body, save, blob, copyExt }: {
   }
 
   // close saves first; when that fails it asks before dropping the changes.
-  async function close() {
-    if (busy) return
-    if (!session) return onClose(node)
+  // It reports whether the editor closed.
+  async function close(): Promise<boolean> {
+    if (busy) return false
+    if (!session) {
+      onClose(node)
+      return true
+    }
     setBusy(true)
     await renaming.current
     const timeout = new Promise<boolean>((r) => setTimeout(() => r(false), 15_000))
-    if (await Promise.race([session.flush(), timeout])) return onClose(session.node)
+    if (await Promise.race([session.flush(), timeout])) {
+      onClose(session.node)
+      return true
+    }
     setBusy(false)
     setAsking(true)
+    return false
   }
 
   async function copy() {

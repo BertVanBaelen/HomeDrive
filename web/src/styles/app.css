@@ -1209,14 +1209,23 @@
 .table__head,
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 52px;
+  grid-template-columns: 52px minmax(0, 1fr) 52px;
   align-items: center;
-  padding: 0 8px 0 0;
+  padding: 0;
 }
 .table__head {
   height: 40px;
-  padding-left: 16px;
   border-bottom: 1px solid var(--gray-200);
+}
+.table__select-space {
+  grid-column: 1;
+}
+.table__head > .table__cols {
+  grid-column: 2;
+  padding: 0 8px;
+}
+.table__head > span:last-child {
+  grid-column: 3;
 }
 .table__cols,
 .row__open {
@@ -1259,6 +1268,7 @@
   background: var(--primary-50);
 }
 .row__open {
+  grid-column: 2;
   padding: 0 0 0 16px;
   height: 56px;
   border: 0;
@@ -1287,6 +1297,7 @@
   white-space: nowrap;
 }
 .row__actions {
+  grid-column: 3;
   display: flex;
   justify-content: flex-end;
 }
@@ -2431,4 +2442,421 @@
 .card.is-opening {
   transform: scale(0.98);
   border-color: var(--primary-700);
+}
+
+/* ---------- v3: selection, viewer zoom, Markdown preview ---------- */
+.selection-circle {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+.card:hover .selection-circle,
+.card.is-multi-selected .selection-circle,
+.row:hover .selection-circle,
+.row.is-multi-selected .selection-circle,
+.selection-circle.is-on {
+  opacity: 1;
+}
+.selection-circle.is-on {
+  border-color: var(--primary-700);
+  background: var(--primary-700);
+}
+.selection-circle--row {
+  position: static;
+  margin: 12px auto;
+  grid-column: 1;
+  grid-row: 1;
+  opacity: 1;
+}
+.card.is-multi-selected,
+.row.is-multi-selected {
+  border-color: var(--primary-700);
+  background: var(--primary-50);
+  box-shadow: 0 0 0 1px var(--primary-700);
+}
+.selection-bar {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  min-width: min(560px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.96);
+  color: #fff;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(12px);
+}
+.app-body:has(.selection-bar) {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+.selection-bar__count,
+.selection-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.selection-bar__count strong {
+  padding: 0 6px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.selection-bar__limit {
+  color: #d1d5db;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.selection-bar .icon-btn {
+  color: #d1d5db;
+}
+.selection-action {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #fff;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.selection-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.selection-action--danger {
+  color: #fecaca;
+}
+.picker__row--new {
+  border-top: 1px solid var(--gray-100);
+}
+.picker__new {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+}
+.picker__new input {
+  height: 40px;
+  min-width: 0;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-control);
+  padding: 0 10px;
+  background: #fff;
+}
+.viewer__modes,
+.viewer__zoom {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid #374151;
+  border-radius: 9px;
+  background: #111827;
+  color: #d1d5db;
+}
+.viewer__modes button,
+.viewer__zoom button {
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.viewer__modes button[aria-pressed='true'] {
+  background: #374151;
+  color: #fff;
+}
+.viewer__zoom span {
+  min-width: 48px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  overflow: hidden;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+}
+.zoom-stage--zoomed {
+  cursor: grab;
+}
+.zoom-stage--zoomed:active {
+  cursor: grabbing;
+}
+.zoom-stage__content {
+  transform-origin: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+.zoom-stage__content img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.viewer__content--zoom {
+  width: 100%;
+  height: 100%;
+}
+.zoom-bar,
+.pdf__zoom {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  cursor: default;
+}
+.zoom-bar button,
+.pdf__zoom button {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.zoom-bar button:hover:not(:disabled),
+.pdf__zoom button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.zoom-bar button:disabled,
+.pdf__zoom button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.zoom-bar span,
+.pdf__zoom span {
+  min-width: 48px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+/* The pages scroll both ways under a zoom bar that stays put. Centred
+   while they fit, start-aligned once wider, so nothing is cut off. */
+.pdf-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.pdf-viewer .pdf {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  align-items: center;
+  padding: 0 12px 72px;
+  touch-action: pan-x pan-y;
+}
+.pdf-viewer .pdf > * {
+  flex-shrink: 0;
+  margin-inline: auto;
+}
+.pdf--zoomed .pdf__page {
+  max-width: none;
+}
+.markdown-preview {
+  width: min(820px, 100%);
+  min-height: calc(100dvh - 168px);
+  margin: 0 auto;
+  padding: 48px 56px;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: #1f2937;
+  overflow-wrap: anywhere;
+}
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  color: #111827;
+  line-height: 1.25;
+}
+.markdown-preview p,
+.markdown-preview li {
+  line-height: 1.7;
+}
+.markdown-preview pre {
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+.markdown-preview__table {
+  overflow-x: auto;
+}
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  text-align: left;
+}
+.markdown-preview__tasks {
+  list-style: none;
+  padding-left: 4px;
+}
+.markdown-preview__tasks input {
+  margin: 0 8px 0 0;
+  vertical-align: -2px;
+}
+.markdown-preview__html,
+.markdown-preview__image {
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+.markdown-preview blockquote {
+  margin: 1em 0;
+  padding-left: 16px;
+  border-left: 3px solid #d1d5db;
+  color: #4b5563;
+}
+.markdown-preview__zoom {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transform-origin: top center;
+}
+.account-menu__phone-trash {
+  display: none;
+}
+/* Without hover (touch screens) the circles are always there to tap. */
+@media (hover: none) {
+  .card .selection-circle {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 699px) {
+  .tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .tabbar__add {
+    border: 0;
+    background: transparent;
+    color: var(--gray-500);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 11px;
+  }
+  .tabbar__add span {
+    width: 44px;
+    height: 44px;
+    margin-top: -24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 5px solid #fff;
+    border-radius: 999px;
+    background: var(--primary-700);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+  }
+  .tabbar__add:disabled {
+    opacity: 0.45;
+  }
+  .account-menu__phone-trash {
+    display: flex;
+  }
+  .selection-bar {
+    right: 8px;
+    left: 8px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    min-width: 0;
+    max-width: none;
+    transform: none;
+  }
+  /* Room to scroll the last items out from under the selection bar. */
+  .app-body:has(.selection-bar) {
+    padding-bottom: calc(176px + env(safe-area-inset-bottom));
+  }
+  .selection-bar__actions {
+    flex: 1;
+    justify-content: flex-end;
+  }
+  /* Icons only; the label stays for screen readers. */
+  .selection-action span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .selection-action {
+    position: relative;
+    width: 40px;
+    justify-content: center;
+    padding: 0;
+  }
+  .markdown-preview {
+    min-height: calc(100dvh - 112px);
+    padding: 24px 20px;
+  }
+  /* The bar is narrow: the Page | .md switch stays, text size goes. */
+  .viewer__zoom {
+    display: none;
+  }
+  .zoom-bar,
+  .pdf__zoom {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
 }

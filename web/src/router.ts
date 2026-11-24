@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 // A tiny history router: the app only has a handful of routes.
 //
@@ -14,6 +14,108 @@ import { useSyncExternalStore } from 'react'
 //   /login, /login/homeassistant (add-on option), /setup, /recover, /welcome, /save
 
 const listeners = new Set<() => void>()
+const activeLayers = new Set<string>()
+
+// History. Every entry this app makes carries hd in history.state: doc
+// identifies this page load (entries from another load of the app can't be
+// trusted to be where the trail says), i is the entry's position, and layer
+// counts the overlays (dialogs, the viewer) open on top of the page. The
+// trail in sessionStorage remembers which path each position shows, so
+// "back to the folder above" can be a real Back when that folder is right
+// behind, and the share page can return to Home without growing history.
+
+interface Hd {
+  doc: string
+  i: number
+  layer: number
+  token?: string
+}
+
+interface Trail {
+  doc: string
+  paths: Record<string, string>
+}
+
+const trailKey = 'hd.trail'
+const trailSpan = 200
+
+function randomId(): string {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
+function hdState(): Hd | null {
+  const hd = (history.state as { hd?: Partial<Hd> } | null)?.hd
+  if (!hd || typeof hd.doc !== 'string' || typeof hd.i !== 'number' || typeof hd.layer !== 'number') return null
+  return hd as Hd
+}
+
+function readTrail(): Trail | null {
+  try {
+    const t = JSON.parse(sessionStorage.getItem(trailKey) ?? 'null')
+    return t && typeof t.doc === 'string' && t.paths && typeof t.paths === 'object' ? t : null
+  } catch {
+    return null
+  }
+}
+
+function writeTrail(t: Trail) {
+  try {
+    sessionStorage.setItem(trailKey, JSON.stringify(t))
+  } catch {
+    // Private browsing can disable session storage; Back still works.
+  }
+}
+
+// record notes that position i shows path. A new entry (push) ends what
+// was ahead of it.
+function record(hd: Hd, path: string, push: boolean) {
+  const t = readTrail()
+  const paths = t && t.doc === hd.doc ? t.paths : {}
+  paths[hd.i] = path
+  for (const k of Object.keys(paths)) {
+    const n = Number(k)
+    if ((push && n > hd.i) || n < hd.i - trailSpan) delete paths[k]
+  }
+  writeTrail({ doc: hd.doc, paths })
+}
+
+function here(): string {
+  return location.pathname + location.search
+}
+
+function current(): Hd {
+  let hd = hdState()
+  if (!hd) {
+    hd = { doc: randomId(), i: 0, layer: 0 }
+    history.replaceState({ ...(history.state ?? {}), hd }, '', location.href)
+    record(hd, here(), true)
+  }
+  return hd
+}
+
+current()
+
+// A reload or a Forward into an old overlay entry has no React overlay that
+// can answer it. Turn that entry into an ordinary page entry, otherwise the
+// next navigate() mistakes it for a live layer and replaces instead of
+// pushing.
+function normalizeOrphanLayer() {
+  const hd = hdState()
+  if (!hd || hd.layer === 0 || (hd.token && activeLayers.has(hd.token))) return
+  // Forward can resurrect the editor entry after it was closed while the
+  // viewer beneath it is still mounted. Don't rewrite a still-live stack:
+  // step straight back to its active lower layer.
+  if (activeLayers.size) {
+    history.back()
+    return
+  }
+  const next: Hd = { doc: hd.doc, i: hd.i, layer: 0 }
+  history.replaceState({ hd: next }, '', location.href)
+  record(next, here(), false)
+}
+
+normalizeOrphanLayer()
+window.addEventListener('popstate', () => queueMicrotask(normalizeOrphanLayer))
 
 function subscribe(fn: () => void) {
   listeners.add(fn)
@@ -29,11 +131,88 @@ export function usePath(): string {
   return useSyncExternalStore(subscribe, () => location.pathname + location.search)
 }
 
+// navigate opens path. From an overlay, the overlay's entry becomes the new
+// page, so Back from there doesn't stop at a page without its overlay.
 export function navigate(path: string, replace = false) {
-  if (path === location.pathname + location.search) return
-  if (replace) history.replaceState(null, '', path)
-  else history.pushState(null, '', path)
+  if (path === here()) return
+  const cur = current()
+  if (replace || cur.layer > 0) {
+    const hd: Hd = { doc: cur.doc, i: cur.i, layer: 0 }
+    history.replaceState({ hd }, '', path)
+    record(hd, path, false)
+  } else {
+    const hd: Hd = { doc: cur.doc, i: cur.i + 1, layer: 0 }
+    history.pushState({ hd }, '', path)
+    record(hd, path, true)
+  }
   listeners.forEach((fn) => fn())
+}
+
+// pathBehind is the path of the entry n steps back, when it is known.
+function pathBehind(cur: Hd, n: number): string | undefined {
+  const t = readTrail()
+  return t && t.doc === cur.doc ? t.paths[cur.i - n] : undefined
+}
+
+// goUp goes to target, the folder above: a real Back when it is right
+// behind, else in place of this entry.
+export function goUp(target: string) {
+  const cur = current()
+  if (cur.layer === 0 && pathBehind(cur, 1) === target) history.back()
+  else navigate(target, true)
+}
+
+// goTop goes to path (Home) by going back to it when it is behind, else in
+// place of this entry, so history doesn't grow.
+export function goTop(path = '/') {
+  const cur = current()
+  for (let n = 1; n <= Math.min(cur.i, trailSpan); n++) {
+    if (pathBehind(cur, n) === path) {
+      history.go(-n)
+      return
+    }
+  }
+  navigate(path, true)
+}
+
+// useBackLayer gives an overlay (dialog, viewer) an entry in history while
+// open, so Back closes it before it leaves the page. Closed another way, it
+// takes its entry away again. Changing key after a Back gives the overlay a
+// new entry, for overlays that may stay open after all.
+export function useBackLayer(open: boolean, close: () => void, key = 0) {
+  const closeRef = useRef(close)
+  closeRef.current = close
+  useEffect(() => {
+    if (!open) return
+    const cur = current()
+    const depth = cur.layer + 1
+    const token = randomId()
+    const hd: Hd = { doc: cur.doc, i: cur.i + 1, layer: depth, token }
+    activeLayers.add(token)
+    history.pushState({ hd }, '')
+    record(hd, here(), true)
+    let popped = false
+    const pop = () => {
+      if ((hdState()?.layer ?? 0) < depth) {
+        popped = true
+        activeLayers.delete(token)
+        closeRef.current()
+      }
+    }
+    window.addEventListener('popstate', pop)
+    return () => {
+      window.removeEventListener('popstate', pop)
+      activeLayers.delete(token)
+      if (!popped && hdState()?.token === token) history.back()
+    }
+  }, [open, key])
+}
+
+// closeBackLayer closes the overlay on top through history when it has an
+// entry there, else directly.
+export function closeBackLayer(close: () => void) {
+  if ((hdState()?.layer ?? 0) > 0) history.back()
+  else close()
 }
 
 export type ListName = 'recent' | 'starred' | 'search'

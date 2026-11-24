@@ -312,7 +312,7 @@ func TestHomeAssistantUserChoosesPassword(t *testing.T) {
 	}
 
 	fresh := env.client(t)
-	r := fresh.json("POST", "/api/welcome/finish", map[string]string{"token": token, "password": "anna's own password"})
+	r := fresh.json("POST", "/api/welcome/finish", map[string]string{"token": token, "password": "Cedar!Orbit7-Kite"})
 	expect(t, r, 200)
 	var me struct{ HAOnly bool }
 	if r.decode(t, &me); me.HAOnly {
@@ -324,11 +324,11 @@ func TestHomeAssistantUserChoosesPassword(t *testing.T) {
 	}
 
 	// Both ways in work now, and she can be an admin or unlink.
-	expect(t, env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "anna@example.com", "password": "anna's own password"}), 200)
+	expect(t, env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "anna@example.com", "password": "Cedar!Orbit7-Kite"}), 200)
 	expect(t, haLogin(env.client(t), "anna", "anna's ha password"), 200)
 	env.expireRecentAuth(t)
 	expectCode(t, fresh.json("POST", "/api/auth/reauth", map[string]string{"password": "anna's ha password"}), 403, "wrong_password")
-	expect(t, fresh.json("POST", "/api/auth/reauth", map[string]string{"password": "anna's own password"}), 204)
+	expect(t, fresh.json("POST", "/api/auth/reauth", map[string]string{"password": "Cedar!Orbit7-Kite"}), 204)
 	expect(t, admin.json("POST", "/api/auth/reauth", map[string]string{"password": testPassword}), 204)
 	expect(t, admin.json("PATCH", "/api/admin/users/"+info.ID, map[string]string{"role": "admin"}), 200)
 	expect(t, fresh.json("DELETE", "/api/me/homeassistant", nil), 204)
@@ -360,6 +360,6 @@ func TestHomeAssistantUserWithLoginOff(t *testing.T) {
 	env.expireRecentAuth(t)
 	expectCode(t, anna.json("POST", "/api/auth/reauth", map[string]string{"password": "anna's ha password"}), 409, "homeassistant_off")
 
-	expect(t, env.client(t).json("POST", "/api/welcome/finish", map[string]string{"token": link, "password": "anna's own password"}), 200)
-	expect(t, env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "anna@example.com", "password": "anna's own password"}), 200)
+	expect(t, env.client(t).json("POST", "/api/welcome/finish", map[string]string{"token": link, "password": "Cedar!Orbit7-Kite"}), 200)
+	expect(t, env.client(t).json("POST", "/api/auth/login", map[string]string{"email": "anna@example.com", "password": "Cedar!Orbit7-Kite"}), 200)
 }

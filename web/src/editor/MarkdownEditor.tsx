@@ -1,12 +1,12 @@
 import { Editor as TipTap } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
-import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useId, useReducer, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Modal } from '../components/Dialogs'
 import { Icon, icons } from '../components/Icon'
 import { useT, type MessageKey } from '../i18n'
-import { linkHref, markdownText, pageUnsafe, safeUrl, sameMarkdown, writeText, type MdToken } from './session'
+import { pageExtensions, sameMeaning } from './markdownSchema'
+import { linkHref, markdownText, pageUnsafe, sameMarkdown, writeText, type MdToken } from './session'
 import { FileState, SourceArea, useFileText } from './TextEditor'
 import type { EditorBodyProps } from './useEditSession'
 
@@ -18,42 +18,24 @@ const paths = {
   quote: 'M7 8h4v4c0 2-1 3.5-3 4M14 8h4v4c0 2-1 3.5-3 4',
 }
 
-// What the page editor knows: no images, no HTML, no strike-through or
-// underline (Markdown has none), and links to web pages and e-mail only.
-const extensions = [
-  StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
-    strike: false,
-    underline: false,
-    trailingNode: false,
-    link: {
-      openOnClick: false,
-      autolink: false,
-      protocols: [],
-      defaultProtocol: 'https',
-      isAllowedUri: (url) => safeUrl(url),
-      HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer nofollow' },
-    },
-  }),
-  Markdown,
-]
+const extensions = [...pageExtensions, Markdown]
 
-// pageSafe tells whether the page editor shows md as it is: the Markdown it
-// writes back is the same, and there is nothing it must not format.
-function pageSafe(editor: TipTap, md: string): boolean {
-  return !pageUnsafe(editor.markdown!.instance.lexer(md) as unknown as MdToken[]) && sameMarkdown(editor.getMarkdown(), md)
-}
+// Mode: page and source are the user's choice. tidy: the page editor would
+// write this file's Markdown differently (another bullet style, spacing),
+// so Page asks first. blocked: the file has what the page editor can't keep
+// (HTML, images, tables, task lists …), so it stays in source.
+type Mode = 'page' | 'source' | 'tidy' | 'blocked'
 
-type Mode = 'page' | 'source' | 'forced'
-
-// MarkdownEditor edits Markdown on a page, or as its source (.md). A file
-// the page editor would change opens as source and stays there.
+// MarkdownEditor edits Markdown on a page, or as its source (.md).
 export default function MarkdownEditor({ session, header }: EditorBodyProps<string>) {
   const t = useT()
   const file = useFileText(session)
   const [mode, setMode] = useState<Mode>('page')
   const [editor, setEditor] = useState<TipTap | null>(null)
   const [linking, setLinking] = useState(false)
+  const [switching, setSwitching] = useState(false)
+  // tidyOk: the user agreed to the page editor's way of writing Markdown.
+  const tidyOk = useRef(false)
   const [, redraw] = useReducer((n: number) => n + 1, 0)
   const host = useRef<HTMLDivElement>(null)
   // text is the Markdown as last shown in the source view (or loaded); read
@@ -81,9 +63,16 @@ export default function MarkdownEditor({ session, header }: EditorBodyProps<stri
         attributes: { class: 'editor__rich', role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('editor.docText') },
       },
     })
-    if (!pageSafe(ed, text.current)) {
+    const unsafe = pageUnsafe(ed.markdown!.instance.lexer(text.current) as unknown as MdToken[])
+    const md = ed.getMarkdown()
+    if (unsafe || !sameMeaning(md, text.current)) {
       ed.destroy()
-      setMode('forced')
+      setMode('blocked')
+      return
+    }
+    if (!tidyOk.current && !sameMarkdown(md, text.current)) {
+      ed.destroy()
+      setMode('tidy')
       return
     }
     ed.mount(host.current!)
@@ -108,7 +97,8 @@ export default function MarkdownEditor({ session, header }: EditorBodyProps<stri
   const fmt = loaded.format
   const toggle = header && createPortal(
     <div className="editor__modes" role="group" aria-label={t('editor.modes')}>
-      <button type="button" aria-pressed={mode === 'page'} disabled={mode === 'forced'} onClick={() => setMode('page')}>
+      <button type="button" aria-pressed={mode === 'page'} disabled={mode === 'blocked'}
+        onClick={() => mode === 'tidy' ? setSwitching(true) : setMode('page')}>
         {t('editor.page')}
       </button>
       <button type="button" aria-pressed={mode !== 'page'} aria-label={t('editor.sourceLabel')}
@@ -125,15 +115,34 @@ export default function MarkdownEditor({ session, header }: EditorBodyProps<stri
 
   if (mode !== 'page') {
     return (
-      <div className="editor__page editor__page--source">
-        {toggle}
-        {mode === 'forced' && <p className="editor__note">{t('editor.sourceOnly')}</p>}
-        <SourceArea session={session} text={text.current} label={t('editor.sourceLabel')}
-          onChange={(s) => {
-            text.current = s
-            session.change(writeText(s, fmt))
-          }} />
-      </div>
+      <>
+        <div className="editor__page editor__page--source">
+          {toggle}
+          {(mode === 'blocked' || mode === 'tidy') && (
+            <p className="editor__note">
+              {mode === 'blocked' ? t('editor.sourceOnly') : t('editor.tidyNote')}
+            </p>
+          )}
+          <SourceArea session={session} text={text.current} label={t('editor.sourceLabel')}
+            onChange={(s) => {
+              text.current = s
+              session.change(writeText(s, fmt))
+            }} />
+        </div>
+        {switching && (
+          <Modal title={t('editor.switchTitle')} onClose={() => setSwitching(false)}>
+            <p className="modal__body">{t('editor.switchBody')}</p>
+            <div className="modal__foot">
+              <button type="button" className="btn" onClick={() => setSwitching(false)}>{t('editor.staySource')}</button>
+              <button type="button" className="btn btn--primary" onClick={() => {
+                tidyOk.current = true
+                setSwitching(false)
+                setMode('page')
+              }}>{t('editor.switchPage')}</button>
+            </div>
+          </Modal>
+        )}
+      </>
     )
   }
   return (

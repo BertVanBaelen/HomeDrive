@@ -2,6 +2,15 @@
 
 From v2 on, the first number is the roadmap version (v2, v3, …), the second goes up with each feature and the third with each set of fixes. Home Assistant offers an update as soon as a new version is released.
 
+## 2.8.1
+
+**Security fixes**
+
+- Passwords are now checked against a common-password and keyboard-pattern list together with password-strength estimation, rejecting weak passwords even when they exceed the minimum length.
+- Homedrive runs as a dedicated non-root account in the Docker and Home Assistant image. Docker mounts and `/data` volumes should use UID/GID 1000.
+- Updated the Go toolchain and web build dependencies to security-patched releases.
+- Added pinned `staticcheck` and `gosec` checks to CI, plus integer-boundary guards around disk-space, archive and password-hashing calculations.
+
 ## 2.8.0
 
 **Home Assistant users** (add-on only, with `homeassistant_login` on)

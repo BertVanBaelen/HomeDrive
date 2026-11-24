@@ -2,15 +2,27 @@
 
 Status of the v1 release gate from [`security.md`](security.md#v1-release-gate-security-check). v1 is not released until every open item is done, or explicitly accepted below.
 
-Last updated: 2026-10-28, on branch `v1/vertical-slice`.
+Last updated: 2026-11-18, on `main`.
+
+## Source remediation status
+
+| Item | Status | 2026-11-18 result |
+|---|---|---|
+| Password blocklist | Fixed | Password setup now combines the embedded blocklist, trivial-pattern checks and zxcvbn strength estimation. Weak passwords score `password_common`. |
+| Go toolchain | Fixed | The toolchain and Docker build image are on Go 1.27.4 or newer. |
+| Static analysis | Fixed | `staticcheck` and the triaged `gosec` findings now run in CI. The remaining gosec exclusions are documented above in the source review. |
+| Container runtime | Fixed | The image runs as dedicated UID/GID 1000 with no shell or root runtime user. Plain Docker already drops all capabilities and disables privilege escalation. |
+| npm dependencies | Fixed | Vite and plugin dependencies were updated; `npm audit --audit-level=high` is clean. |
+
+The deployment image scan, live ZAP scan, real-device checks and real Home Assistant deployment review remain open.
 
 ## 1. Automated checks
 
 | Check | Status | Notes |
 |---|---|---|
 | `govulncheck` | Runs in CI on every push | Not run locally in this round (the dev machine's sandbox didn't allow fetching the tool). Confirm a green CI run on the release commit. |
-| `staticcheck` | **Open** | Not in CI yet. Add it (pinned version) and fix findings. |
-| `gosec` | **Open** | Same as staticcheck. |
+| `staticcheck` | Fixed | Pinned v0.8.2 runs in CI; 2026-11-18 rerun is clean. |
+| `gosec` | Fixed | Pinned v2.30.0 runs in CI with documented exclusions; 2026-11-18 rerun has 0 untriaged findings. |
 | `npm audit` | Done, 2026-10-28: 0 vulnerabilities | Includes `pdfjs-dist` 6.4.299. CI runs `npm audit --audit-level=high` on every push. |
 | Image scan (OS packages + binary) | **Open** | Needs the release image from CI (for example Trivy or Grype on `ghcr.io/…:<version>`). |
 | Fuzz tests | Done, 2026-10-28 | 30 s each, no failures: name validation (2.0 M runs), natural sort order (0.9 M), chunked upload offsets (56 k, against a real database and object store), export file names (0.8 M), config parsing (4.1 M). `Range` parsing is the standard library's `http.ServeContent` and is not fuzzed here. The seed inputs run with every `go test`. |
@@ -61,7 +73,7 @@ Logs are meant to contain no secrets, with two deliberate exceptions: the one-ti
 
 | # | Finding | Decision |
 |---|---|---|
-| F1 | The common-password list is short (about 130 hand-picked entries plus pattern checks for repeats, keyboard rows and the user's own name or address). | **Fix before release**: embed a larger list (for example the top 100 000 leaked passwords, filtered to 12+ characters). |
+| F1 | The common-password list is short (about 130 hand-picked entries plus pattern checks for repeats, keyboard rows and the user's own name or address). | **Fixed 2026-11-18**: password checks now use zxcvbn strength estimation as well as the expanded blocklist and related-value checks. |
 | F2 | Rate-limit counters live in memory and reset on restart. | Accepted for a household server; Cloudflare's rate limit on `/api/auth/` (documented) is the outer layer. |
 | F3 | A database snapshot older than `backup_retention_days` may refer to files whose contents were already removed from the backup. | Accepted and documented; `homedrive export` lists such files instead of failing. |
 | F4 | The service worker (app shell cache, Android share target) has not been checked in a real browser yet; the share flow was tested by simulating its IndexedDB handoff. | **Check before release** on an Android phone. |

@@ -1,0 +1,13 @@
+@import "tailwindcss/theme.css";
+/* Utilities only for the Tailwind components in components/ui: scanning
+   the whole app would turn words like "table" and "grid" into global
+   classes that restyle Homedrive's own .table and .grid. */
+@import "tailwindcss/utilities.css" source(none);
+@source "../components/ui";
+
+@theme {
+  --font-body: var(--font-inter, "Inter"), -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-inter, "Inter"), -apple-system, "Segoe UI", sans-serif;
+  --color-homedrive-green-700: var(--primary-700);
+  --color-homedrive-green-900: var(--primary-900);
+}

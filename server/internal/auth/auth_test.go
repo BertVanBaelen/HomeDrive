@@ -21,6 +21,7 @@ func TestCheckPassword(t *testing.T) {
 		{"abababababababab", ErrPasswordCommon},
 		{"1234567890123", ErrPasswordCommon},
 		{"qwertyuiopasdf", ErrPasswordCommon},
+		{"Winter2026!Happy", ErrPasswordCommon},
 		{"homedrive123", ErrPasswordCommon},
 		{"anna@example.com", ErrPasswordCommon},
 		{"anna@example.com!!", ErrPasswordCommon},
