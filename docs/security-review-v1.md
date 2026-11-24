@@ -11,7 +11,7 @@ Last updated: 2026-11-18, on `main`.
 | Password blocklist | Fixed | Password setup now combines the embedded blocklist, trivial-pattern checks and zxcvbn strength estimation. Weak passwords score `password_common`. |
 | Go toolchain | Fixed | The toolchain and Docker build image are on Go 1.27.4 or newer. |
 | Static analysis | Fixed | `staticcheck` and the triaged `gosec` findings now run in CI. The remaining gosec exclusions are documented above in the source review. |
-| Container runtime | Fixed | The image runs as dedicated UID/GID 1000 with no shell or root runtime user. Plain Docker already drops all capabilities and disables privilege escalation. |
+| Container runtime | Accepted | Plain Docker runs as UID/GID 1000 (`user: "1000:1000"`), drops all capabilities and disables privilege escalation. The Home Assistant add-on runs as root inside its confined container: the Supervisor mounts `/data`, `options.json` and `/share` root-only, so a non-root image can't start (tried in 2.8.1, reverted in 2.8.2). |
 | npm dependencies | Fixed | Vite and plugin dependencies were updated; `npm audit --audit-level=high` is clean. |
 
 The deployment image scan, live ZAP scan, real-device checks and real Home Assistant deployment review remain open.

@@ -2,11 +2,11 @@
 
 Status of the v2 release gate from [`security.md`](security.md#v2-release-gate-security-check). It covers everything v2 added (shared drives, share links, saved links, thumbnails and previews, zip downloads, Home Assistant sign-in, and the editors, versions and locks of 2.7.0). The areas that did not change since v1 are in [`security-review-v1.md`](security-review-v1.md).
 
-Last updated: 2026-11-18, on `main` (source remediated for release 2.8.1).
+Last updated: 2026-11-18, on `main` (source remediated for release 2.8.1; container user fixed in 2.8.2).
 
 ## 2026-11-18 source remediation
 
-The source-level gate was re-run. It added zxcvbn password-strength estimation, moved the runtime image to a dedicated non-root account, updated Go and Vite dependencies, added integer-boundary guards and added `staticcheck` and `gosec` to CI.
+The source-level gate was re-run. It added zxcvbn password-strength estimation, tried a non-root runtime image (reverted in 2.8.2: the Home Assistant add-on can't read its root-only `/data/options.json` as another user, so it stays root in its confined container and plain Docker stays non-root through `user: "1000:1000"`), updated Go and Vite dependencies, added integer-boundary guards and added `staticcheck` and `gosec` to CI.
 
 | Check | Status | Result |
 |---|---|---|

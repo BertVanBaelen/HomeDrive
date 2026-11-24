@@ -35,12 +35,14 @@ COPY --from=server /out/homedrive /usr/local/bin/homedrive
 COPY --from=web /src/web/dist /app/web
 RUN chown -R homedrive:homedrive /app /usr/local/bin/homedrive
 
-# The runtime user is homedrive (UID/GID 1000). Plain Docker bind mounts should
-# be owned by 1000:1000 (see docker-compose.example.yml).
+# No USER here: Home Assistant mounts /data (with options.json, mode 0600)
+# and /share root-owned, so the add-on has to run as root inside its confined
+# container; with USER homedrive it can't read its own options. Plain Docker
+# runs it as the homedrive account (UID/GID 1000) through `user: "1000:1000"`
+# and bind mounts owned by 1000:1000 (see docker-compose.example.yml).
 ENV HOMEDRIVE_WEB_DIR=/app/web
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD ["/usr/local/bin/homedrive", "healthcheck"]
-USER homedrive
 
 LABEL org.opencontainers.image.title="Homedrive" \
       org.opencontainers.image.description="Self-hosted online drive for household documents" \
